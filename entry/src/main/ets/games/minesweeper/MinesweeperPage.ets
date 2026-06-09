@@ -32,9 +32,11 @@ export struct MinesweeperPage {
   @State elapsed: number = 0;
   @State started: boolean = false;
   @State flagMode: boolean = false;
+  @State devRevealMines: boolean = false;
   @State paused: boolean = false;
   @State gameOver: boolean = false;
   @State win: boolean = false;
+  @State showResultOverlay: boolean = false;
 
   aboutToAppear(): void {
     this.restart();
@@ -60,6 +62,7 @@ export struct MinesweeperPage {
           paused: this.paused,
           flagMode: this.flagMode,
           flagLimitReached: this.remainingMines() <= 0,
+          devRevealMines: this.devRevealMines,
           difficultyKey: this.difficultyKey,
           exitToHub: () => {
             this.exitToHub();
@@ -73,6 +76,9 @@ export struct MinesweeperPage {
           },
           toggleFlagMode: () => {
             this.flagMode = !this.flagMode;
+          },
+          toggleDevRevealMines: () => {
+            this.toggleDevRevealMines();
           },
           restartGame: () => {
             this.restart();
@@ -89,6 +95,7 @@ export struct MinesweeperPage {
             boardHeightPx: this.boardHeight(),
             columnsTemplateValue: this.columnsTemplate(),
             rowsTemplateValue: this.rowsTemplate(),
+            revealMines: this.devRevealMines,
             tapCell: (index: number) => {
               this.tapCell(index);
             }
@@ -105,10 +112,11 @@ export struct MinesweeperPage {
       if (this.paused && !this.gameOver) {
         this.PauseOverlay()
       }
-      if (this.gameOver) {
+      if (this.gameOver && this.showResultOverlay) {
         MinesweeperResultOverlay({
           win: this.win,
           pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight,
           elapsedText: this.timeText(),
           currentScore: this.currentScore(),
           bestScore: this.bestScore,
@@ -117,6 +125,9 @@ export struct MinesweeperPage {
           },
           exitToHub: () => {
             this.exitToHub();
+          },
+          closeOverlay: () => {
+            this.showResultOverlay = false;
           }
         })
       }
@@ -170,9 +181,11 @@ export struct MinesweeperPage {
     this.elapsed = 0;
     this.started = false;
     this.flagMode = false;
+    this.devRevealMines = false;
     this.paused = false;
     this.gameOver = false;
     this.win = false;
+    this.showResultOverlay = false;
     this.settled = false;
     const difficulty = this.difficulty();
     this.cells = createEmptyMineCells(difficulty.rows, difficulty.cols);
@@ -202,7 +215,9 @@ export struct MinesweeperPage {
     }
     const difficulty = this.difficulty();
     if (!this.started) {
-      this.cells = placeMinesForFirstTap(this.cells, difficulty, index);
+      if (!this.hasMines()) {
+        this.cells = placeMinesForFirstTap(this.cells, difficulty, index);
+      }
       this.started = true;
       this.startTimer();
     }
@@ -238,8 +253,21 @@ export struct MinesweeperPage {
     this.settled = true;
     this.win = won;
     this.gameOver = true;
+    this.showResultOverlay = true;
     this.stopTimer();
     this.recordScore(minesweeperScore(this.cells, this.elapsed, this.mineCount(), won));
+  }
+
+  private toggleDevRevealMines(): void {
+    const next = !this.devRevealMines;
+    if (next && !this.hasMines()) {
+      this.cells = placeMinesForFirstTap(this.cells, this.difficulty(), 0);
+    }
+    this.devRevealMines = next;
+  }
+
+  private hasMines(): boolean {
+    return this.cells.some((cell: MineCell) => cell.mine);
   }
 
   private difficulty(): MineDifficulty {

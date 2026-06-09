@@ -11,12 +11,14 @@ export struct MinesweeperHud {
   @Prop paused: boolean = false;
   @Prop flagMode: boolean = false;
   @Prop flagLimitReached: boolean = false;
+  @Prop devRevealMines: boolean = false;
   @Prop difficultyKey: string = 'easy';
   @Prop showDifficultyBar: boolean = false;
   exitToHub: () => void = () => {};
   togglePause: () => void = () => {};
   selectDifficulty: (key: string) => void = () => {};
   toggleFlagMode: () => void = () => {};
+  toggleDevRevealMines: () => void = () => {};
   restartGame: () => void = () => {};
 
   build() {
@@ -52,7 +54,7 @@ export struct MinesweeperHud {
           Text('|')
             .fontSize(this.dividerFontSize())
             .fontColor('rgba(114,76,42,0.28)')
-          Text(this.flagMode ? '旗' : '雷')
+          Text(this.flagMode ? '旗' : '鸡雷')
             .fontSize(this.mineLabelFontSize())
             .fontWeight(FontWeight.Bold)
             .fontColor('#6c421f')
@@ -65,30 +67,31 @@ export struct MinesweeperHud {
         .height('100%')
         .alignItems(VerticalAlign.Center)
 
-        Text(this.elapsedText)
-          .width(this.timerWidth())
-          .fontSize(this.timerFontSize())
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#3e2212')
-          .textAlign(TextAlign.Center)
-          .maxLines(1)
-
-        Row({ space: this.rightGap() }) {
+        Column({ space: 0 }) {
+          Text(this.elapsedText)
+            .width('100%')
+            .fontSize(this.timerFontSize())
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#3e2212')
+            .textAlign(TextAlign.Center)
+            .maxLines(1)
           Text(`最高 ${Math.max(this.bestScore, this.currentScore)}`)
-            .width(this.bestScoreTextWidth())
+            .width('100%')
             .fontSize(this.bestScoreFontSize())
             .fontWeight(FontWeight.Bold)
             .fontColor('#80603f')
-            .textAlign(TextAlign.End)
+            .textAlign(TextAlign.Center)
             .maxLines(1)
             .textOverflow({ overflow: TextOverflow.Ellipsis })
-          this.SmallWoodButton(this.paused ? '继续' : '暂停', () => {
-            this.togglePause();
-          })
         }
-        .width(this.rightInfoWidth())
+        .width(this.timerWidth())
         .height('100%')
-        .alignItems(VerticalAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .justifyContent(FlexAlign.Center)
+
+        this.SmallWoodButton(this.paused ? '继续' : '暂停', () => {
+          this.togglePause();
+        })
       }
       .width('100%')
       .height('100%')
@@ -113,12 +116,15 @@ export struct MinesweeperHud {
 
   @Builder
   ActionBar() {
-    Row({ space: 8 }) {
+    Row({ space: 6 }) {
       this.ModeImageButton(() => {
         this.toggleFlagMode();
       })
       this.ActionImageButton('重新开始', 'yellow', 'games/minesweeper/icon_reset.png', () => {
         this.restartGame();
+      })
+      this.DevImageButton(() => {
+        this.toggleDevRevealMines();
       })
     }
     .width('100%')
@@ -229,6 +235,8 @@ export struct MinesweeperHud {
           .fontWeight(FontWeight.Bold)
           .fontColor('#fff7df')
           .textAlign(TextAlign.Center)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
           .textShadow({ radius: 2, color: 'rgba(72,50,20,0.58)', offsetX: 0, offsetY: 1 })
       }
         .width('100%')
@@ -239,6 +247,51 @@ export struct MinesweeperHud {
     }
     .height(58)
     .layoutWeight(1)
+    .onClick(() => {
+      action();
+    })
+  }
+
+  @Builder
+  DevImageButton(action: () => void) {
+    Stack() {
+      if (this.devRevealMines) {
+        Image($rawfile('games/minesweeper/button_blue_flower.png'))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Fill)
+      } else {
+        Image($rawfile('games/minesweeper/button_wood_small_right.png'))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Fill)
+      }
+      Column({ space: 0 }) {
+        Text(this.devRevealMines ? '藏鸡雷' : '显鸡雷')
+          .fontSize(this.devButtonFontSize())
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.devRevealMines ? '#fff7df' : '#5a3219')
+          .textAlign(TextAlign.Center)
+          .textShadow({
+            radius: 1,
+            color: this.devRevealMines ? 'rgba(25,64,120,0.52)' : 'rgba(255,255,255,0.58)',
+            offsetX: 0,
+            offsetY: 1
+          })
+        Text('DEV')
+          .fontSize(this.devCaptionFontSize())
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.devRevealMines ? '#fff2a8' : 'rgba(90,50,25,0.62)')
+          .textAlign(TextAlign.Center)
+      }
+      .width('100%')
+      .height('100%')
+      .justifyContent(FlexAlign.Center)
+      .alignItems(HorizontalAlign.Center)
+      .padding({ left: 4, right: 4 })
+    }
+    .height(58)
+    .layoutWeight(0.72)
     .onClick(() => {
       action();
     })
@@ -287,20 +340,12 @@ export struct MinesweeperHud {
     return this.pageWidth < 340 ? 2 : 4;
   }
 
-  private rightGap(): number {
-    return this.pageWidth < 340 ? 2 : 5;
-  }
-
   private leftInfoWidth(): number {
-    return Math.floor(Math.max(74, Math.min(108, this.topContentWidth() * 0.32)));
-  }
-
-  private rightInfoWidth(): number {
-    return Math.floor(Math.max(94, Math.min(122, this.topContentWidth() * 0.36)));
+    return Math.floor(Math.max(88, Math.min(122, this.topContentWidth() * 0.36)));
   }
 
   private timerWidth(): number {
-    return Math.max(56, this.topContentWidth() - this.leftInfoWidth() - this.rightInfoWidth() - this.topGap() * 2);
+    return Math.max(96, this.topContentWidth() - this.leftInfoWidth() - this.pauseButtonWidth() - this.topGap() * 2);
   }
 
   private hubButtonWidth(): number {
@@ -315,10 +360,6 @@ export struct MinesweeperHud {
     return this.pageWidth < 340 ? 34 : 40;
   }
 
-  private bestScoreTextWidth(): number {
-    return Math.max(34, this.rightInfoWidth() - this.pauseButtonWidth() - this.rightGap());
-  }
-
   private hubFontSize(): number {
     return this.pageWidth < 340 ? 13 : 16;
   }
@@ -328,7 +369,7 @@ export struct MinesweeperHud {
   }
 
   private mineLabelFontSize(): number {
-    return this.pageWidth < 340 ? 12 : 15;
+    return this.pageWidth < 340 ? 11 : 14;
   }
 
   private mineCountFontSize(): number {
@@ -344,11 +385,11 @@ export struct MinesweeperHud {
   }
 
   private actionIconSize(): number {
-    return this.pageWidth < 340 ? 27 : 32;
+    return this.pageWidth < 340 ? 22 : 27;
   }
 
   private actionTitleFontSize(): number {
-    return this.pageWidth < 340 ? 17 : 20;
+    return this.pageWidth < 340 ? 14 : 17;
   }
 
   private modeButtonText(): string {
@@ -359,6 +400,14 @@ export struct MinesweeperHud {
   }
 
   private actionHorizontalPadding(): number {
-    return this.pageWidth < 340 ? 8 : 12;
+    return this.pageWidth < 340 ? 5 : 8;
+  }
+
+  private devButtonFontSize(): number {
+    return this.pageWidth < 340 ? 12 : 14;
+  }
+
+  private devCaptionFontSize(): number {
+    return this.pageWidth < 340 ? 8 : 9;
   }
 }

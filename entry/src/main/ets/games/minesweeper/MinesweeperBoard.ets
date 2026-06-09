@@ -11,6 +11,7 @@ export struct MinesweeperBoard {
   @Prop boardHeightPx: number = 320;
   @Prop columnsTemplateValue: string = '1fr';
   @Prop rowsTemplateValue: string = '1fr';
+  @Prop revealMines: boolean = false;
   tapCell: (index: number) => void = () => {};
 
   build() {
@@ -21,7 +22,7 @@ export struct MinesweeperBoard {
           GridItem() {
             this.CellView(cell)
           }
-        }, (cell: MineCell) => `${cell.index}-${cell.open}-${cell.flag}-${cell.boom}-${cell.neighbor}`)
+        }, (cell: MineCell) => `${cell.index}-${cell.open}-${cell.flag}-${cell.boom}-${cell.mine}-${cell.neighbor}-${this.revealMines}`)
       }
       .columnsTemplate(this.columnsTemplateValue)
       .rowsTemplate(this.rowsTemplateValue)
@@ -140,9 +141,7 @@ export struct MinesweeperBoard {
 
   @Builder
   CellTile(cell: MineCell) {
-    if (cell.open && cell.boom) {
-      this.TileImage('games/minesweeper/tile_cracked.png')
-    } else if (cell.open && cell.mine) {
+    if ((cell.open || this.revealMines) && cell.mine) {
       this.TileImage('games/minesweeper/tile_mine.png')
     } else if (!cell.open && cell.flag) {
       this.TileImage('games/minesweeper/tile_flag.png')

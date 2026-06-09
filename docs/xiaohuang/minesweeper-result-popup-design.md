@@ -31,7 +31,7 @@ entry/src/main/resources/rawfile/games/minesweeper/
 
 流程：
 
-1. 踩中的格子显示 `tile_cracked.png`。
+1. 踩中的格子统一显示 `tile_mine.png` 鸡雷图，避免玩家误以为存在“碎砖雷”等第二种危险物。
 2. 棋盘其他鸡雷按现有逻辑翻开。
 3. 立即播放羽毛飞散和飘落，时长建议 `900ms` 到 `1400ms`。
 4. 羽毛动效开始后 `250ms` 到 `350ms` 出现失败弹窗。
