@@ -1,0 +1,63 @@
+import { GameModule } from './GameModule';
+
+export const GAME_MODULES: GameModule[] = [
+  {
+    id: 'rps',
+    title: '石头剪刀布大作战',
+    subtitle: '三方自动追捕，机制全开也能离线玩',
+    icon: '✊',
+    tags: ['观战', '策略', '乱斗'],
+    accent: '#2c8f7f',
+    highScoreLabel: '最高存活数'
+  },
+  {
+    id: 'whiteTiles',
+    title: '别踩白块',
+    subtitle: '四列节奏反应，点黑块，漏掉即败',
+    icon: '▦',
+    tags: ['反应', '竖屏', '快速'],
+    accent: '#1f2937',
+    highScoreLabel: '最高行数'
+  },
+  {
+    id: 'minesweeper',
+    title: '扫雷',
+    subtitle: '经典雷区推理，首点安全，支持插旗模式',
+    icon: '✹',
+    tags: ['推理', '棋盘', '休闲'],
+    accent: '#4e6edb',
+    highScoreLabel: '最高得分'
+  },
+  {
+    id: 'tetris',
+    title: '俄罗斯方块',
+    subtitle: '10×20 网格、7 种方块、消行升级',
+    icon: '▣',
+    tags: ['下落', '消除', '长局'],
+    accent: '#8b5cf6',
+    highScoreLabel: '最高分'
+  },
+  {
+    id: 'suika',
+    title: '合成大西瓜',
+    subtitle: '圆形水果物理堆叠，相同碰撞合成',
+    icon: '◉',
+    tags: ['物理', '合成', '轻松'],
+    accent: '#16a34a',
+    highScoreLabel: '最高分'
+  },
+  {
+    id: 'eggSling',
+    title: '弹射鸡蛋',
+    subtitle: '拉弹弓发射鸡蛋，击中目标过关',
+    icon: '◎',
+    tags: ['物理', '关卡', '弹射'],
+    accent: '#ef6f57',
+    highScoreLabel: '最高分'
+  }
+];
+
+export function moduleById(id: string): GameModule {
+  const found = GAME_MODULES.find((item: GameModule) => item.id === id);
+  return found === undefined ? GAME_MODULES[0] : found;
+}

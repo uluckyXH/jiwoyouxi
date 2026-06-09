@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "app_name",
+      "value": "鸡窝游戏"
+    },
+    {
+      "name": "module_desc",
+      "value": "鸡窝游戏鸿蒙原生离线小游戏合集"
+    },
+    {
+      "name": "entry_desc",
+      "value": "鸡窝游戏原生入口"
+    }
+  ]
+}

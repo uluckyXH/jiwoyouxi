@@ -1,0 +1,9 @@
+{
+  "name": "entry",
+  "version": "1.0.0",
+  "description": "鸡窝游戏 native entry module.",
+  "main": "",
+  "author": "longxinzhang",
+  "license": "MIT",
+  "dependencies": {}
+}
