@@ -25,6 +25,7 @@
 
 - 新人先读 [CONTRIBUTING.md](CONTRIBUTING.md)。
 - 新增游戏按 [docs/ADDING_GAMES.md](docs/ADDING_GAMES.md) 接入。
+- 游戏认领和候选清单看 [docs/GAME_BACKLOG.md](docs/GAME_BACKLOG.md)。
 - 真机验收按 [docs/QA_CHECKLIST.md](docs/QA_CHECKLIST.md) 检查。
 - 当前进度和已知风险在 [docs/DEVELOPMENT_STATUS.md](docs/DEVELOPMENT_STATUS.md)。
 

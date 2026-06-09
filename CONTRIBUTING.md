@@ -11,12 +11,13 @@
 
 ## 新增游戏流程
 
-1. 在 `entry/src/main/ets/games/<gameId>/<GameName>Page.ets` 新建页面。
-2. 在 `entry/src/main/ets/shell/GameRegistry.ets` 注册标题、图标、标签和最高分类型。
-3. 在 `entry/src/main/ets/pages/Index.ets` 导入页面并接入路由。
-4. 游戏结束时调用 `recordScore(score)`，返回大厅调用 `exitToHub()`。
-5. 所有状态保存在本页面或 `CoopStorage` 统一快照里，不要使用网络依赖。
-6. 真机至少验证启动、返回、暂停/重开、最高分记录和小屏布局。
+1. 先在 [docs/GAME_BACKLOG.md](docs/GAME_BACKLOG.md) 查候选清单，或用 GitHub issue 模板登记新游戏。
+2. 在 `entry/src/main/ets/games/<gameId>/<GameName>Page.ets` 新建页面。
+3. 在 `entry/src/main/ets/shell/GameRegistry.ets` 注册标题、图标、标签和最高分类型。
+4. 在 `entry/src/main/ets/pages/Index.ets` 导入页面并接入路由。
+5. 游戏结束时调用 `recordScore(score)`，返回大厅调用 `exitToHub()`。
+6. 所有状态保存在本页面或 `CoopStorage` 统一快照里，不要使用网络依赖。
+7. 真机至少验证启动、返回、暂停/重开、最高分记录和小屏布局。
 
 ## UI 约束
 
