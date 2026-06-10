@@ -9,6 +9,8 @@ export struct MinesweeperResultOverlay {
   @Prop elapsedText: string = '00:00';
   @Prop currentScore: number = 0;
   @Prop bestScore: number = 0;
+  @Prop openedSafeCells: number = 0;
+  @Prop safeCellTotal: number = 54;
   restartGame: () => void = () => {};
   exitToHub: () => void = () => {};
   closeOverlay: () => void = () => {};
@@ -52,7 +54,7 @@ export struct MinesweeperResultOverlay {
           .textAlign(TextAlign.Center)
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(`用时 ${this.elapsedText} · 得分 ${this.currentScore} · 最高 ${Math.max(this.bestScore, this.currentScore)}`)
+        Text(this.infoText())
           .width('100%')
           .fontSize(this.infoFontSize())
           .fontWeight(FontWeight.Medium)
@@ -190,5 +192,12 @@ export struct MinesweeperResultOverlay {
 
   private subtitleText(): string {
     return this.win ? '所有鸡雷都被你避开了。' : '鸡窝里混进了鸡雷，再试一次。';
+  }
+
+  private infoText(): string {
+    if (this.win) {
+      return `用时 ${this.elapsedText} · 得分 ${this.currentScore} · 最高 ${Math.max(this.bestScore, this.currentScore)}`;
+    }
+    return `已排查 ${this.openedSafeCells}/${this.safeCellTotal}`;
   }
 }

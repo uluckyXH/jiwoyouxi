@@ -44,5 +44,6 @@
 
 - `minesweeper-plan.md`：扫雷玩法和优化计划。
 - `minesweeper-result-popup-design.md`：扫雷胜负弹窗和羽毛动效设计。
+- `minesweeper-scoring-design.md`：扫雷固定难度后的计分和最高分规则。
 - `egg-sling-plan.md`：弹射鸡蛋玩法和优化计划。
 - `qa-notes.md`：真机验证记录、截图说明和遗留问题。

@@ -101,7 +101,7 @@ export function markBoomAt(cells: MineCell[], index: number): MineCell[] {
 }
 
 export function isMinesweeperWin(cells: MineCell[], difficulty: MineDifficulty): boolean {
-  return openSafeCellCount(cells) >= difficulty.rows * difficulty.cols - difficulty.mines;
+  return openSafeCellCount(cells) >= minesweeperSafeCellTotal(difficulty);
 }
 
 export function remainingMineCount(cells: MineCell[], mineCount: number): number {
@@ -112,11 +112,12 @@ export function openSafeCellCount(cells: MineCell[]): number {
   return cells.filter((cell: MineCell) => cell.open && !cell.mine).length;
 }
 
-export function minesweeperScore(cells: MineCell[], elapsed: number, mineCount: number, won: boolean): number {
-  if (won) {
-    return Math.max(1, 10000 - elapsed * 8 + mineCount * 20);
-  }
-  return openSafeCellCount(cells);
+export function minesweeperSafeCellTotal(difficulty: MineDifficulty): number {
+  return difficulty.rows * difficulty.cols - difficulty.mines;
+}
+
+export function minesweeperWinScore(elapsed: number): number {
+  return Math.max(100, 10000 - elapsed * 10);
 }
 
 export function neighborsOf(index: number, rows: number, cols: number): number[] {

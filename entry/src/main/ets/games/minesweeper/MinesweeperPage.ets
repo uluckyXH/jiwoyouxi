@@ -8,7 +8,9 @@ import {
   isMinesweeperWin,
   markBoomAt,
   minesweeperDifficulty,
-  minesweeperScore,
+  minesweeperSafeCellTotal,
+  minesweeperWinScore,
+  openSafeCellCount,
   openSafeCells,
   placeMinesForFirstTap,
   remainingMineCount,
@@ -25,6 +27,8 @@ export struct MinesweeperPage {
   recordScore: (score: number) => void = () => {};
   private timer: number = -1;
   private settled: boolean = false;
+  private devUnlockPauseTapCount: number = 0;
+  private devUnlockModeTapCount: number = 0;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State difficultyKey: string = 'easy';
@@ -33,6 +37,7 @@ export struct MinesweeperPage {
   @State started: boolean = false;
   @State flagMode: boolean = false;
   @State devRevealMines: boolean = false;
+  @State devControlsVisible: boolean = false;
   @State paused: boolean = false;
   @State gameOver: boolean = false;
   @State win: boolean = false;
@@ -63,19 +68,20 @@ export struct MinesweeperPage {
           flagMode: this.flagMode,
           flagLimitReached: this.remainingMines() <= 0,
           devRevealMines: this.devRevealMines,
+          showDevControls: this.devControlsVisible,
           difficultyKey: this.difficultyKey,
           exitToHub: () => {
             this.exitToHub();
           },
           togglePause: () => {
-            this.paused = !this.paused;
+            this.handlePauseToggle();
           },
           selectDifficulty: (key: string) => {
             this.difficultyKey = key;
             this.restart();
           },
           toggleFlagMode: () => {
-            this.flagMode = !this.flagMode;
+            this.handleModeToggle();
           },
           toggleDevRevealMines: () => {
             this.toggleDevRevealMines();
@@ -120,6 +126,8 @@ export struct MinesweeperPage {
           elapsedText: this.timeText(),
           currentScore: this.currentScore(),
           bestScore: this.bestScore,
+          openedSafeCells: this.openedSafeCells(),
+          safeCellTotal: this.safeCellTotal(),
           restartGame: () => {
             this.restart();
           },
@@ -255,7 +263,9 @@ export struct MinesweeperPage {
     this.gameOver = true;
     this.showResultOverlay = true;
     this.stopTimer();
-    this.recordScore(minesweeperScore(this.cells, this.elapsed, this.mineCount(), won));
+    if (won) {
+      this.recordScore(minesweeperWinScore(this.elapsed));
+    }
   }
 
   private toggleDevRevealMines(): void {
@@ -264,6 +274,38 @@ export struct MinesweeperPage {
       this.cells = placeMinesForFirstTap(this.cells, this.difficulty(), 0);
     }
     this.devRevealMines = next;
+  }
+
+  private handlePauseToggle(): void {
+    this.paused = !this.paused;
+    this.trackDevUnlockPauseTap();
+  }
+
+  private handleModeToggle(): void {
+    this.flagMode = !this.flagMode;
+    this.trackDevUnlockModeTap();
+  }
+
+  private trackDevUnlockPauseTap(): void {
+    if (this.devControlsVisible) {
+      return;
+    }
+    this.devUnlockPauseTapCount = Math.min(3, this.devUnlockPauseTapCount + 1);
+    this.unlockDevControlsIfReady();
+  }
+
+  private trackDevUnlockModeTap(): void {
+    if (this.devControlsVisible) {
+      return;
+    }
+    this.devUnlockModeTapCount = Math.min(2, this.devUnlockModeTapCount + 1);
+    this.unlockDevControlsIfReady();
+  }
+
+  private unlockDevControlsIfReady(): void {
+    if (this.devUnlockPauseTapCount >= 3 && this.devUnlockModeTapCount >= 2) {
+      this.devControlsVisible = true;
+    }
   }
 
   private hasMines(): boolean {
@@ -291,7 +333,15 @@ export struct MinesweeperPage {
   }
 
   private currentScore(): number {
-    return minesweeperScore(this.cells, this.elapsed, this.mineCount(), this.win);
+    return this.win ? minesweeperWinScore(this.elapsed) : 0;
+  }
+
+  private openedSafeCells(): number {
+    return openSafeCellCount(this.cells);
+  }
+
+  private safeCellTotal(): number {
+    return minesweeperSafeCellTotal(this.difficulty());
   }
 
   private timeText(): string {

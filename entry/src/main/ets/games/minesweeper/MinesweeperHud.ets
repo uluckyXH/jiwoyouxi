@@ -12,6 +12,7 @@ export struct MinesweeperHud {
   @Prop flagMode: boolean = false;
   @Prop flagLimitReached: boolean = false;
   @Prop devRevealMines: boolean = false;
+  @Prop showDevControls: boolean = false;
   @Prop difficultyKey: string = 'easy';
   @Prop showDifficultyBar: boolean = false;
   exitToHub: () => void = () => {};
@@ -123,9 +124,11 @@ export struct MinesweeperHud {
       this.ActionImageButton('重新开始', 'yellow', 'games/minesweeper/icon_reset.png', () => {
         this.restartGame();
       })
-      this.DevImageButton(() => {
-        this.toggleDevRevealMines();
-      })
+      if (this.showDevControls) {
+        this.DevImageButton(() => {
+          this.toggleDevRevealMines();
+        })
+      }
     }
     .width('100%')
     .padding({ left: 12, right: 12 })
