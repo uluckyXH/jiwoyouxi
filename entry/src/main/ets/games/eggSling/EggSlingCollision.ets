@@ -1,5 +1,5 @@
 import { EGG_RADIUS, GRAVITY } from './EggSlingPhysics';
-import { EggProjectile, SlingBlock } from './EggSlingTypes';
+import { EggProjectile, PigTarget, SlingBlock, SlingBlockKind } from './EggSlingTypes';
 
 export const BLOCK_HIT_FLASH_FRAMES: number = 10;
 export const BLOCK_LIGHT_HIT_SPEED: number = 2.5;
@@ -30,7 +30,7 @@ export function resolveBlockImpact(egg: EggProjectile, block: SlingBlock): Block
   }
 
   const impactSpeed = Math.abs(egg.vx) + Math.abs(egg.vy);
-  const damage = blockDamageForImpact(impactSpeed);
+  const damage = blockDamageForImpact(impactSpeed, block);
   const nextHp = Math.max(0, block.hp - damage);
   const impactDirection = impactDirectionForEgg(egg, block);
   const hitOffset = Math.min(9, Math.max(3, Math.abs(egg.vx) * 0.65 + Math.abs(egg.vy) * 0.22));
@@ -57,15 +57,16 @@ export function resolveBlockImpact(egg: EggProjectile, block: SlingBlock): Block
 
 export function collapseBlock(block: SlingBlock, egg: EggProjectile, fallbackDirection: number): SlingBlock {
   const direction = fallbackDirection === 0 ? 1 : fallbackDirection;
+  const isSupport = block.kind === SlingBlockKind.SUPPORT;
   const nextBlock = copyBlock(block);
   nextBlock.hp = 0;
   nextBlock.hitFrames = BLOCK_HIT_FLASH_FRAMES;
   nextBlock.offsetX = 0;
   nextBlock.offsetY = 0;
-  nextBlock.vx = egg.vx * 0.2 + direction * 1.1;
+  nextBlock.vx = egg.vx * (isSupport ? 0.24 : 0.2) + direction * (isSupport ? 1.4 : 1.1);
   nextBlock.vy = Math.min(1.6, egg.vy * 0.16) - 0.7;
-  nextBlock.rotation = block.rotation;
-  nextBlock.angularVelocity = block.angularVelocity + direction * 0.09;
+  nextBlock.rotation = block.rotation + direction * (isSupport ? 0.18 : 0.05);
+  nextBlock.angularVelocity = block.angularVelocity + direction * (isSupport ? 0.16 : 0.09);
   nextBlock.dynamic = true;
   nextBlock.visible = true;
   return nextBlock;
@@ -84,20 +85,27 @@ export function updateBlockMotion(block: SlingBlock, groundY: number): SlingBloc
   nextBlock.angularVelocity = block.angularVelocity * 0.88;
 
   if (!block.dynamic) {
+    if (block.hp <= 0) {
+      const bottomExtent = rotatedBottomExtent(block.blockWidth, block.blockHeight, nextBlock.rotation);
+      if (nextBlock.y + bottomExtent > groundY) {
+        nextBlock.y = groundY - bottomExtent;
+      }
+      return nextBlock;
+    }
     nextBlock.rotation = nextBlock.rotation * 0.92;
     return nextBlock;
   }
 
-  const halfHeight = block.blockHeight * 0.5;
   let nextX = block.x + block.vx;
   let nextY = block.y + block.vy;
   let nextVx = block.vx * 0.992;
   let nextVy = block.vy + BLOCK_COLLAPSE_GRAVITY;
   let nextAngularVelocity = nextBlock.angularVelocity;
   let nextDynamic = true;
+  const bottomExtent = rotatedBottomExtent(block.blockWidth, block.blockHeight, nextBlock.rotation);
 
-  if (nextY + halfHeight > groundY) {
-    nextY = groundY - halfHeight;
+  if (nextY + bottomExtent > groundY) {
+    nextY = groundY - bottomExtent;
     nextVy = -Math.abs(nextVy) * BLOCK_COLLAPSE_BOUNCE;
     nextVx *= BLOCK_COLLAPSE_FRICTION;
     nextAngularVelocity *= 0.62;
@@ -106,6 +114,11 @@ export function updateBlockMotion(block: SlingBlock, groundY: number): SlingBloc
       nextVy = 0;
       nextAngularVelocity = 0;
       nextDynamic = false;
+      if (block.hp <= 0 && block.kind === SlingBlockKind.SUPPORT && Math.abs(nextBlock.rotation) < 1.05) {
+        nextBlock.rotation = (nextBlock.rotation >= 0 ? 1 : -1) * 1.05;
+        const restedBottomExtent = rotatedBottomExtent(block.blockWidth, block.blockHeight, nextBlock.rotation);
+        nextY = groundY - restedBottomExtent;
+      }
     }
   }
 
@@ -116,6 +129,74 @@ export function updateBlockMotion(block: SlingBlock, groundY: number): SlingBloc
   nextBlock.angularVelocity = nextAngularVelocity;
   nextBlock.dynamic = nextDynamic;
   return nextBlock;
+}
+
+export function collapseTarget(target: PigTarget, egg: EggProjectile, fallbackDirection: number): PigTarget {
+  const direction = fallbackDirection === 0 ? 1 : fallbackDirection;
+  return {
+    id: target.id,
+    groupId: target.groupId,
+    x: target.x,
+    y: target.y,
+    radius: target.radius,
+    alive: target.alive,
+    vx: egg.vx * 0.16 + direction * 0.7,
+    vy: Math.min(1.4, egg.vy * 0.12) - 0.45,
+    rotation: target.rotation,
+    angularVelocity: target.angularVelocity + direction * 0.06,
+    dynamic: true,
+    hitFrames: 8,
+    visible: target.visible
+  };
+}
+
+export function updateTargetMotion(target: PigTarget, groundY: number): PigTarget {
+  if (!target.visible) {
+    return target;
+  }
+
+  let nextX = target.x;
+  let nextY = target.y;
+  let nextVx = target.vx;
+  let nextVy = target.vy;
+  let nextRotation = target.rotation + target.angularVelocity;
+  let nextAngularVelocity = target.angularVelocity * 0.88;
+  let nextDynamic = target.dynamic;
+
+  if (target.dynamic) {
+    nextX = target.x + target.vx;
+    nextY = target.y + target.vy;
+    nextVx = target.vx * 0.992;
+    nextVy = target.vy + BLOCK_COLLAPSE_GRAVITY;
+    if (nextY + target.radius > groundY) {
+      nextY = groundY - target.radius;
+      nextVy = -Math.abs(nextVy) * 0.16;
+      nextVx *= 0.72;
+      nextAngularVelocity *= 0.62;
+      if (Math.abs(nextVx) + Math.abs(nextVy) + Math.abs(nextAngularVelocity) < 0.32) {
+        nextVx = 0;
+        nextVy = 0;
+        nextAngularVelocity = 0;
+        nextDynamic = false;
+      }
+    }
+  }
+
+  return {
+    id: target.id,
+    groupId: target.groupId,
+    x: nextX,
+    y: nextY,
+    radius: target.radius,
+    alive: target.alive,
+    vx: nextVx,
+    vy: nextVy,
+    rotation: nextRotation,
+    angularVelocity: nextAngularVelocity,
+    dynamic: nextDynamic,
+    hitFrames: Math.max(0, target.hitFrames - 1),
+    visible: target.visible
+  };
 }
 
 export function circleHitsBlock(x: number, y: number, radius: number, block: SlingBlock): boolean {
@@ -133,7 +214,10 @@ export function circleHitsBlock(x: number, y: number, radius: number, block: Sli
   return dx * dx + dy * dy <= radius * radius;
 }
 
-function blockDamageForImpact(impactSpeed: number): number {
+function blockDamageForImpact(impactSpeed: number, block: SlingBlock): number {
+  if (block.kind === SlingBlockKind.SUPPORT && impactSpeed >= 1.2) {
+    return impactSpeed >= 4.5 ? 2 : 1;
+  }
   if (impactSpeed < BLOCK_LIGHT_HIT_SPEED) {
     return 0;
   }
@@ -141,6 +225,12 @@ function blockDamageForImpact(impactSpeed: number): number {
     return 2;
   }
   return 1;
+}
+
+function rotatedBottomExtent(width: number, height: number, rotation: number): number {
+  const halfWidth = width * 0.5;
+  const halfHeight = height * 0.5;
+  return Math.abs(Math.sin(rotation)) * halfWidth + Math.abs(Math.cos(rotation)) * halfHeight;
 }
 
 function impactDirectionForEgg(egg: EggProjectile, block: SlingBlock): number {

@@ -5,6 +5,13 @@ export interface PigTarget {
   y: number;
   radius: number;
   alive: boolean;
+  vx: number;
+  vy: number;
+  rotation: number;
+  angularVelocity: number;
+  dynamic: boolean;
+  hitFrames: number;
+  visible: boolean;
 }
 
 export enum SlingBlockKind {

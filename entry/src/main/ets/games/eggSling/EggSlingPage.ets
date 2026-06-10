@@ -2,9 +2,11 @@ import { common } from '@kit.AbilityKit';
 import { display, window } from '@kit.ArkUI';
 import { CoopTheme } from '../../design/CoopTheme';
 import {
+  collapseTarget,
   collapseBlock,
   resolveBlockImpact,
-  updateBlockMotion
+  updateBlockMotion,
+  updateTargetMotion
 } from './EggSlingCollision';
 import {
   BOUNDARY_FLASH_FRAMES,
@@ -454,6 +456,7 @@ export struct EggSlingPage {
   private updateBlocks(): void {
     const groundY = this.groundY();
     this.blocks = this.blocks.map((block: SlingBlock) => updateBlockMotion(block, groundY));
+    this.pigs = this.pigs.map((pig: PigTarget) => updateTargetMotion(pig, groundY));
   }
 
   private resolveWorldBoundary(): void {
@@ -604,15 +607,28 @@ export struct EggSlingPage {
   private handleCollisions(): void {
     for (let i = 0; i < this.pigs.length; i += 1) {
       const pig = this.pigs[i];
-      if (!pig.alive) {
+      if (!pig.alive || !pig.visible) {
         continue;
       }
       const dx = this.egg.x - pig.x;
       const dy = this.egg.y - pig.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < pig.radius + EGG_RADIUS) {
-        pig.alive = false;
-        this.pigs[i] = pig;
+        this.pigs[i] = {
+          id: pig.id,
+          groupId: pig.groupId,
+          x: pig.x,
+          y: pig.y,
+          radius: pig.radius,
+          alive: false,
+          vx: pig.vx,
+          vy: pig.vy,
+          rotation: pig.rotation,
+          angularVelocity: pig.angularVelocity,
+          dynamic: pig.dynamic,
+          hitFrames: 8,
+          visible: pig.visible
+        };
         this.score += 500;
         this.egg.vx *= -0.35;
         this.egg.vy *= -0.35;
@@ -643,6 +659,12 @@ export struct EggSlingPage {
         return block;
       }
       return collapseBlock(block, this.egg, direction);
+    });
+    this.pigs = this.pigs.map((pig: PigTarget) => {
+      if (pig.groupId !== groupId || !pig.visible || !pig.alive || pig.dynamic) {
+        return pig;
+      }
+      return collapseTarget(pig, this.egg, direction);
     });
   }
 
@@ -692,7 +714,21 @@ export struct EggSlingPage {
       const supportCenterY = floorY - supportHeight * 0.5;
       const beamCenterY = floorY - supportHeight - beamHeight * 0.5;
       const targetY = floorY - supportHeight - beamHeight - targetRadius - 8;
-      this.pigs.push({ id: i, groupId: i, x: x, y: targetY, radius: targetRadius, alive: true });
+      this.pigs.push({
+        id: i,
+        groupId: i,
+        x: x,
+        y: targetY,
+        radius: targetRadius,
+        alive: true,
+        vx: 0,
+        vy: 0,
+        rotation: 0,
+        angularVelocity: 0,
+        dynamic: false,
+        hitFrames: 0,
+        visible: true
+      });
       this.blocks.push(this.createBlock(
         blockId,
         i,
@@ -905,20 +941,30 @@ export struct EggSlingPage {
   }
 
   private drawPig(ctx: CanvasRenderingContext2D, pig: PigTarget): void {
-    if (!pig.alive) {
+    if (!pig.alive || !pig.visible) {
       return;
     }
+    ctx.save();
+    ctx.translate(pig.x, pig.y);
+    ctx.rotate(pig.rotation);
     ctx.beginPath();
     ctx.fillStyle = '#65a30d';
-    ctx.arc(pig.x, pig.y, pig.radius, 0, Math.PI * 2);
+    ctx.arc(0, 0, pig.radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(pig.x - 6, pig.y - 5, 4, 0, Math.PI * 2);
-    ctx.arc(pig.x + 6, pig.y - 5, 4, 0, Math.PI * 2);
+    ctx.arc(-6, -5, 4, 0, Math.PI * 2);
+    ctx.arc(6, -5, 4, 0, Math.PI * 2);
     ctx.fill();
     ctx.fillStyle = '#3f6212';
-    ctx.fillRect(pig.x - 6, pig.y + 3, 12, 7);
+    ctx.fillRect(-6, 3, 12, 7);
+    if (pig.hitFrames > 0) {
+      ctx.fillStyle = 'rgba(255,255,255,0.34)';
+      ctx.beginPath();
+      ctx.arc(0, 0, pig.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   private drawBlock(ctx: CanvasRenderingContext2D, block: SlingBlock): void {
@@ -932,11 +978,12 @@ export struct EggSlingPage {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(block.rotation);
-    ctx.fillStyle = isHit ? '#fff4c7' : block.color;
-    if (isBroken) {
-      ctx.fillStyle = block.kind === SlingBlockKind.BEAM ? '#77716a' : '#b46a32';
-    }
+    ctx.fillStyle = block.color;
     ctx.fillRect(-block.blockWidth * 0.5, -block.blockHeight * 0.5, block.blockWidth, block.blockHeight);
+    if (isHit) {
+      ctx.fillStyle = 'rgba(255,244,199,0.58)';
+      ctx.fillRect(-block.blockWidth * 0.5, -block.blockHeight * 0.5, block.blockWidth, block.blockHeight);
+    }
     ctx.strokeStyle = 'rgba(59,33,20,0.35)';
     ctx.lineWidth = 1;
     ctx.strokeRect(-block.blockWidth * 0.5, -block.blockHeight * 0.5, block.blockWidth, block.blockHeight);
