@@ -1,27 +1,25 @@
+import { CoopModalTransition } from '../../components/CoopModalTransition';
 import { CoopTheme } from '../../design/CoopTheme';
-
-interface MineCell {
-  index: number;
-  mine: boolean;
-  open: boolean;
-  flag: boolean;
-  neighbor: number;
-  boom: boolean;
-}
-
-interface MineDifficulty {
-  key: string;
-  label: string;
-  rows: number;
-  cols: number;
-  mines: number;
-}
-
-const DIFFICULTIES: MineDifficulty[] = [
-  { key: 'easy', label: '简单', rows: 9, cols: 9, mines: 10 },
-  { key: 'normal', label: '中等', rows: 13, cols: 10, mines: 25 },
-  { key: 'hard', label: '困难', rows: 16, cols: 12, mines: 45 }
-];
+import { MinesweeperBoard } from './MinesweeperBoard';
+import { MinesweeperHud } from './MinesweeperHud';
+import { MinesweeperResultOverlay } from './MinesweeperResultOverlay';
+import {
+  createEmptyMineCells,
+  flagAllMines,
+  isMinesweeperWin,
+  markBoomAt,
+  minesweeperDifficulty,
+  minesweeperSafeCellTotal,
+  minesweeperWinScore,
+  openSafeCellCount,
+  openSafeCells,
+  placeMinesForFirstTap,
+  remainingMineCount,
+  revealMines,
+  toggleFlagAt
+} from './MinesweeperRules';
+import { MinesweeperTheme } from './MinesweeperTheme';
+import { MineCell, MineDifficulty } from './MinesweeperTypes';
 
 @Component
 export struct MinesweeperPage {
@@ -30,6 +28,8 @@ export struct MinesweeperPage {
   recordScore: (score: number) => void = () => {};
   private timer: number = -1;
   private settled: boolean = false;
+  private devUnlockPauseTapCount: number = 0;
+  private devUnlockModeTapCount: number = 0;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State difficultyKey: string = 'easy';
@@ -37,9 +37,12 @@ export struct MinesweeperPage {
   @State elapsed: number = 0;
   @State started: boolean = false;
   @State flagMode: boolean = false;
+  @State devRevealMines: boolean = false;
+  @State devControlsVisible: boolean = false;
   @State paused: boolean = false;
   @State gameOver: boolean = false;
   @State win: boolean = false;
+  @State showResultOverlay: boolean = false;
 
   aboutToAppear(): void {
     this.restart();
@@ -51,82 +54,91 @@ export struct MinesweeperPage {
 
   build() {
     Stack() {
-      Column({ space: 10 }) {
-        this.TopBar()
-        Row({ space: 8 }) {
-          ForEach(DIFFICULTIES, (item: MineDifficulty) => {
-            Button(item.label)
-              .height(34)
-              .layoutWeight(1)
-              .borderRadius(8)
-              .fontColor(this.difficultyKey === item.key ? '#ffffff' : CoopTheme.ink)
-              .backgroundColor(this.difficultyKey === item.key ? CoopTheme.blue : CoopTheme.panel)
-              .border({ width: 1, color: this.difficultyKey === item.key ? 'rgba(255,255,255,0.28)' : CoopTheme.glassLine })
-              .onClick(() => {
-                this.difficultyKey = item.key;
-                this.restart();
-              })
-          }, (item: MineDifficulty) => item.key)
-        }
+      Image($rawfile('games/minesweeper/bg.png'))
         .width('100%')
-        .padding({ left: 12, right: 12 })
+        .height('100%')
+        .objectFit(ImageFit.Fill)
+      Column({ space: 8 }) {
+        MinesweeperHud({
+          pageWidth: this.pageWidth,
+          bestScore: this.bestScore,
+          currentScore: this.currentScore(),
+          remainingMines: this.remainingMines(),
+          elapsedText: this.timeText(),
+          paused: this.paused,
+          flagMode: this.flagMode,
+          flagLimitReached: this.remainingMines() <= 0,
+          devRevealMines: this.devRevealMines,
+          showDevControls: this.devControlsVisible,
+          difficultyKey: this.difficultyKey,
+          exitToHub: () => {
+            this.exitToHub();
+          },
+          togglePause: () => {
+            this.handlePauseToggle();
+          },
+          selectDifficulty: (key: string) => {
+            this.difficultyKey = key;
+            this.restart();
+          },
+          toggleFlagMode: () => {
+            this.handleModeToggle();
+          },
+          toggleDevRevealMines: () => {
+            this.toggleDevRevealMines();
+          },
+          restartGame: () => {
+            this.restart();
+          }
+        })
 
-        Row({ space: 8 }) {
-          Button(this.flagMode ? '插旗模式' : '翻开模式')
-            .height(36)
-            .layoutWeight(1)
-            .borderRadius(8)
-            .backgroundColor(this.flagMode ? CoopTheme.brand : CoopTheme.panel)
-            .fontColor(this.flagMode ? '#ffffff' : CoopTheme.ink)
-            .border({ width: 1, color: this.flagMode ? 'rgba(255,255,255,0.28)' : CoopTheme.glassLine })
-            .onClick(() => {
-              this.flagMode = !this.flagMode;
-            })
-          Button('重新开始')
-            .height(36)
-            .layoutWeight(1)
-            .borderRadius(8)
-            .backgroundColor(CoopTheme.panel)
-            .fontColor(CoopTheme.ink)
-            .border({ width: 1, color: CoopTheme.glassLine })
-            .onClick(() => {
-              this.restart();
-            })
-        }
-        .width('100%')
-        .padding({ left: 12, right: 12 })
-
-        Grid() {
-          ForEach(this.cells, (cell: MineCell) => {
-            GridItem() {
-              this.CellView(cell)
+        Stack({ alignContent: Alignment.Top }) {
+          MinesweeperBoard({
+            cells: this.cells,
+            cellPx: this.cellSize(),
+            frameWidthPx: this.boardFrameWidth(),
+            frameHeightPx: this.boardFrameHeight(),
+            boardWidthPx: this.boardWidth(),
+            boardHeightPx: this.boardHeight(),
+            columnsTemplateValue: this.columnsTemplate(),
+            rowsTemplateValue: this.rowsTemplate(),
+            revealMines: this.devRevealMines,
+            tapCell: (index: number) => {
+              this.tapCell(index);
             }
-          }, (cell: MineCell) => `${cell.index}-${cell.open}-${cell.flag}-${cell.boom}`)
+          })
         }
-        .columnsTemplate(this.columnsTemplate())
-        .rowsGap(1)
-        .columnsGap(1)
-        .width(this.boardWidth())
-        .height(this.boardHeight())
-        .padding(4)
-        .backgroundColor('#808080')
-        .border({ width: 3, color: '#6b6b6b' })
-
-        Blank()
+        .width('100%')
+        .height(this.boardContainerHeight())
+        .clip(true)
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(CoopTheme.bg)
-      .linearGradient({
-        angle: 180,
-        colors: [['#edf9ff', 0], ['#fff8ea', 0.50], ['#f7fbff', 1]]
-      })
+      .backgroundColor(MinesweeperTheme.pageTint)
 
       if (this.paused && !this.gameOver) {
         this.PauseOverlay()
       }
-      if (this.gameOver) {
-        this.ResultOverlay()
+      if (this.gameOver && this.showResultOverlay) {
+        MinesweeperResultOverlay({
+          win: this.win,
+          pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight,
+          elapsedText: this.timeText(),
+          currentScore: this.currentScore(),
+          bestScore: this.bestScore,
+          openedSafeCells: this.openedSafeCells(),
+          safeCellTotal: this.safeCellTotal(),
+          restartGame: () => {
+            this.restart();
+          },
+          exitToHub: () => {
+            this.exitToHub();
+          },
+          closeOverlay: () => {
+            this.showResultOverlay = false;
+          }
+        })
       }
     }
     .width('100%')
@@ -142,152 +154,49 @@ export struct MinesweeperPage {
   }
 
   @Builder
-  TopBar() {
-    Row({ space: 8 }) {
-      Button('大厅')
-        .width(62)
-        .height(36)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.panel)
-        .fontColor(CoopTheme.ink)
-        .border({ width: 1, color: CoopTheme.glassLine })
-        .onClick(() => {
-          this.exitToHub();
-        })
-      Text(`雷 ${this.remainingMines()}`)
-        .fontSize(15)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-      Blank()
-      Text(this.timeText())
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-      Blank()
-      Text(`最高 ${Math.max(this.bestScore, this.currentScore())}`)
-        .fontSize(12)
-        .fontColor(CoopTheme.muted)
-      Button(this.paused ? '继续' : '暂停')
-        .width(66)
-        .height(36)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.ink)
-        .fontColor('#ffffff')
-        .onClick(() => {
-          this.paused = !this.paused;
-        })
-    }
-    .width('100%')
-    .height(88)
-    .padding({ left: 12, right: 12, top: 30 })
-    .backgroundColor(CoopTheme.glassStrong)
-    .border({ width: { bottom: 1 }, color: CoopTheme.glassLine })
-    .shadow({
-      radius: 16,
-      color: 'rgba(66,92,120,0.10)',
-      offsetX: 0,
-      offsetY: 8
-    })
-  }
-
-  @Builder
-  CellView(cell: MineCell) {
-    Stack() {
-      if (cell.open) {
-        Text(this.openCellText(cell))
-          .width('100%')
-          .height('100%')
-          .fontSize(Math.max(12, this.cellSize() * 0.45))
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.numberColor(cell.neighbor))
-          .textAlign(TextAlign.Center)
-          .backgroundColor(cell.boom ? '#ef4444' : '#c0c0c0')
-      } else {
-        Text(cell.flag ? '⚑' : '')
-          .width('100%')
-          .height('100%')
-          .fontSize(Math.max(13, this.cellSize() * 0.45))
-          .fontColor('#dc2626')
-          .textAlign(TextAlign.Center)
-          .backgroundColor('#d4d0c8')
-          .border({ width: 1, color: '#ffffff' })
-      }
-    }
-    .width('100%')
-    .height(this.cellSize())
-    .onClick(() => {
-      this.tapCell(cell.index);
-    })
-  }
-
-  @Builder
   PauseOverlay() {
-    Column({ space: 12 }) {
-      Text('扫雷暂停')
-        .fontSize(26)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#ffffff')
-      Button('继续')
-        .width(160)
-        .height(42)
-        .borderRadius(8)
-        .backgroundColor('#ffffff')
-        .fontColor(CoopTheme.ink)
-        .onClick(() => {
-          this.paused = false;
-        })
-      Button('重新开始')
-        .width(160)
-        .height(42)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.brand)
-        .fontColor('#ffffff')
-        .onClick(() => {
-          this.restart();
-        })
+    CoopModalTransition({
+      maskColor: 'rgba(7,8,18,0.62)',
+      panelScaleFrom: 0.96,
+      panelOffsetVp: 8
+    }) {
+      Column({ space: 12 }) {
+        Text('扫雷暂停')
+          .fontSize(26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(CoopTheme.ink)
+        Button('继续')
+          .width(160)
+          .height(42)
+          .borderRadius(8)
+          .backgroundColor('#ffffff')
+          .fontColor(CoopTheme.ink)
+          .onClick(() => {
+            this.paused = false;
+          })
+        Button('重新开始')
+          .width(160)
+          .height(42)
+          .borderRadius(8)
+          .backgroundColor(CoopTheme.brand)
+          .fontColor('#ffffff')
+          .onClick(() => {
+            this.restart();
+          })
+      }
+      .justifyContent(FlexAlign.Center)
+      .width(224)
+      .padding({ left: 20, right: 20, top: 22, bottom: 22 })
+      .borderRadius(24)
+      .backgroundColor('rgba(255,250,240,0.90)')
+      .border({ width: 1, color: 'rgba(255,255,255,0.82)' })
+      .shadow({
+        radius: 24,
+        color: 'rgba(7,8,18,0.24)',
+        offsetX: 0,
+        offsetY: 10
+      })
     }
-    .justifyContent(FlexAlign.Center)
-    .width('100%')
-    .height('100%')
-    .backgroundColor('rgba(7,8,18,0.62)')
-  }
-
-  @Builder
-  ResultOverlay() {
-    Column({ space: 12 }) {
-      Text(this.win ? '扫雷成功' : '踩雷了')
-        .fontSize(26)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-      Text(`用时 ${this.timeText()} · 得分 ${this.currentScore()} · 最高 ${Math.max(this.bestScore, this.currentScore())}`)
-        .fontSize(14)
-        .fontColor(CoopTheme.muted)
-      Button('再来一局')
-        .width('100%')
-        .height(44)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.ink)
-        .fontColor('#ffffff')
-        .onClick(() => {
-          this.restart();
-        })
-      Button('回大厅')
-        .width('100%')
-        .height(40)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.panel)
-        .fontColor(CoopTheme.ink)
-        .border({ width: 1, color: CoopTheme.glassLine })
-        .onClick(() => {
-          this.exitToHub();
-        })
-    }
-    .width(Math.min(this.pageWidth - 36, 350))
-    .padding(18)
-    .borderRadius(8)
-    .backgroundColor(CoopTheme.glassStrong)
-    .border({ width: 1, color: CoopTheme.glassLine })
-    .shadow(CoopTheme.shadow)
   }
 
   private restart(): void {
@@ -295,16 +204,14 @@ export struct MinesweeperPage {
     this.elapsed = 0;
     this.started = false;
     this.flagMode = false;
+    this.devRevealMines = false;
     this.paused = false;
     this.gameOver = false;
     this.win = false;
+    this.showResultOverlay = false;
     this.settled = false;
-    const total = this.rows() * this.cols();
-    const next: MineCell[] = [];
-    for (let i = 0; i < total; i += 1) {
-      next.push({ index: i, mine: false, open: false, flag: false, neighbor: 0, boom: false });
-    }
-    this.cells = next;
+    const difficulty = this.difficulty();
+    this.cells = createEmptyMineCells(difficulty.rows, difficulty.cols);
   }
 
   private startTimer(): void {
@@ -329,98 +236,37 @@ export struct MinesweeperPage {
     if (this.paused || this.gameOver) {
       return;
     }
+    const difficulty = this.difficulty();
     if (!this.started) {
-      this.placeMines(index);
+      if (!this.hasMines()) {
+        this.cells = placeMinesForFirstTap(this.cells, difficulty, index);
+      }
       this.started = true;
       this.startTimer();
     }
-    const next = this.cells.slice();
-    const cell = next[index];
+    const cell = this.cells[index];
     if (cell.open) {
       return;
     }
     if (this.flagMode) {
-      cell.flag = !cell.flag;
-      next[index] = cell;
-      this.cells = next;
+      this.cells = toggleFlagAt(this.cells, index, this.mineCount());
       return;
     }
     if (cell.flag) {
       return;
     }
     if (cell.mine) {
-      cell.open = true;
-      cell.boom = true;
-      next[index] = cell;
-      this.revealMines(next);
-      this.cells = next;
+      this.cells = revealMines(markBoomAt(this.cells, index));
       this.finish(false);
       return;
     }
-    this.openSafeCells(next, index);
-    this.cells = next;
-    if (this.openCount() >= this.rows() * this.cols() - this.mineCount()) {
-      const done = this.cells.slice();
-      done.forEach((item: MineCell) => {
-        if (item.mine) {
-          item.flag = true;
-        }
-      });
-      this.cells = done;
+    const opened = openSafeCells(this.cells, difficulty, index);
+    if (isMinesweeperWin(opened, difficulty)) {
+      this.cells = flagAllMines(opened);
       this.finish(true);
+      return;
     }
-  }
-
-  private placeMines(firstIndex: number): void {
-    const safe = this.safeZone(firstIndex);
-    const total = this.rows() * this.cols();
-    const next = this.cells.slice();
-    let placed = 0;
-    while (placed < this.mineCount()) {
-      const index = Math.floor(Math.random() * total);
-      if (safe.includes(index) || next[index].mine) {
-        continue;
-      }
-      next[index].mine = true;
-      placed += 1;
-    }
-    for (let i = 0; i < total; i += 1) {
-      next[i].neighbor = this.neighbors(i).filter((neighbor: number) => next[neighbor].mine).length;
-    }
-    this.cells = next;
-  }
-
-  private openSafeCells(cells: MineCell[], index: number): void {
-    const queue: number[] = [index];
-    const seen: number[] = [];
-    while (queue.length > 0) {
-      const current = queue.shift();
-      if (current === undefined || seen.includes(current)) {
-        continue;
-      }
-      seen.push(current);
-      const cell = cells[current];
-      if (cell.flag || cell.mine) {
-        continue;
-      }
-      cell.open = true;
-      cells[current] = cell;
-      if (cell.neighbor === 0) {
-        this.neighbors(current).forEach((neighbor: number) => {
-          if (!seen.includes(neighbor)) {
-            queue.push(neighbor);
-          }
-        });
-      }
-    }
-  }
-
-  private revealMines(cells: MineCell[]): void {
-    cells.forEach((cell: MineCell) => {
-      if (cell.mine) {
-        cell.open = true;
-      }
-    });
+    this.cells = opened;
   }
 
   private finish(won: boolean): void {
@@ -430,38 +276,59 @@ export struct MinesweeperPage {
     this.settled = true;
     this.win = won;
     this.gameOver = true;
+    this.showResultOverlay = true;
     this.stopTimer();
-    this.recordScore(this.currentScore());
-  }
-
-  private safeZone(index: number): number[] {
-    const safe = this.neighbors(index);
-    safe.push(index);
-    return safe;
-  }
-
-  private neighbors(index: number): number[] {
-    const result: number[] = [];
-    const row = Math.floor(index / this.cols());
-    const col = index % this.cols();
-    for (let dr = -1; dr <= 1; dr += 1) {
-      for (let dc = -1; dc <= 1; dc += 1) {
-        if (dr === 0 && dc === 0) {
-          continue;
-        }
-        const nr = row + dr;
-        const nc = col + dc;
-        if (nr >= 0 && nr < this.rows() && nc >= 0 && nc < this.cols()) {
-          result.push(nr * this.cols() + nc);
-        }
-      }
+    if (won) {
+      this.recordScore(minesweeperWinScore(this.elapsed));
     }
-    return result;
+  }
+
+  private toggleDevRevealMines(): void {
+    const next = !this.devRevealMines;
+    if (next && !this.hasMines()) {
+      this.cells = placeMinesForFirstTap(this.cells, this.difficulty(), 0);
+    }
+    this.devRevealMines = next;
+  }
+
+  private handlePauseToggle(): void {
+    this.paused = !this.paused;
+    this.trackDevUnlockPauseTap();
+  }
+
+  private handleModeToggle(): void {
+    this.flagMode = !this.flagMode;
+    this.trackDevUnlockModeTap();
+  }
+
+  private trackDevUnlockPauseTap(): void {
+    if (this.devControlsVisible) {
+      return;
+    }
+    this.devUnlockPauseTapCount = Math.min(3, this.devUnlockPauseTapCount + 1);
+    this.unlockDevControlsIfReady();
+  }
+
+  private trackDevUnlockModeTap(): void {
+    if (this.devControlsVisible) {
+      return;
+    }
+    this.devUnlockModeTapCount = Math.min(2, this.devUnlockModeTapCount + 1);
+    this.unlockDevControlsIfReady();
+  }
+
+  private unlockDevControlsIfReady(): void {
+    if (this.devUnlockPauseTapCount >= 3 && this.devUnlockModeTapCount >= 2) {
+      this.devControlsVisible = true;
+    }
+  }
+
+  private hasMines(): boolean {
+    return this.cells.some((cell: MineCell) => cell.mine);
   }
 
   private difficulty(): MineDifficulty {
-    const found = DIFFICULTIES.find((item: MineDifficulty) => item.key === this.difficultyKey);
-    return found === undefined ? DIFFICULTIES[0] : found;
+    return minesweeperDifficulty(this.difficultyKey);
   }
 
   private rows(): number {
@@ -477,18 +344,19 @@ export struct MinesweeperPage {
   }
 
   private remainingMines(): number {
-    return this.mineCount() - this.cells.filter((cell: MineCell) => cell.flag).length;
-  }
-
-  private openCount(): number {
-    return this.cells.filter((cell: MineCell) => cell.open && !cell.mine).length;
+    return remainingMineCount(this.cells, this.mineCount());
   }
 
   private currentScore(): number {
-    if (this.win) {
-      return Math.max(1, 10000 - this.elapsed * 8 + this.mineCount() * 20);
-    }
-    return this.openCount();
+    return this.win ? minesweeperWinScore(this.elapsed) : 0;
+  }
+
+  private openedSafeCells(): number {
+    return openSafeCellCount(this.cells);
+  }
+
+  private safeCellTotal(): number {
+    return minesweeperSafeCellTotal(this.difficulty());
   }
 
   private timeText(): string {
@@ -498,15 +366,15 @@ export struct MinesweeperPage {
   }
 
   private cellSize(): number {
-    return Math.floor(Math.min((this.pageWidth - 32) / this.cols(), (this.pageHeight - 180) / this.rows()));
+    return Math.max(8, Math.floor(Math.min(this.maxCellSizeByFrameWidth(), this.maxCellSizeByFrameHeight())));
   }
 
   private boardWidth(): number {
-    return this.cellSize() * this.cols() + 8;
+    return this.cellSize() * this.cols();
   }
 
   private boardHeight(): number {
-    return this.cellSize() * this.rows() + 8;
+    return this.cellSize() * this.rows();
   }
 
   private columnsTemplate(): string {
@@ -517,21 +385,62 @@ export struct MinesweeperPage {
     return value;
   }
 
-  private openCellText(cell: MineCell): string {
-    if (cell.mine) {
-      return cell.boom ? '×' : '●';
+  private rowsTemplate(): string {
+    let value = '1fr';
+    for (let i = 1; i < this.rows(); i += 1) {
+      value += ' 1fr';
     }
-    return cell.neighbor > 0 ? `${cell.neighbor}` : '';
+    return value;
   }
 
-  private numberColor(value: number): string {
-    if (value === 1) return '#0000ff';
-    if (value === 2) return '#008000';
-    if (value === 3) return '#ff0000';
-    if (value === 4) return '#000080';
-    if (value === 5) return '#800000';
-    if (value === 6) return '#008080';
-    if (value === 7) return '#000000';
-    return '#808080';
+  private boardContainerHeight(): number {
+    return Math.min(this.boardFrameHeight() + 4, this.availableBoardAreaHeight());
+  }
+
+  private maxCellSizeByFrameWidth(): number {
+    return Math.floor((this.boardFrameWidth() - this.boardFrameHorizontalInset() * 2) / this.cols());
+  }
+
+  private maxCellSizeByFrameHeight(): number {
+    return Math.floor((this.boardFrameHeight() - this.boardFrameVerticalInset() * 2) / this.rows());
+  }
+
+  private boardFrameWidth(): number {
+    const widthLimit = this.pageWidth - this.boardHorizontalMargin() * 2;
+    const heightLimit = this.availableBoardAreaHeight() - this.bottomBackgroundReserve();
+    const widthByHeight = Math.floor(heightLimit / this.boardFrameHeightRatio());
+    return Math.max(210, Math.floor(Math.min(widthLimit, widthByHeight)));
+  }
+
+  private boardFrameHeight(): number {
+    return Math.floor(this.boardFrameWidth() * this.boardFrameHeightRatio());
+  }
+
+  private boardFrameHeightRatio(): number {
+    return Math.min(1.22, Math.max(1.04, this.rows() / this.cols() * 0.98));
+  }
+
+  private boardHorizontalMargin(): number {
+    return this.pageWidth < 340 ? 14 : 18;
+  }
+
+  private availableBoardAreaHeight(): number {
+    return Math.max(120, this.pageHeight - this.hudHeightEstimate() - 16);
+  }
+
+  private hudHeightEstimate(): number {
+    return 214;
+  }
+
+  private boardFrameHorizontalInset(): number {
+    return Math.round(this.boardFrameWidth() * 0.042);
+  }
+
+  private boardFrameVerticalInset(): number {
+    return Math.round(this.boardFrameWidth() * 0.056);
+  }
+
+  private bottomBackgroundReserve(): number {
+    return this.pageHeight < 700 ? 18 : 46;
   }
 }

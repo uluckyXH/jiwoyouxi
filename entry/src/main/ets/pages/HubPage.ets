@@ -1,8 +1,28 @@
+import { MotionPressable } from '../components/MotionPressable';
+import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
-import { CoopAppSnapshot, GameModule, GameRecord } from '../shell/GameModule';
+import {
+  APPEARANCE_DARK,
+  APPEARANCE_LIGHT,
+  CoopAppSnapshot,
+  GameModule,
+  GameRecord
+} from '../shell/GameModule';
 import { GAME_MODULES, moduleById } from '../shell/GameRegistry';
 
 const HOME_GAME_ORDER: string[] = ['suika', 'minesweeper', 'tetris', 'eggSling', 'whiteTiles', 'rps'];
+const HOME_SIDE_PADDING: number = 20;
+const HOME_TOP_PADDING: number = 56;
+const HOME_CONTENT_BOTTOM_SPACE: number = 108;
+const HOME_TAB_BAR_HEIGHT: number = 96;
+const HOME_TAB_BAR_TOP_PADDING: number = 10;
+const HOME_TAB_BAR_BOTTOM_PADDING: number = 24;
+const HOME_TAB_ITEM_RADIUS: number = 14;
+const HOME_TAB_ICON_SIZE: number = 26;
+const HOME_TAB_SYMBOL_SIZE: number = 23;
+const HOME_TAB_LABEL_HEIGHT: number = 16;
+const HOME_HEADER_ACTION_SIZE: number = 42;
+const HOME_HEADER_SYMBOL_SIZE: number = 22;
 
 @Component
 export struct HubPage {
@@ -11,28 +31,21 @@ export struct HubPage {
   toggleFavorite: (gameId: string) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
   updateHaptic: (enabled: boolean) => void = () => {};
+  updateAppearanceMode: (appearanceMode: string) => void = () => {};
   @State activeTab: number = 0;
+  @State pressedTab: number = -1;
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
-      this.LiquidBackdrop()
       Scroll() {
         Column({ space: 14 }) {
-          if (this.activeTab === 0) {
-            this.HomeContent()
-          } else if (this.activeTab === 1) {
-            this.FavoriteList()
-          } else if (this.activeTab === 2) {
-            this.Achievements()
-          } else {
-            this.Settings()
-          }
+          this.ActiveTabContent()
           Blank()
-            .height(94)
+            .height(HOME_CONTENT_BOTTOM_SPACE)
         }
         .width('100%')
         .constraintSize({ minHeight: '100%' })
-        .padding({ left: 20, right: 20, top: 34, bottom: 18 })
+        .padding({ left: HOME_SIDE_PADDING, right: HOME_SIDE_PADDING, top: HOME_TOP_PADDING, bottom: 18 })
       }
       .width('100%')
       .height('100%')
@@ -41,38 +54,36 @@ export struct HubPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(CoopTheme.bgWarm)
+    .backgroundColor(this.homeBgColor())
   }
 
   @Builder
-  LiquidBackdrop() {
-    Stack() {
-      Text('')
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 180,
-          colors: [['#fff8ec', 0], ['#f7eddf', 0.62], ['#eef7fb', 1]]
-        })
-      Text('')
-        .width('100%')
-        .height(260)
-        .linearGradient({
-          angle: 140,
-          colors: [['rgba(255,224,148,0.50)', 0], ['rgba(255,127,123,0.22)', 0.52], ['rgba(255,255,255,0.10)', 1]]
-        })
-        .position({ x: 0, y: 0 })
-      Text('')
-        .width('100%')
-        .height(210)
-        .linearGradient({
-          angle: 0,
-          colors: [['rgba(255,255,255,0.00)', 0], ['rgba(255,255,255,0.62)', 1]]
-        })
-        .position({ x: 0, y: 210 })
+  ActiveTabContent() {
+    if (this.activeTab === 0) {
+      Stack() {
+        this.HomeContent()
+      }
+      .width('100%')
+      .transition(this.tabTransition())
+    } else if (this.activeTab === 1) {
+      Stack() {
+        this.FavoriteList()
+      }
+      .width('100%')
+      .transition(this.tabTransition())
+    } else if (this.activeTab === 2) {
+      Stack() {
+        this.Achievements()
+      }
+      .width('100%')
+      .transition(this.tabTransition())
+    } else {
+      Stack() {
+        this.Settings()
+      }
+      .width('100%')
+      .transition(this.tabTransition())
     }
-    .width('100%')
-    .height('100%')
   }
 
   @Builder
@@ -94,33 +105,38 @@ export struct HubPage {
         Text(this.greetingTitle())
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
+          .fontColor(this.inkColor())
         Text('今天玩什么呢？')
           .fontSize(13)
           .fontWeight(FontWeight.Medium)
-          .fontColor(CoopTheme.muted)
+          .fontColor(this.mutedColor())
       }
       .alignItems(HorizontalAlign.Start)
       .layoutWeight(1)
 
       Row({ space: 10 }) {
-        Text('🔔')
-          .width(42)
-          .height(42)
-          .fontSize(19)
-          .textAlign(TextAlign.Center)
-          .backgroundColor(CoopTheme.panel)
-          .border({ width: 1, color: CoopTheme.line })
-          .borderRadius(21)
-          .shadow(CoopTheme.shadow)
+        Stack({ alignContent: Alignment.Center }) {
+          SymbolGlyph(this.appearanceToggleIcon())
+            .fontSize(HOME_HEADER_SYMBOL_SIZE)
+            .fontColor([this.activeColor()])
+        }
+          .width(HOME_HEADER_ACTION_SIZE)
+          .height(HOME_HEADER_ACTION_SIZE)
+          .backgroundColor(this.iconButtonBgColor())
+          .border({ width: 1, color: this.lineColor() })
+          .borderRadius(HOME_HEADER_ACTION_SIZE / 2)
+          .shadow(this.softShadow())
+          .onClick(() => {
+            this.toggleAppearanceMode();
+          })
         Image($r('app.media.app_icon'))
-          .width(42)
-          .height(42)
+          .width(HOME_HEADER_ACTION_SIZE)
+          .height(HOME_HEADER_ACTION_SIZE)
           .objectFit(ImageFit.Cover)
-          .borderRadius(21)
-          .backgroundColor(CoopTheme.panel)
-          .border({ width: 1, color: CoopTheme.line })
-          .shadow(CoopTheme.shadow)
+          .borderRadius(HOME_HEADER_ACTION_SIZE / 2)
+          .backgroundColor(this.iconButtonBgColor())
+          .border({ width: 1, color: this.lineColor() })
+          .shadow(this.softShadow())
       }
     }
     .width('100%')
@@ -128,76 +144,63 @@ export struct HubPage {
 
   @Builder
   HeroBanner() {
-    Stack() {
-      Row()
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 135,
-          colors: [['#ffe6a8', 0], ['#ffc95c', 0.46], ['#ff7f7b', 1]]
-        })
-      Text('')
-        .width('100%')
-        .height('100%')
-        .linearGradient({
-          angle: 90,
-          colors: [['rgba(255,255,255,0.60)', 0], ['rgba(255,255,255,0.08)', 0.48], ['rgba(74,38,18,0.18)', 1]]
-        })
-      Row() {
-        Image($r('app.media.app_icon'))
-          .width(128)
-          .height(118)
-          .objectFit(ImageFit.Contain)
-          .shadow(CoopTheme.glow)
-        Column({ space: 7 }) {
-          Text('鸡窝游戏')
-            .fontSize(30)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#fffaf2')
-            .textShadow({ radius: 8, color: 'rgba(70,30,10,0.34)', offsetX: 0, offsetY: 2 })
-          Text('没网也能玩一窝')
-            .fontSize(13)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#fffaf2')
-          Button('开始游戏 ▶')
-            .height(38)
-            .padding({ left: 18, right: 18 })
-            .borderRadius(19)
-            .fontSize(14)
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#fffaf2')
-            .backgroundColor('#ff6f76')
-            .shadow({
-              radius: 18,
-              color: 'rgba(255,111,118,0.30)',
-              offsetX: 0,
-              offsetY: 8
-            })
-            .onClick(() => {
-              this.openGame(this.heroGameId());
-            })
-        }
-        .alignItems(HorizontalAlign.Center)
-        .layoutWeight(1)
+    MotionPressable({
+      pressScale: 0.985,
+      pressedOpacity: 0.98,
+      action: () => {
+        this.openGame(this.heroGameId());
       }
-      .height('100%')
+    }) {
+      Stack() {
+        Row()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(this.heroBannerBgColor())
+        Row() {
+          Image($r('app.media.app_icon'))
+            .width(128)
+            .height(118)
+            .objectFit(ImageFit.Contain)
+            .shadow(this.softShadow())
+          Column({ space: 7 }) {
+            Text('鸡窝游戏')
+              .fontSize(30)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.inkColor())
+            Text('没网也能玩一窝')
+              .fontSize(13)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.mutedColor())
+            Text('开始游戏 ▶')
+              .height(38)
+              .padding({ left: 18, right: 18 })
+              .borderRadius(19)
+              .fontSize(14)
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#fffaf2')
+              .textAlign(TextAlign.Center)
+              .backgroundColor(this.activeColor())
+              .shadow({
+                radius: 18,
+                color: 'rgba(255,111,118,0.30)',
+                offsetX: 0,
+                offsetY: 8
+              })
+          }
+          .alignItems(HorizontalAlign.Center)
+          .layoutWeight(1)
+        }
+        .height('100%')
+        .width('100%')
+        .padding({ left: 10, right: 16 })
+      }
       .width('100%')
-      .padding({ left: 10, right: 16 })
+      .height(178)
+      .borderRadius(28)
+      .clip(true)
+      .border({ width: 1, color: this.lineColor() })
+      .shadow(this.cardShadow())
     }
-    .width('100%')
-    .height(178)
-    .borderRadius(28)
-    .clip(true)
-    .border({ width: 1, color: 'rgba(255,255,255,0.72)' })
-    .shadow({
-      radius: 40,
-      color: 'rgba(88,52,24,0.16)',
-      offsetX: 0,
-      offsetY: 18
-    })
-    .onClick(() => {
-      this.openGame(this.heroGameId());
-    })
   }
 
   @Builder
@@ -209,13 +212,13 @@ export struct HubPage {
           .height(28)
           .fontSize(17)
           .textAlign(TextAlign.Center)
-          .backgroundColor('rgba(255,250,240,0.76)')
+          .backgroundColor(this.sectionIconBgColor())
           .borderRadius(14)
-          .border({ width: 1, color: CoopTheme.line })
+          .border({ width: 1, color: this.lineColor() })
         Text(title)
           .fontSize(17)
           .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
+          .fontColor(this.inkColor())
       }
       Blank()
       if (showMore) {
@@ -224,11 +227,11 @@ export struct HubPage {
           .height(30)
           .fontSize(26)
           .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
+          .fontColor(this.inkColor())
           .textAlign(TextAlign.Center)
-          .backgroundColor('rgba(255,250,240,0.52)')
+          .backgroundColor(this.sectionActionBgColor())
           .borderRadius(15)
-          .border({ width: 1, color: CoopTheme.line })
+          .border({ width: 1, color: this.lineColor() })
           .onClick(() => {
             this.activeTab = 0;
           })
@@ -256,66 +259,61 @@ export struct HubPage {
 
   @Builder
   HomeGameCard(module: GameModule) {
-    Row({ space: 10 }) {
-      Stack() {
-        Text(module.icon)
-          .fontSize(30)
-          .fontColor(module.accent)
-        Text(this.isFavorite(module.id) ? '★' : '☆')
-          .width(24)
-          .height(24)
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.isFavorite(module.id) ? CoopTheme.brand : 'rgba(123,108,98,0.58)')
-          .textAlign(TextAlign.Center)
-          .backgroundColor('rgba(255,255,255,0.78)')
-          .borderRadius(12)
-          .border({ width: 1, color: CoopTheme.line })
-          .position({ x: 31, y: -7 })
-          .onClick(() => {
-            this.toggleFavorite(module.id);
-          })
+    MotionPressable({
+      action: () => {
+        this.openGame(module.id);
       }
-      .width(48)
-      .height(48)
-      .borderRadius(16)
-      .linearGradient({
-        angle: 180,
-        colors: [['#fff2d6', 0], ['#ffe2b5', 1]]
-      })
-      .border({ width: 1, color: 'rgba(111,73,39,0.10)' })
+    }) {
+      Row({ space: 10 }) {
+        Stack() {
+          Text(module.icon)
+            .fontSize(30)
+            .fontColor(module.accent)
+          Text(this.isFavorite(module.id) ? '★' : '☆')
+            .width(24)
+            .height(24)
+            .fontSize(15)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.isFavorite(module.id) ? CoopTheme.brand : this.favoriteInactiveColor())
+            .textAlign(TextAlign.Center)
+            .backgroundColor(this.favoriteBadgeBgColor())
+            .borderRadius(12)
+            .border({ width: 1, color: this.lineColor() })
+            .position({ x: 31, y: -7 })
+            .onClick(() => {
+              this.toggleFavorite(module.id);
+            })
+        }
+        .width(48)
+        .height(48)
+        .borderRadius(16)
+        .backgroundColor(this.gameIconBgColor())
+        .border({ width: 1, color: this.iconTileLineColor() })
 
-      Column({ space: 5 }) {
-        Text(module.title)
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
-          .maxLines(2)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-        Text(this.homeTag(module.id))
-          .fontSize(10)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(CoopTheme.muted)
-          .maxLines(1)
+        Column({ space: 5 }) {
+          Text(module.title)
+            .fontSize(15)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.inkColor())
+            .maxLines(2)
+            .textOverflow({ overflow: TextOverflow.Ellipsis })
+          Text(this.homeTag(module.id))
+            .fontSize(10)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.mutedColor())
+            .maxLines(1)
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      .width('100%')
+      .height(96)
+      .padding(12)
+      .borderRadius(20)
+      .backgroundColor(this.panelColor())
+      .border({ width: 1, color: this.lineColor() })
+      .shadow(this.cardShadow())
     }
-    .width('100%')
-    .height(96)
-    .padding(12)
-    .borderRadius(20)
-    .backgroundColor(CoopTheme.panel)
-    .border({ width: 1, color: CoopTheme.line })
-    .shadow({
-      radius: 18,
-      color: 'rgba(92,58,28,0.08)',
-      offsetX: 0,
-      offsetY: 6
-    })
-    .onClick(() => {
-      this.openGame(module.id);
-    })
   }
 
   @Builder
@@ -334,16 +332,16 @@ export struct HubPage {
         Text(label)
           .fontSize(12)
           .fontWeight(FontWeight.Medium)
-          .fontColor(CoopTheme.muted)
+          .fontColor(this.mutedColor())
         Row({ space: 3 }) {
           Text(value)
             .fontSize(24)
             .fontWeight(FontWeight.Bold)
-            .fontColor(CoopTheme.ink)
+            .fontColor(this.inkColor())
           Text(suffix)
             .fontSize(13)
             .fontWeight(FontWeight.Bold)
-            .fontColor(CoopTheme.brandDark)
+            .fontColor(this.brandDarkColor())
         }
       }
       .alignItems(HorizontalAlign.Start)
@@ -357,57 +355,68 @@ export struct HubPage {
     .height(84)
     .padding(14)
     .borderRadius(22)
-    .backgroundColor(CoopTheme.panel)
-    .border({ width: 1, color: CoopTheme.line })
-    .shadow({
-      radius: 20,
-      color: 'rgba(92,58,28,0.08)',
-      offsetX: 0,
-      offsetY: 8
-    })
+    .backgroundColor(this.panelColor())
+    .border({ width: 1, color: this.lineColor() })
+    .shadow(this.cardShadow())
   }
 
   @Builder
   BottomTabBar() {
     Row() {
-      this.BottomTabItem(0, '⌂', '首页')
-      this.BottomTabItem(1, '♡', '收藏')
-      this.BottomTabItem(2, '♕', '成就')
-      this.BottomTabItem(3, '⚙', '设置')
+      this.BottomTabItem(0, $r('sys.symbol.house'), '首页')
+      this.BottomTabItem(1, $r('sys.symbol.heart'), '收藏')
+      this.BottomTabItem(2, $r('sys.symbol.star'), '成就')
+      this.BottomTabItem(3, $r('sys.symbol.more'), '设置')
     }
-    .width('92%')
-    .height(66)
-    .padding({ left: 8, right: 8 })
-    .margin({ bottom: 12 })
-    .borderRadius(26)
-    .backgroundColor('rgba(255,250,240,0.84)')
-    .border({ width: 1, color: CoopTheme.line })
-    .shadow({
-      radius: 34,
-      color: 'rgba(74,45,20,0.16)',
-      offsetX: 0,
-      offsetY: 10
+    .width('100%')
+    .height(HOME_TAB_BAR_HEIGHT)
+    .padding({
+      left: HOME_SIDE_PADDING,
+      right: HOME_SIDE_PADDING,
+      top: HOME_TAB_BAR_TOP_PADDING,
+      bottom: HOME_TAB_BAR_BOTTOM_PADDING
     })
+    .backgroundColor(this.tabBarBgColor())
+    .border({ width: { top: 1 }, color: this.tabBarLineColor() })
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
   }
 
   @Builder
-  BottomTabItem(index: number, icon: string, label: string) {
+  BottomTabItem(index: number, icon: Resource, label: string) {
     Column({ space: 3 }) {
-      Text(icon)
-        .fontSize(20)
-        .fontColor(this.activeTab === index ? CoopTheme.coral : CoopTheme.muted)
+      Stack({ alignContent: Alignment.Center }) {
+        SymbolGlyph(icon)
+          .fontSize(HOME_TAB_SYMBOL_SIZE)
+          .fontColor([this.activeTab === index ? this.activeColor() : this.tabMutedColor()])
+      }
+      .width(HOME_TAB_ICON_SIZE)
+      .height(HOME_TAB_ICON_SIZE)
       Text(label)
+        .height(HOME_TAB_LABEL_HEIGHT)
         .fontSize(11)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.activeTab === index ? CoopTheme.coral : CoopTheme.muted)
+        .fontColor(this.activeTab === index ? this.activeColor() : this.tabMutedColor())
+        .textAlign(TextAlign.Center)
     }
     .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
-    .borderRadius(20)
-    .backgroundColor(this.activeTab === index ? 'rgba(255,127,123,0.10)' : 'rgba(255,255,255,0.00)')
+    .borderRadius(HOME_TAB_ITEM_RADIUS)
+    .backgroundColor(this.activeTab === index ? this.activeTabBgColor() : 'rgba(255,255,255,0.00)')
+    .scale({
+      x: this.pressedTab === index ? CoopMotion.pressScale : 1,
+      y: this.pressedTab === index ? CoopMotion.pressScale : 1
+    })
+    .opacity(this.pressedTab === index ? 0.96 : 1)
+    .onTouch((event: TouchEvent) => {
+      if (event.type === TouchType.Down) {
+        this.setPressedTab(index);
+      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
+        this.setPressedTab(-1);
+      }
+    })
     .onClick(() => {
-      this.activeTab = index;
+      this.switchTab(index);
     })
   }
 
@@ -428,43 +437,47 @@ export struct HubPage {
 
   @Builder
   WideGameRow(module: GameModule) {
-    Row({ space: 12 }) {
-      Text(module.icon)
-        .width(48)
-        .height(48)
-        .fontSize(28)
-        .fontColor(module.accent)
-        .textAlign(TextAlign.Center)
-        .backgroundColor('rgba(255,242,214,0.78)')
-        .borderRadius(16)
-      Column({ space: 3 }) {
-        Text(module.title)
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
-        Text(`${module.highScoreLabel} ${this.recordFor(module.id).highScore} · ${this.recordFor(module.id).playCount} 局`)
-          .fontSize(12)
-          .fontColor(CoopTheme.muted)
+    MotionPressable({
+      action: () => {
+        this.openGame(module.id);
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-      Button('开始')
-        .height(36)
-        .width(78)
-        .borderRadius(18)
-        .fontColor('#ffffff')
-        .fontWeight(FontWeight.Bold)
-        .backgroundColor(module.accent)
-        .onClick(() => {
-          this.openGame(module.id);
-        })
+    }) {
+      Row({ space: 12 }) {
+        Text(module.icon)
+          .width(48)
+          .height(48)
+          .fontSize(28)
+          .fontColor(module.accent)
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.gameIconBgColor())
+          .borderRadius(16)
+        Column({ space: 3 }) {
+          Text(module.title)
+            .fontSize(15)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.inkColor())
+          Text(`${module.highScoreLabel} ${this.recordFor(module.id).highScore} · ${this.recordFor(module.id).playCount} 局`)
+            .fontSize(12)
+            .fontColor(this.mutedColor())
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        Text('开始')
+          .height(36)
+          .width(78)
+          .borderRadius(18)
+          .fontColor('#ffffff')
+          .fontWeight(FontWeight.Bold)
+          .textAlign(TextAlign.Center)
+          .backgroundColor(module.accent)
+      }
+      .width('100%')
+      .padding(12)
+      .borderRadius(20)
+      .backgroundColor(this.panelColor())
+      .border({ width: 1, color: this.lineColor() })
+      .shadow(this.softShadow())
     }
-    .width('100%')
-    .padding(12)
-    .borderRadius(20)
-    .backgroundColor(CoopTheme.panel)
-    .border({ width: 1, color: CoopTheme.line })
-    .shadow(CoopTheme.shadow)
   }
 
   @Builder
@@ -489,19 +502,19 @@ export struct HubPage {
         .height(34)
         .fontSize(20)
         .fontWeight(FontWeight.Bold)
-        .fontColor(unlocked ? '#ffffff' : CoopTheme.muted)
+        .fontColor(unlocked ? '#ffffff' : this.mutedColor())
         .textAlign(TextAlign.Center)
-        .backgroundColor(unlocked ? CoopTheme.green : CoopTheme.panelSoft)
-        .border({ width: 1, color: CoopTheme.line })
+        .backgroundColor(unlocked ? CoopTheme.green : this.panelSoftColor())
+        .border({ width: 1, color: this.lineColor() })
         .borderRadius(12)
       Column({ space: 2 }) {
         Text(title)
           .fontSize(15)
           .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
+          .fontColor(this.inkColor())
         Text(hint)
           .fontSize(12)
-          .fontColor(CoopTheme.muted)
+          .fontColor(this.mutedColor())
       }
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
@@ -509,9 +522,9 @@ export struct HubPage {
     .width('100%')
     .padding(12)
     .borderRadius(20)
-    .backgroundColor(CoopTheme.panel)
-    .border({ width: 1, color: CoopTheme.line })
-    .shadow(CoopTheme.shadow)
+    .backgroundColor(this.panelColor())
+    .border({ width: 1, color: this.lineColor() })
+    .shadow(this.softShadow())
   }
 
   @Builder
@@ -524,43 +537,48 @@ export struct HubPage {
       this.SettingSwitch('触感反馈', this.snapshot.hapticEnabled, () => {
         this.updateHaptic(!this.snapshot.hapticEnabled);
       })
+      this.SettingSwitch('深色模式', this.isDarkMode(), () => {
+        this.toggleAppearanceMode();
+      })
       Text('当前阶段只维护鸿蒙原生离线版本。iOS / Android 等你口令再做。')
         .width('100%')
         .fontSize(12)
-        .fontColor(CoopTheme.muted)
+        .fontColor(this.mutedColor())
         .padding(14)
         .borderRadius(20)
-        .backgroundColor(CoopTheme.panel)
-        .border({ width: 1, color: CoopTheme.line })
+        .backgroundColor(this.panelColor())
+        .border({ width: 1, color: this.lineColor() })
     }
     .width('100%')
   }
 
   @Builder
   SettingSwitch(label: string, enabled: boolean, action: () => void) {
-    Row() {
-      Text(label)
-        .fontSize(15)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-      Blank()
-      Button(enabled ? '开' : '关')
-        .width(64)
-        .height(34)
-        .borderRadius(17)
-        .fontColor(enabled ? '#ffffff' : CoopTheme.ink)
-        .backgroundColor(enabled ? CoopTheme.teal : CoopTheme.panelSoft)
-        .border({ width: 1, color: CoopTheme.line })
-        .onClick(() => {
-          action();
-        })
+    MotionPressable({
+      action: action
+    }) {
+      Row() {
+        Text(label)
+          .fontSize(15)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.inkColor())
+        Blank()
+        Text(enabled ? '开' : '关')
+          .width(64)
+          .height(34)
+          .borderRadius(17)
+          .fontColor(enabled ? '#ffffff' : this.inkColor())
+          .textAlign(TextAlign.Center)
+          .backgroundColor(enabled ? CoopTheme.teal : this.panelSoftColor())
+          .border({ width: 1, color: this.lineColor() })
+      }
+      .width('100%')
+      .padding(14)
+      .borderRadius(20)
+      .backgroundColor(this.panelColor())
+      .border({ width: 1, color: this.lineColor() })
+      .shadow(this.softShadow())
     }
-    .width('100%')
-    .padding(14)
-    .borderRadius(20)
-    .backgroundColor(CoopTheme.panel)
-    .border({ width: 1, color: CoopTheme.line })
-    .shadow(CoopTheme.shadow)
   }
 
   @Builder
@@ -569,11 +587,11 @@ export struct HubPage {
       .width('100%')
       .padding(16)
       .fontSize(13)
-      .fontColor(CoopTheme.muted)
+      .fontColor(this.mutedColor())
       .borderRadius(20)
-      .backgroundColor(CoopTheme.panel)
-      .border({ width: 1, color: CoopTheme.line })
-      .shadow(CoopTheme.shadow)
+      .backgroundColor(this.panelColor())
+      .border({ width: 1, color: this.lineColor() })
+      .shadow(this.softShadow())
   }
 
   private homeModules(): GameModule[] {
@@ -615,6 +633,163 @@ export struct HubPage {
 
   private isFavorite(gameId: string): boolean {
     return this.snapshot.favorites.includes(gameId);
+  }
+
+  private isDarkMode(): boolean {
+    return this.snapshot.appearanceMode === APPEARANCE_DARK;
+  }
+
+  private toggleAppearanceMode(): void {
+    const nextMode = this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK;
+    this.getUIContext().animateTo({
+      duration: CoopMotion.modalDuration,
+      curve: Curve.EaseOut
+    }, () => {
+      this.updateAppearanceMode(nextMode);
+    });
+  }
+
+  private appearanceToggleIcon(): Resource {
+    return $r('sys.symbol.exposure');
+  }
+
+  private homeBgColor(): string {
+    return this.isDarkMode() ? '#101110' : '#fff4e4';
+  }
+
+  private inkColor(): string {
+    return this.isDarkMode() ? '#fff2df' : CoopTheme.ink;
+  }
+
+  private mutedColor(): string {
+    return this.isDarkMode() ? '#c8b7a2' : '#786555';
+  }
+
+  private brandDarkColor(): string {
+    return this.isDarkMode() ? '#ffc46f' : CoopTheme.brandDark;
+  }
+
+  private activeColor(): string {
+    return this.isDarkMode() ? '#ffb079' : CoopTheme.coral;
+  }
+
+  private tabMutedColor(): string {
+    return this.isDarkMode() ? '#a99a88' : CoopTheme.muted;
+  }
+
+  private panelColor(): string {
+    return this.isDarkMode() ? '#211f1b' : '#fffaf2';
+  }
+
+  private panelSoftColor(): string {
+    return this.isDarkMode() ? '#2a2621' : '#fff0da';
+  }
+
+  private lineColor(): string {
+    return this.isDarkMode() ? 'rgba(255,236,205,0.14)' : 'rgba(132,91,45,0.12)';
+  }
+
+  private iconButtonBgColor(): string {
+    return this.panelColor();
+  }
+
+  private sectionIconBgColor(): string {
+    return this.panelSoftColor();
+  }
+
+  private sectionActionBgColor(): string {
+    return this.panelSoftColor();
+  }
+
+  private favoriteBadgeBgColor(): string {
+    return this.isDarkMode() ? '#1b1916' : '#fffaf2';
+  }
+
+  private favoriteInactiveColor(): string {
+    return this.isDarkMode() ? 'rgba(201,181,156,0.62)' : 'rgba(123,108,98,0.58)';
+  }
+
+  private gameIconBgColor(): string {
+    return this.isDarkMode() ? '#2d261f' : '#fff0d2';
+  }
+
+  private iconTileLineColor(): string {
+    return this.isDarkMode() ? 'rgba(255,236,205,0.14)' : 'rgba(111,73,39,0.12)';
+  }
+
+  private tabBarBgColor(): string {
+    return this.isDarkMode() ? '#1b1916' : '#fffaf2';
+  }
+
+  private tabBarLineColor(): string {
+    return this.isDarkMode() ? 'rgba(255,236,205,0.16)' : 'rgba(132,91,45,0.14)';
+  }
+
+  private activeTabBgColor(): string {
+    return this.isDarkMode() ? 'rgba(255,128,112,0.20)' : 'rgba(255,127,123,0.16)';
+  }
+
+  private heroBannerBgColor(): string {
+    return this.isDarkMode() ? '#26221d' : '#fff8ee';
+  }
+
+  private softShadow(): ShadowOptions {
+    if (this.isDarkMode()) {
+      return {
+        radius: 22,
+        color: 'rgba(0,0,0,0.34)',
+        offsetX: 0,
+        offsetY: 10
+      };
+    }
+    return CoopTheme.shadow;
+  }
+
+  private cardShadow(): ShadowOptions {
+    if (this.isDarkMode()) {
+      return {
+        radius: 18,
+        color: 'rgba(0,0,0,0.30)',
+        offsetX: 0,
+        offsetY: 8
+      };
+    }
+    return {
+      radius: 20,
+      color: 'rgba(111,74,34,0.12)',
+      offsetX: 0,
+      offsetY: 8
+    };
+  }
+
+  private tabTransition(): TransitionEffect {
+    return TransitionEffect.OPACITY
+      .combine(TransitionEffect.translate({ x: 0, y: CoopMotion.tabOffsetVp }))
+      .animation({ duration: CoopMotion.tabDuration, curve: Curve.EaseOut });
+  }
+
+  private switchTab(index: number): void {
+    if (this.activeTab === index) {
+      return;
+    }
+    this.getUIContext().animateTo({
+      duration: CoopMotion.tabDuration,
+      curve: Curve.EaseOut
+    }, () => {
+      this.activeTab = index;
+    });
+  }
+
+  private setPressedTab(index: number): void {
+    if (this.pressedTab === index) {
+      return;
+    }
+    this.getUIContext().animateTo({
+      duration: CoopMotion.pressDuration,
+      curve: Curve.EaseOut
+    }, () => {
+      this.pressedTab = index;
+    });
   }
 
   private recordFor(gameId: string): GameRecord {
