@@ -21,7 +21,11 @@ export interface CoopAppSnapshot {
   recent: string[];
   soundEnabled: boolean;
   hapticEnabled: boolean;
+  appearanceMode: string;
 }
+
+export const APPEARANCE_LIGHT: string = 'light';
+export const APPEARANCE_DARK: string = 'dark';
 
 export function emptySnapshot(): CoopAppSnapshot {
   return {
@@ -29,6 +33,7 @@ export function emptySnapshot(): CoopAppSnapshot {
     favorites: [],
     recent: [],
     soundEnabled: true,
-    hapticEnabled: true
+    hapticEnabled: true,
+    appearanceMode: APPEARANCE_LIGHT
   };
 }

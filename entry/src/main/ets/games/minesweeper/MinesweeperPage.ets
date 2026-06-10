@@ -1,3 +1,4 @@
+import { CoopModalTransition } from '../../components/CoopModalTransition';
 import { CoopTheme } from '../../design/CoopTheme';
 import { MinesweeperBoard } from './MinesweeperBoard';
 import { MinesweeperHud } from './MinesweeperHud';
@@ -154,34 +155,48 @@ export struct MinesweeperPage {
 
   @Builder
   PauseOverlay() {
-    Column({ space: 12 }) {
-      Text('扫雷暂停')
-        .fontSize(26)
-        .fontWeight(FontWeight.Bold)
-        .fontColor('#ffffff')
-      Button('继续')
-        .width(160)
-        .height(42)
-        .borderRadius(8)
-        .backgroundColor('#ffffff')
-        .fontColor(CoopTheme.ink)
-        .onClick(() => {
-          this.paused = false;
-        })
-      Button('重新开始')
-        .width(160)
-        .height(42)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.brand)
-        .fontColor('#ffffff')
-        .onClick(() => {
-          this.restart();
-        })
+    CoopModalTransition({
+      maskColor: 'rgba(7,8,18,0.62)',
+      panelScaleFrom: 0.96,
+      panelOffsetVp: 8
+    }) {
+      Column({ space: 12 }) {
+        Text('扫雷暂停')
+          .fontSize(26)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(CoopTheme.ink)
+        Button('继续')
+          .width(160)
+          .height(42)
+          .borderRadius(8)
+          .backgroundColor('#ffffff')
+          .fontColor(CoopTheme.ink)
+          .onClick(() => {
+            this.paused = false;
+          })
+        Button('重新开始')
+          .width(160)
+          .height(42)
+          .borderRadius(8)
+          .backgroundColor(CoopTheme.brand)
+          .fontColor('#ffffff')
+          .onClick(() => {
+            this.restart();
+          })
+      }
+      .justifyContent(FlexAlign.Center)
+      .width(224)
+      .padding({ left: 20, right: 20, top: 22, bottom: 22 })
+      .borderRadius(24)
+      .backgroundColor('rgba(255,250,240,0.90)')
+      .border({ width: 1, color: 'rgba(255,255,255,0.82)' })
+      .shadow({
+        radius: 24,
+        color: 'rgba(7,8,18,0.24)',
+        offsetX: 0,
+        offsetY: 10
+      })
     }
-    .justifyContent(FlexAlign.Center)
-    .width('100%')
-    .height('100%')
-    .backgroundColor('rgba(7,8,18,0.62)')
   }
 
   private restart(): void {

@@ -16,9 +16,12 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     try {
       const mainWindow = windowStage.getMainWindowSync();
-      mainWindow.setWindowLayoutFullScreen(true);
+      mainWindow.setImmersiveModeEnabledState(true);
+      mainWindow.setWindowLayoutFullScreen(true).catch((error: Object) => {
+        hilog.warn(DOMAIN, 'WorldOfRPSNative', 'Failed to enable fullscreen layout: %{public}s', JSON.stringify(error));
+      });
     } catch (error) {
-      hilog.warn(DOMAIN, 'WorldOfRPSNative', 'Failed to enable fullscreen: %{public}s', JSON.stringify(error));
+      hilog.warn(DOMAIN, 'WorldOfRPSNative', 'Failed to enable immersive window: %{public}s', JSON.stringify(error));
     }
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {

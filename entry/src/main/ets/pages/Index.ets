@@ -1,6 +1,9 @@
 import { common } from '@kit.AbilityKit';
 import { CoopStorage } from '../app/CoopStorage';
-import { CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
+import { CoopMotion } from '../design/CoopMotion';
+import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
+import { GameEntryBadge } from '../shell/GameEntryBadge';
+import { GameSceneTransition } from '../shell/GameSceneTransition';
 import { HubPage } from './HubPage';
 import { RpsPage } from '../games/rps/RpsPage';
 import { WhiteTilesPage } from '../games/whiteTiles/WhiteTilesPage';
@@ -13,9 +16,17 @@ import { EggSlingPage } from '../games/eggSling/EggSlingPage';
 @Component
 struct Index {
   private appContext: common.Context | undefined = undefined;
+  private entryBadgeInTimer: number = -1;
+  private entryBadgeOutTimer: number = -1;
+  private entryBadgeUnmountTimer: number = -1;
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State activeGame: string = 'hub';
   @State tetrisSession: number = 0;
+  @State sceneDirection: string = 'push';
+  @State sceneTransitioning: boolean = false;
+  @State entryBadgeGameId: string = 'rps';
+  @State entryBadgeMounted: boolean = false;
+  @State entryBadgeVisible: boolean = false;
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext();
@@ -29,89 +40,117 @@ struct Index {
 
   onBackPress(): boolean {
     if (this.activeGame !== 'hub') {
-      this.activeGame = 'hub';
+      this.closeGameAnimated();
       return true;
     }
     return false;
   }
 
+  aboutToDisappear(): void {
+    this.clearEntryBadgeTimers();
+  }
+
   build() {
     Stack() {
       if (this.activeGame === 'hub') {
-        HubPage({
-          snapshot: this.snapshot,
-          openGame: (gameId: string) => {
-            this.openGame(gameId);
-          },
-          toggleFavorite: (gameId: string) => {
-            this.toggleFavorite(gameId);
-          },
-          updateSound: (enabled: boolean) => {
-            this.updateSound(enabled);
-          },
-          updateHaptic: (enabled: boolean) => {
-            this.updateHaptic(enabled);
-          }
-        })
+        GameSceneTransition({ role: 'hub', sceneDirection: this.sceneDirection }) {
+          HubPage({
+            snapshot: this.snapshot,
+            openGame: (gameId: string) => {
+              this.openGame(gameId);
+            },
+            toggleFavorite: (gameId: string) => {
+              this.toggleFavorite(gameId);
+            },
+            updateSound: (enabled: boolean) => {
+              this.updateSound(enabled);
+            },
+            updateHaptic: (enabled: boolean) => {
+              this.updateHaptic(enabled);
+            },
+            updateAppearanceMode: (appearanceMode: string) => {
+              this.updateAppearanceMode(appearanceMode);
+            }
+          })
+        }
       } else if (this.activeGame === 'rps') {
-        RpsPage({
-          exitToHub: () => {
-            this.activeGame = 'hub';
-          },
-          recordScore: (score: number) => {
-            this.recordGameResult('rps', score);
-          }
-        })
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          RpsPage({
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('rps', score);
+            }
+          })
+        }
       } else if (this.activeGame === 'whiteTiles') {
-        WhiteTilesPage({
-          bestScore: this.recordFor('whiteTiles').highScore,
-          exitToHub: () => {
-            this.activeGame = 'hub';
-          },
-          recordScore: (score: number) => {
-            this.recordGameResult('whiteTiles', score);
-          }
-        })
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          WhiteTilesPage({
+            bestScore: this.recordFor('whiteTiles').highScore,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('whiteTiles', score);
+            }
+          })
+        }
       } else if (this.activeGame === 'minesweeper') {
-        MinesweeperPage({
-          bestScore: this.recordFor('minesweeper').highScore,
-          exitToHub: () => {
-            this.activeGame = 'hub';
-          },
-          recordScore: (score: number) => {
-            this.recordGameResult('minesweeper', score);
-          }
-        })
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          MinesweeperPage({
+            bestScore: this.recordFor('minesweeper').highScore,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('minesweeper', score);
+            }
+          })
+        }
       } else if (this.activeGame === 'tetris') {
-        TetrisPage({
-          bestScore: this.recordFor('tetris').highScore,
-          session: this.tetrisSession,
-          exitToHub: () => {
-            this.activeGame = 'hub';
-          },
-          recordScore: (score: number) => {
-            this.recordGameResult('tetris', score);
-          }
-        })
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          TetrisPage({
+            bestScore: this.recordFor('tetris').highScore,
+            session: this.tetrisSession,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('tetris', score);
+            }
+          })
+        }
       } else if (this.activeGame === 'suika') {
-        SuikaPage({
-          bestScore: this.recordFor('suika').highScore,
-          exitToHub: () => {
-            this.activeGame = 'hub';
-          },
-          recordScore: (score: number) => {
-            this.recordGameResult('suika', score);
-          }
-        })
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          SuikaPage({
+            bestScore: this.recordFor('suika').highScore,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('suika', score);
+            }
+          })
+        }
       } else if (this.activeGame === 'eggSling') {
-        EggSlingPage({
-          bestScore: this.recordFor('eggSling').highScore,
-          exitToHub: () => {
-            this.activeGame = 'hub';
-          },
-          recordScore: (score: number) => {
-            this.recordGameResult('eggSling', score);
-          }
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          EggSlingPage({
+            bestScore: this.recordFor('eggSling').highScore,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('eggSling', score);
+            }
+          })
+        }
+      }
+
+      if (this.entryBadgeMounted) {
+        GameEntryBadge({
+          gameId: this.entryBadgeGameId,
+          badgeVisible: this.entryBadgeVisible
         })
       }
     }
@@ -120,11 +159,43 @@ struct Index {
   }
 
   private openGame(gameId: string): void {
+    if (this.sceneTransitioning || this.activeGame === gameId) {
+      return;
+    }
     if (gameId === 'tetris') {
       this.tetrisSession += 1;
     }
-    this.activeGame = gameId;
+    this.sceneDirection = 'push';
+    this.sceneTransitioning = true;
     this.saveSnapshot(this.withRecent(this.snapshot, gameId));
+    this.showEntryBadge(gameId);
+    this.getUIContext().animateTo({
+      duration: CoopMotion.scenePushDuration,
+      curve: Curve.Friction,
+      onFinish: () => {
+        this.sceneTransitioning = false;
+      }
+    }, () => {
+      this.activeGame = gameId;
+    });
+  }
+
+  private closeGameAnimated(): void {
+    if (this.sceneTransitioning || this.activeGame === 'hub') {
+      return;
+    }
+    this.sceneDirection = 'pop';
+    this.sceneTransitioning = true;
+    this.hideEntryBadge();
+    this.getUIContext().animateTo({
+      duration: CoopMotion.scenePopDuration,
+      curve: Curve.Friction,
+      onFinish: () => {
+        this.sceneTransitioning = false;
+      }
+    }, () => {
+      this.activeGame = 'hub';
+    });
   }
 
   private toggleFavorite(gameId: string): void {
@@ -140,7 +211,8 @@ struct Index {
       favorites: favorites.slice(0, 12),
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
-      hapticEnabled: this.snapshot.hapticEnabled
+      hapticEnabled: this.snapshot.hapticEnabled,
+      appearanceMode: this.snapshot.appearanceMode
     });
   }
 
@@ -150,7 +222,8 @@ struct Index {
       favorites: this.snapshot.favorites.slice(),
       recent: this.snapshot.recent.slice(),
       soundEnabled: enabled,
-      hapticEnabled: this.snapshot.hapticEnabled
+      hapticEnabled: this.snapshot.hapticEnabled,
+      appearanceMode: this.snapshot.appearanceMode
     });
   }
 
@@ -160,7 +233,19 @@ struct Index {
       favorites: this.snapshot.favorites.slice(),
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
-      hapticEnabled: enabled
+      hapticEnabled: enabled,
+      appearanceMode: this.snapshot.appearanceMode
+    });
+  }
+
+  private updateAppearanceMode(appearanceMode: string): void {
+    this.saveSnapshot({
+      records: this.snapshot.records.slice(),
+      favorites: this.snapshot.favorites.slice(),
+      recent: this.snapshot.recent.slice(),
+      soundEnabled: this.snapshot.soundEnabled,
+      hapticEnabled: this.snapshot.hapticEnabled,
+      appearanceMode: appearanceMode === APPEARANCE_DARK ? APPEARANCE_DARK : APPEARANCE_LIGHT
     });
   }
 
@@ -189,7 +274,8 @@ struct Index {
       favorites: this.snapshot.favorites.slice(),
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
-      hapticEnabled: this.snapshot.hapticEnabled
+      hapticEnabled: this.snapshot.hapticEnabled,
+      appearanceMode: this.snapshot.appearanceMode
     }, gameId));
   }
 
@@ -201,7 +287,8 @@ struct Index {
       favorites: snapshot.favorites.slice(),
       recent: recent.slice(0, 6),
       soundEnabled: snapshot.soundEnabled,
-      hapticEnabled: snapshot.hapticEnabled
+      hapticEnabled: snapshot.hapticEnabled,
+      appearanceMode: snapshot.appearanceMode
     };
   }
 
@@ -211,6 +298,55 @@ struct Index {
       return found;
     }
     return { gameId: gameId, highScore: 0, playCount: 0, lastPlayedAt: 0 };
+  }
+
+  private showEntryBadge(gameId: string): void {
+    this.clearEntryBadgeTimers();
+    this.entryBadgeGameId = gameId;
+    this.entryBadgeVisible = false;
+    this.entryBadgeMounted = true;
+    this.entryBadgeInTimer = setTimeout(() => {
+      this.getUIContext().animateTo({
+        duration: CoopMotion.entryBadgeDuration,
+        curve: Curve.EaseOut
+      }, () => {
+        this.entryBadgeVisible = true;
+      });
+    }, 20);
+    this.entryBadgeOutTimer = setTimeout(() => {
+      this.hideEntryBadge();
+    }, CoopMotion.entryBadgeHoldDuration);
+  }
+
+  private hideEntryBadge(): void {
+    if (!this.entryBadgeMounted) {
+      return;
+    }
+    this.clearEntryBadgeTimers();
+    this.getUIContext().animateTo({
+      duration: CoopMotion.entryBadgeDuration,
+      curve: Curve.EaseOut
+    }, () => {
+      this.entryBadgeVisible = false;
+    });
+    this.entryBadgeUnmountTimer = setTimeout(() => {
+      this.entryBadgeMounted = false;
+    }, CoopMotion.entryBadgeDuration);
+  }
+
+  private clearEntryBadgeTimers(): void {
+    if (this.entryBadgeInTimer !== -1) {
+      clearTimeout(this.entryBadgeInTimer);
+      this.entryBadgeInTimer = -1;
+    }
+    if (this.entryBadgeOutTimer !== -1) {
+      clearTimeout(this.entryBadgeOutTimer);
+      this.entryBadgeOutTimer = -1;
+    }
+    if (this.entryBadgeUnmountTimer !== -1) {
+      clearTimeout(this.entryBadgeUnmountTimer);
+      this.entryBadgeUnmountTimer = -1;
+    }
   }
 
   private saveSnapshot(snapshot: CoopAppSnapshot): void {

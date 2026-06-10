@@ -1,3 +1,4 @@
+import { CoopModalTransition } from '../../components/CoopModalTransition';
 import { MinesweeperFeatherLayer } from './MinesweeperFeatherLayer';
 import { MinesweeperTheme } from './MinesweeperTheme';
 
@@ -16,20 +17,20 @@ export struct MinesweeperResultOverlay {
   closeOverlay: () => void = () => {};
 
   build() {
-    Stack({ alignContent: Alignment.Center }) {
-      Rect()
-        .width('100%')
-        .height('100%')
-        .fill('rgba(22,13,8,0.42)')
-      MinesweeperFeatherLayer({
-        win: this.win,
-        pageWidth: this.pageWidth,
-        pageHeight: this.pageHeight
-      })
-      this.ResultCard()
+    CoopModalTransition({
+      maskColor: 'rgba(22,13,8,0.42)'
+    }) {
+      Stack({ alignContent: Alignment.Center }) {
+        MinesweeperFeatherLayer({
+          win: this.win,
+          pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight
+        })
+        this.ResultCard()
+      }
+      .width('100%')
+      .height('100%')
     }
-    .width('100%')
-    .height('100%')
   }
 
   @Builder

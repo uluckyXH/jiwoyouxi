@@ -1,6 +1,12 @@
 import { common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
-import { CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
+import {
+  APPEARANCE_DARK,
+  APPEARANCE_LIGHT,
+  CoopAppSnapshot,
+  emptySnapshot,
+  GameRecord
+} from '../shell/GameModule';
 
 const STORE_NAME: string = 'chicken_coop_games';
 const SNAPSHOT_KEY: string = 'snapshot';
@@ -51,8 +57,13 @@ export class CoopStorage {
       favorites: CoopStorage.stringArray(snapshot.favorites),
       recent: CoopStorage.stringArray(snapshot.recent),
       soundEnabled: snapshot.soundEnabled !== false,
-      hapticEnabled: snapshot.hapticEnabled !== false
+      hapticEnabled: snapshot.hapticEnabled !== false,
+      appearanceMode: CoopStorage.appearanceMode(snapshot.appearanceMode)
     };
+  }
+
+  private static appearanceMode(value: string): string {
+    return value === APPEARANCE_DARK ? APPEARANCE_DARK : APPEARANCE_LIGHT;
   }
 
   private static stringArray(value: string[]): string[] {
