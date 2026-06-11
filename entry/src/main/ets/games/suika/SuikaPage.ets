@@ -1,35 +1,7 @@
 import { CoopTheme } from '../../design/CoopTheme';
-
-interface FruitDef {
-  name: string;
-  radius: number;
-  color: string;
-  score: number;
-}
-
-interface FruitBody {
-  id: number;
-  level: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  bornAt: number;
-}
-
-const FRUITS: FruitDef[] = [
-  { name: '葡萄', radius: 13, color: '#8b5cf6', score: 1 },
-  { name: '樱桃', radius: 17, color: '#ef4444', score: 3 },
-  { name: '橘子', radius: 21, color: '#f97316', score: 6 },
-  { name: '柠檬', radius: 26, color: '#eab308', score: 10 },
-  { name: '猕猴桃', radius: 31, color: '#84cc16', score: 15 },
-  { name: '番茄', radius: 37, color: '#dc2626', score: 21 },
-  { name: '桃子', radius: 43, color: '#fb923c', score: 28 },
-  { name: '菠萝', radius: 50, color: '#facc15', score: 36 },
-  { name: '椰子', radius: 58, color: '#a16207', score: 45 },
-  { name: '半瓜', radius: 67, color: '#22c55e', score: 55 },
-  { name: '西瓜', radius: 77, color: '#16a34a', score: 66 }
-];
+import { integrateFruits, resolveSuikaCollisions } from './SuikaPhysics';
+import { clampAimX, getSpawnLevel, NEXT_FRUIT_DELAY_MS, resolveOverflowState } from './SuikaRules';
+import { FRUITS, FruitBody, SuikaBounds } from './SuikaTypes';
 
 @Component
 export struct SuikaPage {
@@ -41,11 +13,18 @@ export struct SuikaPage {
   private timer: number = -1;
   private nextId: number = 1;
   private fruits: FruitBody[] = [];
+  private spawnIndex: number = 0;
   private currentLevel: number = 0;
-  private nextLevel: number = 1;
-  private cooldownUntil: number = 0;
+  private nextLevel: number = 0;
+  private hasCurrentFruit: boolean = true;
+  private pendingSpawnAt: number = 0;
   private overflowSince: number = 0;
   private settled: boolean = false;
+  private mergeText: string = '';
+  private mergeTextX: number = 0;
+  private mergeTextY: number = 0;
+  private mergeTextUntil: number = 0;
+  private finalMergeUntil: number = 0;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State score: number = 0;
@@ -110,18 +89,19 @@ export struct SuikaPage {
         .onClick(() => {
           this.exitToHub();
         })
-      Text('合成大西瓜')
-        .fontSize(18)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-        .layoutWeight(1)
-      Text(`${this.score}`)
-        .fontSize(22)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-      Text(`最高 ${Math.max(this.bestScore, this.score)}`)
-        .fontSize(12)
-        .fontColor(CoopTheme.muted)
+      Column({ space: 2 }) {
+        Text('鸡窝水果摊')
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(CoopTheme.ink)
+        Text(`今日瓜分：${this.score} · 最高瓜分：${Math.max(this.bestScore, this.score)}`)
+          .fontSize(12)
+          .fontColor(CoopTheme.muted)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+      }
+      .alignItems(HorizontalAlign.Start)
+      .layoutWeight(1)
       Button(this.paused ? '继续' : '暂停')
         .width(66)
         .height(36)
@@ -149,7 +129,7 @@ export struct SuikaPage {
   @Builder
   PauseOverlay() {
     Column({ space: 12 }) {
-      Text('西瓜暂停')
+      Text('水果摊暂停')
         .fontSize(26)
         .fontWeight(FontWeight.Bold)
         .fontColor('#ffffff')
@@ -181,14 +161,14 @@ export struct SuikaPage {
   @Builder
   ResultOverlay() {
     Column({ space: 12 }) {
-      Text('装不下了')
+      Text('鸡窝被塞满了！')
         .fontSize(26)
         .fontWeight(FontWeight.Bold)
         .fontColor(CoopTheme.ink)
-      Text(`本局 ${this.score} · 最高 ${Math.max(this.bestScore, this.score)}`)
+      Text(`今日瓜分：${this.score} · 最高瓜分：${Math.max(this.bestScore, this.score)}`)
         .fontSize(14)
         .fontColor(CoopTheme.muted)
-      Button('再来一局')
+      Button('再摆一摊')
         .width('100%')
         .height(44)
         .borderRadius(8)
@@ -220,14 +200,19 @@ export struct SuikaPage {
     this.stopLoop();
     this.fruits = [];
     this.nextId = 1;
-    this.currentLevel = this.randomStartLevel();
-    this.nextLevel = this.randomStartLevel();
+    this.spawnIndex = 0;
+    this.currentLevel = getSpawnLevel(0);
+    this.nextLevel = getSpawnLevel(1);
+    this.hasCurrentFruit = true;
     this.score = 0;
     this.paused = false;
     this.gameOver = false;
     this.settled = false;
-    this.cooldownUntil = 0;
+    this.pendingSpawnAt = 0;
     this.overflowSince = 0;
+    this.mergeText = '';
+    this.mergeTextUntil = 0;
+    this.finalMergeUntil = 0;
     this.startLoop();
     this.draw();
   }
@@ -252,6 +237,7 @@ export struct SuikaPage {
       return;
     }
     const now = Date.now();
+    this.activatePendingFruit(now);
     this.applyPhysics();
     this.resolveCollisions(now);
     this.checkOverflow(now);
@@ -263,7 +249,10 @@ export struct SuikaPage {
     if (this.paused || this.gameOver) {
       return;
     }
-    if (event.type === TouchType.Up) {
+    if (!this.hasCurrentFruit) {
+      return;
+    }
+    if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
       this.dropFruit();
       return;
     }
@@ -271,135 +260,70 @@ export struct SuikaPage {
       return;
     }
     const touch = event.touches[0];
-    this.aimX = Math.max(this.containerLeft() + 16, Math.min(this.containerRight() - 16, touch.x));
+    this.aimX = this.clampAimToCurrentFruit(touch.x);
   }
 
   private dropFruit(): void {
     const now = Date.now();
-    if (now < this.cooldownUntil) {
+    if (!this.hasCurrentFruit) {
       return;
     }
-    const def = FRUITS[this.currentLevel];
+    const radius = FRUITS[this.currentLevel].radius;
+    const x = this.clampAimToCurrentFruit(this.aimX);
     this.fruits.push({
       id: this.nextId++,
       level: this.currentLevel,
-      x: this.aimX,
-      y: this.containerTop() - 28,
+      x: x,
+      y: this.containerTop() - Math.max(24, radius * 0.55),
       vx: 0,
-      vy: 0,
-      bornAt: now
+      vy: 0.8,
+      bornAt: now,
+      releasedAt: now,
+      mergeLockedUntil: now + 120
     });
+    this.spawnIndex += 1;
     this.currentLevel = this.nextLevel;
-    this.nextLevel = this.randomStartLevel();
-    this.cooldownUntil = now + 500;
-    this.aimX = Math.max(this.containerLeft() + def.radius, Math.min(this.containerRight() - def.radius, this.aimX));
+    this.nextLevel = getSpawnLevel(this.spawnIndex + 1);
+    this.hasCurrentFruit = false;
+    this.pendingSpawnAt = now + NEXT_FRUIT_DELAY_MS;
+    this.aimX = this.clampAimToCurrentFruit(x);
   }
 
   private applyPhysics(): void {
-    const left = this.containerLeft();
-    const right = this.containerRight();
-    const bottom = this.containerBottom();
-    for (let i = 0; i < this.fruits.length; i += 1) {
-      const fruit = this.fruits[i];
-      const radius = FRUITS[fruit.level].radius;
-      fruit.vy += 0.4;
-      fruit.x += fruit.vx;
-      fruit.y += fruit.vy;
-      fruit.vx *= 0.992;
-      if (fruit.x - radius < left) {
-        fruit.x = left + radius;
-        fruit.vx = Math.abs(fruit.vx) * 0.35;
-      }
-      if (fruit.x + radius > right) {
-        fruit.x = right - radius;
-        fruit.vx = -Math.abs(fruit.vx) * 0.35;
-      }
-      if (fruit.y + radius > bottom) {
-        fruit.y = bottom - radius;
-        fruit.vy = -Math.abs(fruit.vy) * 0.22;
-        fruit.vx *= 0.94;
-      }
-      this.fruits[i] = fruit;
-    }
+    this.fruits = integrateFruits(this.fruits, FRUITS, this.containerBounds());
   }
 
   private resolveCollisions(now: number): void {
-    for (let i = 0; i < this.fruits.length; i += 1) {
-      for (let j = i + 1; j < this.fruits.length; j += 1) {
-        const a = this.fruits[i];
-        const b = this.fruits[j];
-        const ar = FRUITS[a.level].radius;
-        const br = FRUITS[b.level].radius;
-        const dx = b.x - a.x;
-        const dy = b.y - a.y;
-        const dist = Math.max(0.01, Math.sqrt(dx * dx + dy * dy));
-        const target = ar + br;
-        if (dist >= target) {
-          continue;
-        }
-        if (a.level === b.level) {
-          this.mergeFruits(i, j, now);
-          return;
-        }
-        const overlap = (target - dist) * 0.5;
-        const nx = dx / dist;
-        const ny = dy / dist;
-        a.x -= nx * overlap;
-        a.y -= ny * overlap;
-        b.x += nx * overlap;
-        b.y += ny * overlap;
-        const avx = a.vx;
-        const avy = a.vy;
-        a.vx = b.vx * 0.3 - nx * 0.3;
-        a.vy = b.vy * 0.3 - ny * 0.3;
-        b.vx = avx * 0.3 + nx * 0.3;
-        b.vy = avy * 0.3 + ny * 0.3;
-        this.fruits[i] = a;
-        this.fruits[j] = b;
+    const result = resolveSuikaCollisions(this.fruits, FRUITS, now, this.nextId);
+    this.fruits = result.fruits;
+    this.nextId = result.nextId;
+    if (result.didMerge) {
+      this.score += result.scoreDelta;
+      this.mergeText = `+${result.scoreDelta}`;
+      this.mergeTextX = result.mergeX;
+      this.mergeTextY = result.mergeY;
+      this.mergeTextUntil = now + 900;
+      if (result.isFinalMerge) {
+        this.finalMergeUntil = now + 1400;
       }
     }
-  }
-
-  private mergeFruits(firstIndex: number, secondIndex: number, now: number): void {
-    const a = this.fruits[firstIndex];
-    const b = this.fruits[secondIndex];
-    const nextLevel = Math.min(FRUITS.length - 1, a.level + 1);
-    const x = (a.x + b.x) * 0.5;
-    const y = (a.y + b.y) * 0.5;
-    const next: FruitBody[] = [];
-    for (let i = 0; i < this.fruits.length; i += 1) {
-      if (i !== firstIndex && i !== secondIndex) {
-        next.push(this.fruits[i]);
-      }
-    }
-    if (a.level >= FRUITS.length - 1) {
-      this.score += 100;
-    } else {
-      this.score += FRUITS[nextLevel].score + 5;
-      next.push({ id: this.nextId++, level: nextLevel, x: x, y: y, vx: 0, vy: -1.2, bornAt: now });
-    }
-    this.fruits = next;
   }
 
   private checkOverflow(now: number): void {
-    const top = this.containerTop() + 10;
-    let over = false;
-    for (let i = 0; i < this.fruits.length; i += 1) {
-      const fruit = this.fruits[i];
-      if (now - fruit.bornAt > 1200 && fruit.y - FRUITS[fruit.level].radius < top) {
-        over = true;
-        break;
-      }
+    const state = resolveOverflowState(this.fruits, FRUITS, this.failLineY(), now, this.overflowSince);
+    this.overflowSince = state.overflowSince;
+    if (state.shouldFinish) {
+      this.finish();
     }
-    if (over) {
-      if (this.overflowSince === 0) {
-        this.overflowSince = now;
-      } else if (now - this.overflowSince > 2000) {
-        this.finish();
-      }
-    } else {
-      this.overflowSince = 0;
+  }
+
+  private activatePendingFruit(now: number): void {
+    if (this.hasCurrentFruit || this.pendingSpawnAt === 0 || now < this.pendingSpawnAt) {
+      return;
     }
+    this.hasCurrentFruit = true;
+    this.pendingSpawnAt = 0;
+    this.aimX = this.clampAimToCurrentFruit(this.aimX);
   }
 
   private finish(): void {
@@ -425,6 +349,7 @@ export struct SuikaPage {
     for (let i = 0; i < this.fruits.length; i += 1) {
       this.drawFruit(ctx, this.fruits[i]);
     }
+    this.drawMergeFeedback(ctx, Date.now());
   }
 
   private drawDropZone(ctx: CanvasRenderingContext2D): void {
@@ -436,17 +361,21 @@ export struct SuikaPage {
     ctx.fillStyle = CoopTheme.muted;
     ctx.font = '700 12vp sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`当前 ${def.name} · 下个 ${FRUITS[this.nextLevel].name}`, 22, 128);
+    const title = this.hasCurrentFruit ? `手上 ${def.name}` : `备货 ${def.name}`;
+    ctx.fillText(`${title} · 下个 ${FRUITS[this.nextLevel].name}`, 22, 128);
     ctx.beginPath();
-    ctx.strokeStyle = CoopTheme.ink;
+    ctx.strokeStyle = this.hasCurrentFruit ? CoopTheme.ink : 'rgba(47,55,72,0.22)';
     ctx.lineWidth = 2;
     ctx.moveTo(this.aimX, 150);
     ctx.lineTo(this.aimX, this.containerTop() - 8);
     ctx.stroke();
-    ctx.beginPath();
-    ctx.fillStyle = def.color;
-    ctx.arc(this.aimX, 150, Math.max(10, def.radius * 0.55), 0, Math.PI * 2);
-    ctx.fill();
+    if (this.hasCurrentFruit) {
+      ctx.beginPath();
+      ctx.fillStyle = def.color;
+      ctx.arc(this.aimX, 150, Math.max(10, def.radius * 0.55), 0, Math.PI * 2);
+      ctx.fill();
+      this.drawFruitFace(ctx, this.aimX, 150, Math.max(10, def.radius * 0.55));
+    }
   }
 
   private drawContainer(ctx: CanvasRenderingContext2D): void {
@@ -460,10 +389,12 @@ export struct SuikaPage {
     ctx.lineWidth = 2;
     ctx.strokeRect(left, top, width, height);
     ctx.setLineDash([6, 6]);
-    ctx.strokeStyle = '#dc2626';
+    const isWarning = this.overflowSince !== 0 && Math.floor(this.tick / 12) % 2 === 0;
+    ctx.strokeStyle = isWarning ? '#f97316' : '#dc2626';
+    ctx.lineWidth = isWarning ? 3 : 2;
     ctx.beginPath();
-    ctx.moveTo(left, top + 10);
-    ctx.lineTo(left + width, top + 10);
+    ctx.moveTo(left, this.failLineY());
+    ctx.lineTo(left + width, this.failLineY());
     ctx.stroke();
     ctx.setLineDash([]);
   }
@@ -478,17 +409,86 @@ export struct SuikaPage {
     ctx.fillStyle = 'rgba(255,255,255,0.34)';
     ctx.arc(fruit.x - def.radius * 0.3, fruit.y - def.radius * 0.32, def.radius * 0.34, 0, Math.PI * 2);
     ctx.fill();
+    this.drawFruitFace(ctx, fruit.x, fruit.y, def.radius);
     if (def.radius >= 36) {
       ctx.fillStyle = '#ffffff';
-      ctx.font = '700 12vp sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(def.name, fruit.x, fruit.y);
+      ctx.font = `700 ${this.fruitLabelFontSize(def.radius)}vp sans-serif`;
+      ctx.fillText(this.fruitLabel(def.name), fruit.x, fruit.y);
     }
   }
 
-  private randomStartLevel(): number {
-    return Math.floor(Math.random() * 5);
+  private drawMergeFeedback(ctx: CanvasRenderingContext2D, now: number): void {
+    if (this.mergeTextUntil > now) {
+      const progress = (this.mergeTextUntil - now) / 900;
+      ctx.globalAlpha = Math.max(0, Math.min(1, progress));
+      ctx.fillStyle = '#f97316';
+      ctx.font = '800 18vp sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(this.mergeText, this.mergeTextX, this.mergeTextY - (1 - progress) * 30);
+      ctx.globalAlpha = 1;
+    }
+
+    if (this.finalMergeUntil > now) {
+      ctx.fillStyle = 'rgba(255,255,255,0.86)';
+      ctx.fillRect(this.pageWidth * 0.5 - 104, this.pageHeight * 0.38 - 24, 208, 48);
+      ctx.strokeStyle = 'rgba(22,163,74,0.42)';
+      ctx.strokeRect(this.pageWidth * 0.5 - 104, this.pageHeight * 0.38 - 24, 208, 48);
+      ctx.fillStyle = '#166534';
+      ctx.font = '800 20vp sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('巨型鸡窝西瓜！', this.pageWidth * 0.5, this.pageHeight * 0.38);
+    }
+  }
+
+  private fruitLabel(name: string): string {
+    if (name === '巨型鸡窝西瓜') {
+      return '鸡窝瓜';
+    }
+    if (name === '鸡冠西瓜') {
+      return '鸡冠瓜';
+    }
+    return name;
+  }
+
+  private fruitLabelFontSize(radius: number): number {
+    return Math.max(10, Math.min(13, radius * 0.24));
+  }
+
+  private drawFruitFace(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+    if (radius < 10) {
+      return;
+    }
+    const eyeY = y - radius * 0.12;
+    const eyeGap = radius * 0.32;
+    const eyeWidth = Math.max(4, radius * 0.22);
+    ctx.strokeStyle = 'rgba(47,55,72,0.68)';
+    ctx.lineWidth = Math.max(1.4, radius * 0.055);
+    ctx.beginPath();
+    ctx.moveTo(x - eyeGap - eyeWidth * 0.5, eyeY);
+    ctx.lineTo(x - eyeGap + eyeWidth * 0.5, eyeY + radius * 0.03);
+    ctx.moveTo(x + eyeGap - eyeWidth * 0.5, eyeY + radius * 0.03);
+    ctx.lineTo(x + eyeGap + eyeWidth * 0.5, eyeY);
+    ctx.stroke();
+  }
+
+  private clampAimToCurrentFruit(x: number): number {
+    return clampAimX(x, this.containerLeft(), this.containerRight(), FRUITS[this.currentLevel].radius);
+  }
+
+  private containerBounds(): SuikaBounds {
+    return {
+      left: this.containerLeft(),
+      right: this.containerRight(),
+      bottom: this.containerBottom()
+    };
+  }
+
+  private failLineY(): number {
+    return this.containerTop() + 10;
   }
 
   private containerWidth(): number {

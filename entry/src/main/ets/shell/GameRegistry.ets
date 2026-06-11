@@ -39,12 +39,12 @@ export const GAME_MODULES: GameModule[] = [
   },
   {
     id: 'suika',
-    title: '合成大西瓜',
-    subtitle: '圆形水果物理堆叠，相同碰撞合成',
+    title: '鸡窝水果摊',
+    subtitle: '圆滚滚玩具水果落进木箱，相同碰撞合成',
     icon: '◉',
-    tags: ['物理', '合成', '轻松'],
+    tags: ['物理', '合成', '软弹'],
     accent: '#16a34a',
-    highScoreLabel: '最高分'
+    highScoreLabel: '最高瓜分'
   },
   {
     id: 'eggSling',
