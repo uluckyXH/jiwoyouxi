@@ -11,6 +11,14 @@ const COLLISION_PUSH: number = 0.56;
 const VELOCITY_TRANSFER: number = 0.22;
 const MERGE_LOCK_MS: number = 220;
 const MAX_FALL_SPEED: number = 10;
+const VISUAL_ROLL_FACTOR: number = 0.22;
+const VISUAL_ROLL_MIN_SPEED: number = 0.18;
+const VISUAL_REST_SPEED: number = 0.12;
+const VISUAL_SPIN_DAMPING: number = 0.72;
+const VISUAL_SPIN_EPSILON: number = 0.003;
+const VISUAL_COLLISION_SPIN_MIN_SPEED_SQ: number = 0.36;
+const VISUAL_COLLISION_TANGENT_MIN: number = 0.28;
+const MAX_VISUAL_SPIN: number = 0.08;
 
 export function integrateFruits(fruits: FruitBody[], fruitDefs: FruitDef[], bounds: SuikaBounds): FruitBody[] {
   const next: FruitBody[] = [];
@@ -43,6 +51,7 @@ export function integrateFruits(fruits: FruitBody[], fruitDefs: FruitDef[], boun
         vx = 0;
       }
     }
+    const visual = updateVisualRoll(fruit, radius, vx, vy);
 
     next.push({
       id: fruit.id,
@@ -51,6 +60,8 @@ export function integrateFruits(fruits: FruitBody[], fruitDefs: FruitDef[], boun
       y: y,
       vx: vx,
       vy: vy,
+      visualAngle: visual.angle,
+      visualSpin: visual.spin,
       bornAt: fruit.bornAt,
       releasedAt: fruit.releasedAt,
       mergeLockedUntil: fruit.mergeLockedUntil
@@ -92,6 +103,8 @@ export function resolveSuikaCollisions(
             y: mergeY,
             vx: (a.vx + b.vx) * 0.18,
             vy: Math.min(-1.15, (a.vy + b.vy) * 0.12 - 0.8),
+            visualAngle: normalizeAngle((a.visualAngle + b.visualAngle) * 0.5),
+            visualSpin: clampVisualSpin((a.visualSpin + b.visualSpin) * 0.32 + (a.vx - b.vx) * 0.018),
             bornAt: now,
             releasedAt: now,
             mergeLockedUntil: now + MERGE_LOCK_MS
@@ -121,6 +134,8 @@ export function resolveSuikaCollisions(
       const ny = dy / dist;
       const arWeight = br / (ar + br);
       const brWeight = ar / (ar + br);
+      const relativeVx = b.vx - a.vx;
+      const relativeVy = b.vy - a.vy;
       a.x -= nx * overlap * arWeight;
       a.y -= ny * overlap * arWeight;
       b.x += nx * overlap * brWeight;
@@ -132,6 +147,14 @@ export function resolveSuikaCollisions(
       a.vy = a.vy * 0.65 + b.vy * VELOCITY_TRANSFER - ny * 0.14;
       b.vx = b.vx * 0.65 + avx * VELOCITY_TRANSFER + nx * 0.14;
       b.vy = b.vy * 0.65 + avy * VELOCITY_TRANSFER + ny * 0.14;
+      const relativeSpeedSq = relativeVx * relativeVx + relativeVy * relativeVy;
+      const tangentImpulse = relativeVx * -ny + relativeVy * nx;
+      if (relativeSpeedSq >= VISUAL_COLLISION_SPIN_MIN_SPEED_SQ &&
+        Math.abs(tangentImpulse) >= VISUAL_COLLISION_TANGENT_MIN) {
+        const spinKick = clampVisualSpin(tangentImpulse * 0.014);
+        a.visualSpin = clampVisualSpin(a.visualSpin - spinKick);
+        b.visualSpin = clampVisualSpin(b.visualSpin + spinKick);
+      }
       next[i] = a;
       next[j] = b;
     }
@@ -149,3 +172,37 @@ export function resolveSuikaCollisions(
   };
 }
 
+interface VisualRollState {
+  angle: number;
+  spin: number;
+}
+
+function updateVisualRoll(fruit: FruitBody, radius: number, vx: number, vy: number): VisualRollState {
+  if (Math.abs(vx) < VISUAL_REST_SPEED && Math.abs(vy) < VISUAL_REST_SPEED) {
+    return {
+      angle: fruit.visualAngle,
+      spin: 0
+    };
+  }
+  const rollDelta = Math.abs(vx) >= VISUAL_ROLL_MIN_SPEED ? (vx / Math.max(10, radius)) * VISUAL_ROLL_FACTOR : 0;
+  let spin = clampVisualSpin(fruit.visualSpin * VISUAL_SPIN_DAMPING);
+  if (Math.abs(spin) < VISUAL_SPIN_EPSILON) {
+    spin = 0;
+  }
+  return {
+    angle: normalizeAngle(fruit.visualAngle + rollDelta + spin),
+    spin: spin
+  };
+}
+
+function clampVisualSpin(value: number): number {
+  return Math.max(-MAX_VISUAL_SPIN, Math.min(MAX_VISUAL_SPIN, value));
+}
+
+function normalizeAngle(value: number): number {
+  const fullTurn = Math.PI * 2;
+  if (value > fullTurn || value < -fullTurn) {
+    return value % fullTurn;
+  }
+  return value;
+}

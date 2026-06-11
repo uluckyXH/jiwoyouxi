@@ -2,7 +2,16 @@ import { common } from '@kit.AbilityKit';
 import audio from '@ohos.multimedia.audio';
 import media from '@ohos.multimedia.media';
 
-type SoundKey = 'attack' | 'warning' | 'shrink' | 'snap' | 'win' | 'power';
+type SoundKey =
+  'attack' |
+  'warning' |
+  'shrink' |
+  'snap' |
+  'win' |
+  'power' |
+  'suika_merge_pop' |
+  'suika_merge_splash' |
+  'suika_merge_final';
 
 interface SoundAsset {
   key: SoundKey;
@@ -15,7 +24,10 @@ const SOUND_ASSETS: SoundAsset[] = [
   { key: 'shrink', path: 'audio/warning-diudiu.mp3' },
   { key: 'snap', path: 'audio/y2155.mp3' },
   { key: 'win', path: 'audio/win.mp3' },
-  { key: 'power', path: 'audio/warning-diudiu.mp3' }
+  { key: 'power', path: 'audio/warning-diudiu.mp3' },
+  { key: 'suika_merge_pop', path: 'games/suika/audio/merge_pop.mp3' },
+  { key: 'suika_merge_splash', path: 'games/suika/audio/merge_splash.mp3' },
+  { key: 'suika_merge_final', path: 'games/suika/audio/merge_final.mp3' }
 ];
 
 export class NativeAudioService {
@@ -75,7 +87,7 @@ export class NativeAudioService {
     });
   }
 
-  play(key: SoundKey): void {
+  play(key: SoundKey, volumeScale: number = 1): void {
     if (this.soundPool === null || this.sfxVolume <= 0) {
       return;
     }
@@ -83,10 +95,14 @@ export class NativeAudioService {
     if (soundId === undefined) {
       return;
     }
+    const volume = this.clampVolume(this.sfxVolume * volumeScale);
+    if (volume <= 0) {
+      return;
+    }
     this.soundPool.play(soundId, {
       loop: 0,
-      leftVolume: this.sfxVolume,
-      rightVolume: this.sfxVolume,
+      leftVolume: volume,
+      rightVolume: volume,
       priority: 1
     }).catch((error: Error) => {
       console.error(`SFX play failed: ${JSON.stringify(error)}`);
@@ -133,7 +149,7 @@ export class NativeAudioService {
       rendererFlags: 0
     };
     try {
-      this.soundPool = await media.createSoundPool(8, rendererInfo);
+      this.soundPool = await media.createSoundPool(10, rendererInfo);
     } catch (error) {
       console.error(`SoundPool create failed: ${JSON.stringify(error)}`);
       return;

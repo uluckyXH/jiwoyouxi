@@ -51,6 +51,8 @@ function makeFruit(level, overrides = {}) {
     y: 100,
     vx: 0,
     vy: 0,
+    visualAngle: 0,
+    visualSpin: 0,
     bornAt: 0,
     releasedAt: 0,
     mergeLockedUntil: 0
@@ -118,6 +120,37 @@ const api = loadSuikaRules();
 }
 
 {
+  const result = api.integrateFruits([
+    makeFruit(0, {
+      x: 100,
+      y: 187,
+      vx: 3,
+      vy: 8
+    })
+  ], api.FRUITS, { left: 20, right: 200, bottom: 200 });
+  assert.equal(result[0].y, 187, 'grounded fruit should stay inside bottom bound');
+  assert.ok(result[0].vx > 0 && result[0].vx < 3, 'grounded fruit should keep damped horizontal movement');
+  assert.ok(result[0].visualAngle > 0, 'moving fruit should update visual roll angle');
+  assert.equal(result[0].visualSpin, 0, 'plain rolling should not create persistent spin');
+  assert.equal('angularVelocity' in result[0], false, 'suika physics should not keep persistent angular velocity');
+}
+
+{
+  const result = api.integrateFruits([
+    makeFruit(0, {
+      x: 100,
+      y: 187,
+      vx: 0.06,
+      vy: 0.03,
+      visualAngle: 1.2,
+      visualSpin: 0.05
+    })
+  ], api.FRUITS, { left: 20, right: 200, bottom: 200 });
+  assert.equal(result[0].visualAngle, 1.2, 'settled fruit should keep visual angle instead of spinning in place');
+  assert.equal(result[0].visualSpin, 0, 'settled fruit should clear residual visual spin');
+}
+
+{
   const result = api.resolveSuikaCollisions([
     makeFruit(2, { id: 1, x: 100, y: 100 }),
     makeFruit(2, { id: 2, x: 112, y: 100 })
@@ -126,6 +159,17 @@ const api = loadSuikaRules();
   assert.equal(result.scoreDelta, 3, 'level 2 merge should score 3');
   assert.equal(result.fruits.length, 1, 'merge should replace two fruits with one');
   assert.equal(result.fruits[0].level, 3, 'level 2 merge should create level 3');
+  assert.equal(typeof result.fruits[0].visualAngle, 'number', 'merged fruit should keep visual angle state');
+  assert.equal(typeof result.fruits[0].visualSpin, 'number', 'merged fruit should keep visual spin state');
+}
+
+{
+  const result = api.resolveSuikaCollisions([
+    makeFruit(10, { id: 1, x: 100, y: 100, vx: 0.02, vy: 0 }),
+    makeFruit(10, { id: 2, x: 112, y: 100, vx: -0.02, vy: 0 })
+  ], api.FRUITS, 1000, 3);
+  assert.equal(result.fruits[0].visualSpin, 0, 'low-speed pile compression should not inject visual spin');
+  assert.equal(result.fruits[1].visualSpin, 0, 'low-speed pile compression should not inject visual spin');
 }
 
 {

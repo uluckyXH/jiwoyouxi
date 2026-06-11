@@ -1,7 +1,58 @@
+import { common } from '@kit.AbilityKit';
+import image from '@ohos.multimedia.image';
 import { CoopTheme } from '../../design/CoopTheme';
+import { NativeAudioService } from '../../services/AudioService';
 import { integrateFruits, resolveSuikaCollisions } from './SuikaPhysics';
 import { clampAimX, getSpawnLevel, NEXT_FRUIT_DELAY_MS, resolveOverflowState } from './SuikaRules';
 import { FRUITS, FruitBody, SuikaBounds } from './SuikaTypes';
+
+const SUIKA_BACKGROUND_IMAGE: string = 'games/suika/backgrounds/market_full.png';
+const SUIKA_BACKGROUND_WIDTH: number = 854;
+const SUIKA_BACKGROUND_HEIGHT: number = 1842;
+// 可调整：背景整体上下位置，正数向下，负数向上。建议每次只改 0.005 到 0.02。
+const SUIKA_BACKGROUND_OFFSET_Y_RATIO: number = 0.012;
+// 可调整：水果投放区域顶部，数值越大，投放区域越靠下，越不容易挡住人物。
+const SUIKA_BOARD_TOP_RATIO: number = 0.48;
+// 可调整：小屏兜底顶部高度，避免投放区域贴到 HUD 或人物脸部。
+const SUIKA_BOARD_TOP_MIN: number = 250;
+// 可调整：投放区域底部留白，数值越大，底部越短。
+const SUIKA_BOARD_BOTTOM_MARGIN: number = 50;
+// 可调整：投放区域最小高度兜底，避免极端小屏被压到不可玩。
+const SUIKA_BOARD_MIN_HEIGHT: number = 160;
+// 可调整：投放区域高度微调，正数变高，负数变矮；主要从底部扩展，不影响顶部避让人物。
+const SUIKA_BOARD_HEIGHT_EXTRA: number = 28;
+// 可调整：顶部投放提示条的上边距，数值越大，提示条越靠下。
+const SUIKA_DROP_ZONE_TOP: number = 102;
+// 可调整：顶部投放提示条高度。
+const SUIKA_DROP_ZONE_HEIGHT: number = 74;
+// 可调整：顶部提示文字 Y 坐标，跟随提示条改动时可以一起微调。
+const SUIKA_DROP_ZONE_TEXT_Y: number = 128;
+// 可调整：预览水果和投放杆起点 Y 坐标，数值越大，水果和杆子整体越靠下。
+const SUIKA_DROP_PREVIEW_Y: number = 300;
+// 可调整：投放杆距离下方投放区域顶部的间距，数值越大，杆子底部越短。
+const SUIKA_DROP_LINE_BOTTOM_GAP: number = 8;
+
+interface MergeParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  startRadius: number;
+  color: string;
+  bornAt: number;
+  duration: number;
+}
+
+interface MergeRing {
+  x: number;
+  y: number;
+  startRadius: number;
+  endRadius: number;
+  color: string;
+  bornAt: number;
+  duration: number;
+  lineWidth: number;
+}
 
 @Component
 export struct SuikaPage {
@@ -10,6 +61,7 @@ export struct SuikaPage {
   recordScore: (score: number) => void = () => {};
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
+  private audioService: NativeAudioService = new NativeAudioService();
   private timer: number = -1;
   private nextId: number = 1;
   private fruits: FruitBody[] = [];
@@ -25,6 +77,13 @@ export struct SuikaPage {
   private mergeTextY: number = 0;
   private mergeTextUntil: number = 0;
   private finalMergeUntil: number = 0;
+  private backgroundPixelMap: image.PixelMap | undefined = undefined;
+  private fruitPixelMaps: Array<image.PixelMap | undefined> = new Array(FRUITS.length);
+  private mergeParticles: MergeParticle[] = [];
+  private mergeRings: MergeRing[] = [];
+  private lastMergeSoundAt: number = 0;
+  private mergeSoundCooldownMs: number = 80;
+  private disposed: boolean = false;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State score: number = 0;
@@ -34,11 +93,22 @@ export struct SuikaPage {
   @State tick: number = 0;
 
   aboutToAppear(): void {
+    this.disposed = false;
+    const context = this.getUIContext().getHostContext();
+    if (context !== undefined) {
+      this.audioService.init(context as common.Context);
+    }
+    this.loadBackgroundImage();
+    this.loadFruitImages();
     this.restart();
   }
 
   aboutToDisappear(): void {
+    this.disposed = true;
     this.stopLoop();
+    this.audioService.release();
+    this.releaseBackgroundImage();
+    this.releaseFruitImages();
   }
 
   build() {
@@ -46,6 +116,7 @@ export struct SuikaPage {
       Canvas(this.context)
         .width('100%')
         .height('100%')
+        .zIndex(0)
         .onReady(() => {
           this.draw();
         })
@@ -115,6 +186,7 @@ export struct SuikaPage {
     .position({ x: 0, y: 0 })
     .width('100%')
     .height(88)
+    .zIndex(5)
     .padding({ left: 12, right: 12, top: 30 })
     .backgroundColor(CoopTheme.glassStrong)
     .border({ width: { bottom: 1 }, color: CoopTheme.glassLine })
@@ -155,6 +227,7 @@ export struct SuikaPage {
     .justifyContent(FlexAlign.Center)
     .width('100%')
     .height('100%')
+    .zIndex(10)
     .backgroundColor('rgba(7,8,18,0.62)')
   }
 
@@ -189,6 +262,7 @@ export struct SuikaPage {
         })
     }
     .width(Math.min(this.pageWidth - 36, 340))
+    .zIndex(10)
     .padding(18)
     .borderRadius(8)
     .backgroundColor(CoopTheme.glassStrong)
@@ -213,6 +287,9 @@ export struct SuikaPage {
     this.mergeText = '';
     this.mergeTextUntil = 0;
     this.finalMergeUntil = 0;
+    this.mergeParticles = [];
+    this.mergeRings = [];
+    this.lastMergeSoundAt = 0;
     this.startLoop();
     this.draw();
   }
@@ -261,6 +338,7 @@ export struct SuikaPage {
     }
     const touch = event.touches[0];
     this.aimX = this.clampAimToCurrentFruit(touch.x);
+    this.draw();
   }
 
   private dropFruit(): void {
@@ -277,6 +355,8 @@ export struct SuikaPage {
       y: this.containerTop() - Math.max(24, radius * 0.55),
       vx: 0,
       vy: 0.8,
+      visualAngle: 0,
+      visualSpin: 0,
       bornAt: now,
       releasedAt: now,
       mergeLockedUntil: now + 120
@@ -287,6 +367,7 @@ export struct SuikaPage {
     this.hasCurrentFruit = false;
     this.pendingSpawnAt = now + NEXT_FRUIT_DELAY_MS;
     this.aimX = this.clampAimToCurrentFruit(x);
+    this.draw();
   }
 
   private applyPhysics(): void {
@@ -303,6 +384,8 @@ export struct SuikaPage {
       this.mergeTextX = result.mergeX;
       this.mergeTextY = result.mergeY;
       this.mergeTextUntil = now + 900;
+      this.playMergeFeedback(result.isFinalMerge, now);
+      this.spawnMergeEffects(result.mergeX, result.mergeY, result.mergeLevel, result.isFinalMerge, now);
       if (result.isFinalMerge) {
         this.finalMergeUntil = now + 1400;
       }
@@ -340,41 +423,39 @@ export struct SuikaPage {
   private draw(): void {
     const ctx = this.context;
     ctx.clearRect(0, 0, this.pageWidth, this.pageHeight);
-    ctx.fillStyle = '#edf9ff';
-    ctx.fillRect(0, 0, this.pageWidth, this.pageHeight);
-    ctx.fillStyle = 'rgba(255,248,234,0.82)';
-    ctx.fillRect(0, this.pageHeight * 0.34, this.pageWidth, this.pageHeight * 0.66);
+    this.drawSceneBackground(ctx);
     this.drawDropZone(ctx);
     this.drawContainer(ctx);
     for (let i = 0; i < this.fruits.length; i += 1) {
-      this.drawFruit(ctx, this.fruits[i]);
+      this.drawFruitShadow(ctx, this.fruits[i]);
+      this.drawFruit(ctx, this.fruits[i], this.gameOver ? 0.56 : 1);
     }
-    this.drawMergeFeedback(ctx, Date.now());
+    const now = Date.now();
+    this.drawMergeEffects(ctx, now);
+    this.drawMergeFeedback(ctx, now);
   }
 
   private drawDropZone(ctx: CanvasRenderingContext2D): void {
     const def = FRUITS[this.currentLevel];
-    ctx.fillStyle = 'rgba(255,255,255,0.74)';
-    ctx.fillRect(12, 102, this.pageWidth - 24, 74);
-    ctx.strokeStyle = 'rgba(255,255,255,0.92)';
-    ctx.strokeRect(12, 102, this.pageWidth - 24, 74);
-    ctx.fillStyle = CoopTheme.muted;
+    ctx.fillStyle = 'rgba(71,43,24,0.42)';
+    ctx.fillRect(12, SUIKA_DROP_ZONE_TOP, this.pageWidth - 24, SUIKA_DROP_ZONE_HEIGHT);
+    ctx.strokeStyle = 'rgba(255,235,197,0.60)';
+    ctx.strokeRect(12, SUIKA_DROP_ZONE_TOP, this.pageWidth - 24, SUIKA_DROP_ZONE_HEIGHT);
+    ctx.fillStyle = '#fff2d2';
     ctx.font = '700 12vp sans-serif';
     ctx.textAlign = 'left';
     const title = this.hasCurrentFruit ? `手上 ${def.name}` : `备货 ${def.name}`;
-    ctx.fillText(`${title} · 下个 ${FRUITS[this.nextLevel].name}`, 22, 128);
+    ctx.fillText(`${title} · 下个 ${FRUITS[this.nextLevel].name}`, 22, SUIKA_DROP_ZONE_TEXT_Y);
     ctx.beginPath();
-    ctx.strokeStyle = this.hasCurrentFruit ? CoopTheme.ink : 'rgba(47,55,72,0.22)';
+    ctx.strokeStyle = this.hasCurrentFruit ? 'rgba(255,244,214,0.82)' : 'rgba(255,244,214,0.22)';
     ctx.lineWidth = 2;
-    ctx.moveTo(this.aimX, 150);
-    ctx.lineTo(this.aimX, this.containerTop() - 8);
+    ctx.moveTo(this.aimX, SUIKA_DROP_PREVIEW_Y);
+    ctx.lineTo(this.aimX, this.containerTop() - SUIKA_DROP_LINE_BOTTOM_GAP);
     ctx.stroke();
     if (this.hasCurrentFruit) {
-      ctx.beginPath();
-      ctx.fillStyle = def.color;
-      ctx.arc(this.aimX, 150, Math.max(10, def.radius * 0.55), 0, Math.PI * 2);
-      ctx.fill();
-      this.drawFruitFace(ctx, this.aimX, 150, Math.max(10, def.radius * 0.55));
+      const previewRadius = Math.max(10, def.radius * 0.55);
+      this.drawPreviewShadow(ctx, this.aimX, SUIKA_DROP_PREVIEW_Y, previewRadius);
+      this.drawFruitByLevel(ctx, this.currentLevel, this.aimX, SUIKA_DROP_PREVIEW_Y, previewRadius, 1, 0);
     }
   }
 
@@ -383,9 +464,9 @@ export struct SuikaPage {
     const top = this.containerTop();
     const width = this.containerWidth();
     const height = this.containerHeight();
-    ctx.fillStyle = 'rgba(255,250,240,0.72)';
+    ctx.fillStyle = 'rgba(255,250,235,0.46)';
     ctx.fillRect(left, top, width, height);
-    ctx.strokeStyle = CoopTheme.ink;
+    ctx.strokeStyle = 'rgba(92,55,26,0.72)';
     ctx.lineWidth = 2;
     ctx.strokeRect(left, top, width, height);
     ctx.setLineDash([6, 6]);
@@ -399,24 +480,68 @@ export struct SuikaPage {
     ctx.setLineDash([]);
   }
 
-  private drawFruit(ctx: CanvasRenderingContext2D, fruit: FruitBody): void {
+  private drawFruitShadow(ctx: CanvasRenderingContext2D, fruit: FruitBody): void {
     const def = FRUITS[fruit.level];
-    ctx.beginPath();
-    ctx.fillStyle = this.gameOver ? '#a8a29e' : def.color;
-    ctx.arc(fruit.x, fruit.y, def.radius, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.beginPath();
-    ctx.fillStyle = 'rgba(255,255,255,0.34)';
-    ctx.arc(fruit.x - def.radius * 0.3, fruit.y - def.radius * 0.32, def.radius * 0.34, 0, Math.PI * 2);
-    ctx.fill();
-    this.drawFruitFace(ctx, fruit.x, fruit.y, def.radius);
-    if (def.radius >= 36) {
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.font = `700 ${this.fruitLabelFontSize(def.radius)}vp sans-serif`;
-      ctx.fillText(this.fruitLabel(def.name), fruit.x, fruit.y);
+    const groundGap = Math.max(0, this.containerBottom() - (fruit.y + def.radius));
+    const lift = Math.min(1, groundGap / Math.max(1, def.radius * 4));
+    const contact = 1 - lift;
+    const speed = Math.min(1, (Math.abs(fruit.vx) + Math.abs(fruit.vy)) / 8);
+    const shadowX = fruit.x - fruit.vx * 0.16;
+    const shadowY = Math.min(this.containerBottom() - 2, fruit.y + def.radius * (0.74 + lift * 0.2));
+    const width = def.radius * (0.68 + contact * 0.34 + speed * 0.08);
+    const height = def.radius * (0.10 + contact * 0.11);
+    const alpha = (this.gameOver ? 0.10 : 0.16) * (0.46 + contact * 0.54);
+    this.drawSoftShadow(ctx, shadowX, shadowY, width, height, alpha);
+  }
+
+  private drawFruit(ctx: CanvasRenderingContext2D, fruit: FruitBody, opacity: number): void {
+    const def = FRUITS[fruit.level];
+    this.drawFruitByLevel(ctx, fruit.level, fruit.x, fruit.y, def.radius, opacity, fruit.visualAngle);
+  }
+
+  private drawFruitByLevel(
+    ctx: CanvasRenderingContext2D,
+    level: number,
+    x: number,
+    y: number,
+    radius: number,
+    opacity: number,
+    rotation: number
+  ): void {
+    const pixelMap = this.fruitPixelMaps[level];
+    const size = this.fruitImageSize(radius);
+    ctx.save();
+    ctx.translate(x, y);
+    if (Math.abs(rotation) > 0.001) {
+      ctx.rotate(rotation);
     }
+    ctx.globalAlpha = opacity;
+    if (pixelMap !== undefined) {
+      ctx.drawImage(pixelMap, -size * 0.5, -size * 0.5, size, size);
+    } else {
+      this.drawFallbackFruit(ctx, level, 0, 0, radius);
+    }
+    ctx.restore();
+  }
+
+  private drawFallbackFruit(ctx: CanvasRenderingContext2D, level: number, x: number, y: number, radius: number): void {
+    const def = FRUITS[level];
+    ctx.beginPath();
+    ctx.fillStyle = def.color;
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = Math.max(2, radius * 0.08);
+    ctx.strokeStyle = 'rgba(255,255,255,0.76)';
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.fillStyle = 'rgba(255,255,255,0.52)';
+    ctx.arc(x - radius * 0.28, y - radius * 0.32, Math.max(2, radius * 0.2), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(47,55,72,0.72)';
+    ctx.font = `700 ${Math.max(10, radius * 0.52)}vp sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${level + 1}`, x, y + radius * 0.04);
   }
 
   private drawMergeFeedback(ctx: CanvasRenderingContext2D, now: number): void {
@@ -444,35 +569,256 @@ export struct SuikaPage {
     }
   }
 
-  private fruitLabel(name: string): string {
-    if (name === '巨型鸡窝西瓜') {
-      return '鸡窝瓜';
-    }
-    if (name === '鸡冠西瓜') {
-      return '鸡冠瓜';
-    }
-    return name;
-  }
-
-  private fruitLabelFontSize(radius: number): number {
-    return Math.max(10, Math.min(13, radius * 0.24));
-  }
-
-  private drawFruitFace(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
-    if (radius < 10) {
+  private drawSceneBackground(ctx: CanvasRenderingContext2D): void {
+    if (this.backgroundPixelMap === undefined) {
+      ctx.fillStyle = '#3d2413';
+      ctx.fillRect(0, 0, this.pageWidth, this.pageHeight);
+      ctx.fillStyle = '#9b5b25';
+      ctx.fillRect(0, this.pageHeight * 0.36, this.pageWidth, this.pageHeight * 0.64);
       return;
     }
-    const eyeY = y - radius * 0.12;
-    const eyeGap = radius * 0.32;
-    const eyeWidth = Math.max(4, radius * 0.22);
-    ctx.strokeStyle = 'rgba(47,55,72,0.68)';
-    ctx.lineWidth = Math.max(1.4, radius * 0.055);
+    const scale = Math.max(
+      this.pageWidth / SUIKA_BACKGROUND_WIDTH,
+      this.pageHeight / SUIKA_BACKGROUND_HEIGHT
+    );
+    const drawWidth = SUIKA_BACKGROUND_WIDTH * scale;
+    const drawHeight = SUIKA_BACKGROUND_HEIGHT * scale;
+    const dx = (this.pageWidth - drawWidth) * 0.5;
+    const dy = (this.pageHeight - drawHeight) * 0.5 + this.pageHeight * SUIKA_BACKGROUND_OFFSET_Y_RATIO;
+    ctx.drawImage(this.backgroundPixelMap, dx, dy, drawWidth, drawHeight);
+
+    ctx.fillStyle = 'rgba(32,16,8,0.12)';
+    ctx.fillRect(0, 0, this.pageWidth, this.pageHeight);
+    ctx.fillStyle = 'rgba(255,229,178,0.08)';
+    ctx.fillRect(0, this.pageHeight * 0.42, this.pageWidth, this.pageHeight * 0.58);
+  }
+
+  private playMergeFeedback(isFinalMerge: boolean, now: number): void {
+    const canPlayBase = isFinalMerge || now - this.lastMergeSoundAt >= this.mergeSoundCooldownMs;
+    if (canPlayBase) {
+      this.audioService.play('suika_merge_pop', 0.72);
+      this.audioService.play('suika_merge_splash', 0.34);
+      this.lastMergeSoundAt = now;
+    }
+    if (isFinalMerge) {
+      this.audioService.play('suika_merge_final', 0.9);
+    }
+  }
+
+  private spawnMergeEffects(x: number, y: number, level: number, isFinalMerge: boolean, now: number): void {
+    const safeLevel = Math.max(0, Math.min(FRUITS.length - 1, level));
+    const baseRadius = FRUITS[safeLevel].radius;
+    const baseColor = FRUITS[safeLevel].color;
+    const particleCount = isFinalMerge ? 34 : 14;
+    const duration = isFinalMerge ? 760 : 520;
+    this.mergeRings.push({
+      x: x,
+      y: y,
+      startRadius: Math.max(8, baseRadius * 0.42),
+      endRadius: baseRadius * (isFinalMerge ? 2.05 : 1.38),
+      color: isFinalMerge ? '#fde68a' : baseColor,
+      bornAt: now,
+      duration: isFinalMerge ? 700 : 420,
+      lineWidth: isFinalMerge ? 5 : 3
+    });
+    if (isFinalMerge) {
+      this.mergeRings.push({
+        x: x,
+        y: y,
+        startRadius: baseRadius * 0.72,
+        endRadius: baseRadius * 2.6,
+        color: '#fb7185',
+        bornAt: now + 60,
+        duration: 760,
+        lineWidth: 4
+      });
+    }
+
+    for (let i = 0; i < particleCount; i += 1) {
+      const angle = Math.PI * 2 * (i / particleCount) + (Math.random() - 0.5) * 0.5;
+      const speed = (isFinalMerge ? 3.2 : 2.0) + Math.random() * (isFinalMerge ? 3.8 : 2.2);
+      const color = this.mergeParticleColor(i, baseColor, isFinalMerge);
+      this.mergeParticles.push({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - (isFinalMerge ? 1.5 : 0.8),
+        startRadius: (isFinalMerge ? 2.4 : 1.8) + Math.random() * (isFinalMerge ? 3.2 : 2.4),
+        color: color,
+        bornAt: now,
+        duration: duration + Math.random() * 160
+      });
+    }
+
+    if (this.mergeParticles.length > 160) {
+      this.mergeParticles = this.mergeParticles.slice(this.mergeParticles.length - 160);
+    }
+    if (this.mergeRings.length > 12) {
+      this.mergeRings = this.mergeRings.slice(this.mergeRings.length - 12);
+    }
+  }
+
+  private drawMergeEffects(ctx: CanvasRenderingContext2D, now: number): void {
+    const activeRings: MergeRing[] = [];
+    for (let i = 0; i < this.mergeRings.length; i += 1) {
+      const ring = this.mergeRings[i];
+      const elapsed = now - ring.bornAt;
+      if (elapsed < 0) {
+        activeRings.push(ring);
+        continue;
+      }
+      if (elapsed > ring.duration) {
+        continue;
+      }
+      activeRings.push(ring);
+      const progress = Math.max(0, Math.min(1, elapsed / ring.duration));
+      const eased = 1 - Math.pow(1 - progress, 2);
+      const radius = ring.startRadius + (ring.endRadius - ring.startRadius) * eased;
+      ctx.save();
+      ctx.globalAlpha = 0.72 * (1 - progress);
+      ctx.strokeStyle = ring.color;
+      ctx.lineWidth = ring.lineWidth * (1 - progress * 0.42);
+      ctx.beginPath();
+      ctx.arc(ring.x, ring.y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+    this.mergeRings = activeRings;
+
+    const activeParticles: MergeParticle[] = [];
+    for (let i = 0; i < this.mergeParticles.length; i += 1) {
+      const particle = this.mergeParticles[i];
+      const elapsed = now - particle.bornAt;
+      if (elapsed > particle.duration) {
+        continue;
+      }
+      activeParticles.push(particle);
+      const progress = Math.max(0, Math.min(1, elapsed / particle.duration));
+      const frameProgress = elapsed / 16.67;
+      const x = particle.x + particle.vx * frameProgress;
+      const y = particle.y + particle.vy * frameProgress + 0.032 * frameProgress * frameProgress;
+      const radius = particle.startRadius * (1 - progress * 0.48);
+      ctx.save();
+      ctx.globalAlpha = 0.88 * (1 - progress);
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      if (radius > 2.4) {
+        ctx.globalAlpha = 0.42 * (1 - progress);
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x - radius * 0.22, y - radius * 0.22, radius * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+    this.mergeParticles = activeParticles;
+  }
+
+  private mergeParticleColor(index: number, baseColor: string, isFinalMerge: boolean): string {
+    const colors: string[] = isFinalMerge
+      ? [baseColor, '#fde68a', '#fbbf24', '#fb7185', '#ffffff']
+      : [baseColor, '#fff7cc', '#fbbf24', '#ffffff'];
+    return colors[index % colors.length];
+  }
+
+  private drawPreviewShadow(ctx: CanvasRenderingContext2D, x: number, y: number, radius: number): void {
+    this.drawSoftShadow(ctx, x, y + radius * 0.68, radius * 0.72, radius * 0.14, 0.10);
+  }
+
+  private drawSoftShadow(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    alpha: number
+  ): void {
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(x - eyeGap - eyeWidth * 0.5, eyeY);
-    ctx.lineTo(x - eyeGap + eyeWidth * 0.5, eyeY + radius * 0.03);
-    ctx.moveTo(x + eyeGap - eyeWidth * 0.5, eyeY + radius * 0.03);
-    ctx.lineTo(x + eyeGap + eyeWidth * 0.5, eyeY);
-    ctx.stroke();
+    ctx.fillStyle = `rgba(70,52,35,${Math.max(0, Math.min(0.22, alpha * 0.46))})`;
+    ctx.ellipse(x, y, width * 1.26, height * 1.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.fillStyle = `rgba(70,52,35,${Math.max(0, Math.min(0.28, alpha))})`;
+    ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  private fruitImageSize(radius: number): number {
+    return radius * 2.35;
+  }
+
+  private async loadBackgroundImage(): Promise<void> {
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext === undefined) {
+      return;
+    }
+    let source: image.ImageSource | undefined = undefined;
+    try {
+      const content = await hostContext.resourceManager.getRawFileContent(SUIKA_BACKGROUND_IMAGE);
+      source = image.createImageSource(content.buffer);
+      const pixelMap = await source.createPixelMap({ editable: false });
+      if (this.disposed) {
+        await pixelMap.release();
+        return;
+      }
+      this.backgroundPixelMap = pixelMap;
+      this.draw();
+    } catch (error) {
+      console.error(`Suika background image load failed (${SUIKA_BACKGROUND_IMAGE}): ${JSON.stringify(error)}`);
+    } finally {
+      if (source !== undefined) {
+        await source.release();
+      }
+    }
+  }
+
+  private async loadFruitImages(): Promise<void> {
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext === undefined) {
+      return;
+    }
+    const resourceManager = hostContext.resourceManager;
+    for (let i = 0; i < FRUITS.length; i += 1) {
+      let source: image.ImageSource | undefined = undefined;
+      try {
+        const content = await resourceManager.getRawFileContent(FRUITS[i].image);
+        source = image.createImageSource(content.buffer);
+        const pixelMap = await source.createPixelMap({ editable: false });
+        if (this.disposed) {
+          await pixelMap.release();
+          return;
+        }
+        this.fruitPixelMaps[i] = pixelMap;
+      } catch (error) {
+        console.error(`Suika fruit image load failed (${FRUITS[i].image}): ${JSON.stringify(error)}`);
+      } finally {
+        if (source !== undefined) {
+          await source.release();
+        }
+      }
+    }
+    this.draw();
+  }
+
+  private releaseFruitImages(): void {
+    for (let i = 0; i < this.fruitPixelMaps.length; i += 1) {
+      const pixelMap = this.fruitPixelMaps[i];
+      if (pixelMap !== undefined) {
+        pixelMap.release();
+        this.fruitPixelMaps[i] = undefined;
+      }
+    }
+  }
+
+  private releaseBackgroundImage(): void {
+    if (this.backgroundPixelMap !== undefined) {
+      this.backgroundPixelMap.release();
+      this.backgroundPixelMap = undefined;
+    }
   }
 
   private clampAimToCurrentFruit(x: number): number {
@@ -496,7 +842,7 @@ export struct SuikaPage {
   }
 
   private containerHeight(): number {
-    return Math.max(330, this.pageHeight * 0.66);
+    return Math.max(SUIKA_BOARD_MIN_HEIGHT, this.containerBottomTarget() - this.containerTop());
   }
 
   private containerLeft(): number {
@@ -508,10 +854,14 @@ export struct SuikaPage {
   }
 
   private containerTop(): number {
-    return Math.max(205, this.pageHeight - this.containerHeight() - 54);
+    return Math.max(SUIKA_BOARD_TOP_MIN, this.pageHeight * SUIKA_BOARD_TOP_RATIO);
   }
 
   private containerBottom(): number {
     return this.containerTop() + this.containerHeight();
+  }
+
+  private containerBottomTarget(): number {
+    return Math.min(this.pageHeight - 8, this.pageHeight - SUIKA_BOARD_BOTTOM_MARGIN + SUIKA_BOARD_HEIGHT_EXTRA);
   }
 }
