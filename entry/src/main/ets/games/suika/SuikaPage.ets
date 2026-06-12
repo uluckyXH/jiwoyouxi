@@ -4,7 +4,7 @@ import { CoopTheme } from '../../design/CoopTheme';
 import { NativeAudioService } from '../../services/AudioService';
 import { integrateFruits, resolveSuikaCollisions } from './SuikaPhysics';
 import { getSpawnLevel, NEXT_FRUIT_DELAY_MS, resolveOverflowState } from './SuikaRules';
-import { FRUITS, FruitBody, SuikaBounds } from './SuikaTypes';
+import { CollisionStepResult, FRUITS, FruitBody, SuikaBounds } from './SuikaTypes';
 import { SuikaExitConfirmOverlay } from './SuikaExitConfirmOverlay';
 import { SuikaResultOverlay } from './SuikaResultOverlay';
 
@@ -19,6 +19,10 @@ const SUIKA_TOP_BAR_BUTTON_BACKGROUND: string = '#f9dbb2';
 const SUIKA_TOP_BAR_TEXT_COLOR: string = '#7b5137';
 // 可调整：顶部“大 厅 / 鸡窝水果摊 / 暂停”这一行的上下位置。数值越大越往下。
 const SUIKA_TOP_BAR_CONTENT_PADDING_TOP: number = 34;
+// 可调整：是否在 DevEco Studio 运行日志里输出性能计数。
+const SUIKA_ENABLE_PERF_LOG: boolean = true;
+// 可调整：性能日志输出间隔，单位毫秒。1000 表示约每秒输出一次。
+const SUIKA_PERF_LOG_INTERVAL_MS: number = 1000;
 // 可调整：Canvas 图片缩放平滑开关。true 可以减少切图缩放后的锯齿感。
 const SUIKA_IMAGE_SMOOTHING_ENABLED: boolean = true;
 // 可调整：背景整体上下位置。数值越小越往上，数值越大越往下；建议每次只改 0.005 到 0.02。
@@ -111,6 +115,8 @@ const SUIKA_FRUIT_PLAY_SHADOW_ENABLED: boolean = true;
 const SUIKA_FRUIT_FLOOR_SHADOW_ALPHA: number = 0.11;
 // 可调整：玩法区水果堆叠接触阴影强度。数值越大越明显，建议 0.04 到 0.10。
 const SUIKA_FRUIT_STACK_SHADOW_ALPHA: number = 0.065;
+// 可调整：超过这个水果数量后关闭堆叠阴影，只保留地板阴影，降低大量水果时的绘制成本。
+const SUIKA_STACK_SHADOW_MAX_FRUITS: number = 18;
 // 可调整：水果离下方支撑物多近时显示堆叠阴影。数值越大，越早出现阴影。
 const SUIKA_FRUIT_STACK_SHADOW_MAX_GAP_RATIO: number = 0.42;
 
@@ -176,6 +182,13 @@ export struct SuikaPage {
   private mergeSoundCooldownMs: number = 80;
   private disposed: boolean = false;
   private pausedBeforeExitConfirm: boolean = false;
+  private perfWindowStartedAt: number = 0;
+  private perfFrameCount: number = 0;
+  private perfPhysicsMs: number = 0;
+  private perfDrawMs: number = 0;
+  private perfPairChecks: number = 0;
+  private perfNarrowChecks: number = 0;
+  private perfCollisionHits: number = 0;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State score: number = 0;
@@ -192,7 +205,6 @@ export struct SuikaPage {
     if (context !== undefined) {
       this.audioService.init(context as common.Context);
     }
-    this.loadBackgroundImage();
     this.loadHangingSignImage();
     this.loadFruitImages();
     this.loadFruitPreviewImages();
@@ -203,7 +215,6 @@ export struct SuikaPage {
     this.disposed = true;
     this.stopLoop();
     this.audioService.release();
-    this.releaseBackgroundImage();
     this.releaseHangingSignImage();
     this.releaseFruitImages();
     this.releaseFruitPreviewImages();
@@ -211,10 +222,12 @@ export struct SuikaPage {
 
   build() {
     Stack() {
+      this.SceneBackgroundLayer()
       Canvas(this.context)
         .width('100%')
         .height('100%')
-        .zIndex(0)
+        .backgroundColor('rgba(0,0,0,0)')
+        .zIndex(1)
         .onReady(() => {
           this.draw();
         })
@@ -254,6 +267,7 @@ export struct SuikaPage {
             this.showResultOverlay = false;
           }
         })
+        .zIndex(30)
       }
       if (this.showExitConfirmOverlay) {
         SuikaExitConfirmOverlay({
@@ -268,11 +282,35 @@ export struct SuikaPage {
             this.confirmExitToHub();
           }
         })
+        .zIndex(30)
       }
     }
     .width('100%')
     .height('100%')
     .backgroundColor(CoopTheme.bg)
+  }
+
+  @Builder
+  SceneBackgroundLayer() {
+    Stack() {
+      Image($rawfile(SUIKA_BACKGROUND_IMAGE))
+        .width(this.backgroundDrawWidth())
+        .height(this.backgroundDrawHeight())
+        .objectFit(ImageFit.Fill)
+        .position({ x: this.backgroundDrawX(), y: this.backgroundDrawY() })
+      Rect()
+        .width('100%')
+        .height('100%')
+        .fill('rgba(32,16,8,0.12)')
+      Rect()
+        .width('100%')
+        .height(this.pageHeight * 0.58)
+        .fill('rgba(255,229,178,0.08)')
+        .position({ x: 0, y: this.pageHeight * 0.42 })
+    }
+    .width('100%')
+    .height('100%')
+    .zIndex(0)
   }
 
   @Builder
@@ -370,6 +408,7 @@ export struct SuikaPage {
     this.mergeParticles = [];
     this.mergeRings = [];
     this.lastMergeSoundAt = 0;
+    this.resetPerformanceStats();
     this.startLoop();
     this.draw();
   }
@@ -395,11 +434,16 @@ export struct SuikaPage {
     }
     const now = Date.now();
     this.activatePendingFruit(now);
+    const physicsStartedAt = Date.now();
     this.applyPhysics();
-    this.resolveCollisions(now);
+    const collisionResult = this.resolveCollisions(now);
     this.checkOverflow(now);
+    const physicsMs = Date.now() - physicsStartedAt;
     this.tick += 1;
+    const drawStartedAt = Date.now();
     this.draw();
+    const drawMs = Date.now() - drawStartedAt;
+    this.collectPerformanceStats(physicsMs, drawMs, collisionResult);
   }
 
   private handleTouch(event: TouchEvent): void {
@@ -454,7 +498,7 @@ export struct SuikaPage {
     this.fruits = integrateFruits(this.fruits, FRUITS, this.containerBounds());
   }
 
-  private resolveCollisions(now: number): void {
+  private resolveCollisions(now: number): CollisionStepResult {
     const result = resolveSuikaCollisions(this.fruits, FRUITS, now, this.nextId);
     this.fruits = result.fruits;
     this.nextId = result.nextId;
@@ -470,6 +514,7 @@ export struct SuikaPage {
         this.finalMergeUntil = now + 1400;
       }
     }
+    return result;
   }
 
   private checkOverflow(now: number): void {
@@ -535,11 +580,50 @@ export struct SuikaPage {
     return this.score >= SUIKA_SUCCESS_SCORE_THRESHOLD;
   }
 
+  private collectPerformanceStats(physicsMs: number, drawMs: number, collisionResult: CollisionStepResult): void {
+    if (!SUIKA_ENABLE_PERF_LOG) {
+      return;
+    }
+    const now = Date.now();
+    if (this.perfWindowStartedAt === 0) {
+      this.perfWindowStartedAt = now;
+    }
+    this.perfFrameCount += 1;
+    this.perfPhysicsMs += physicsMs;
+    this.perfDrawMs += drawMs;
+    this.perfPairChecks += collisionResult.pairChecks;
+    this.perfNarrowChecks += collisionResult.narrowChecks;
+    this.perfCollisionHits += collisionResult.collisionHits;
+    const elapsed = now - this.perfWindowStartedAt;
+    if (elapsed < SUIKA_PERF_LOG_INTERVAL_MS) {
+      return;
+    }
+    const frames = Math.max(1, this.perfFrameCount);
+    console.info(
+      `SuikaPerf fruits=${this.fruits.length} frames=${frames} ` +
+        `pairs/frame=${(this.perfPairChecks / frames).toFixed(0)} ` +
+        `narrow/frame=${(this.perfNarrowChecks / frames).toFixed(0)} ` +
+        `hits/frame=${(this.perfCollisionHits / frames).toFixed(0)} ` +
+        `physics=${(this.perfPhysicsMs / frames).toFixed(2)}ms ` +
+        `draw=${(this.perfDrawMs / frames).toFixed(2)}ms`
+    );
+    this.resetPerformanceStats(now);
+  }
+
+  private resetPerformanceStats(startedAt: number = 0): void {
+    this.perfWindowStartedAt = startedAt;
+    this.perfFrameCount = 0;
+    this.perfPhysicsMs = 0;
+    this.perfDrawMs = 0;
+    this.perfPairChecks = 0;
+    this.perfNarrowChecks = 0;
+    this.perfCollisionHits = 0;
+  }
+
   private draw(): void {
     const ctx = this.context;
     ctx.clearRect(0, 0, this.pageWidth, this.pageHeight);
     this.configureImageSmoothing(ctx);
-    this.drawSceneBackground(ctx);
     this.drawHangingSign(ctx);
     this.drawDropZone(ctx);
     this.drawContainer(ctx);
@@ -728,6 +812,9 @@ export struct SuikaPage {
     }
     const def = FRUITS[fruit.level];
     this.drawFruitFloorShadow(ctx, fruit, def.radius);
+    if (this.fruits.length > SUIKA_STACK_SHADOW_MAX_FRUITS) {
+      return;
+    }
     const support = this.findFruitShadowSupport(fruit, index, def.radius);
     if (support !== undefined) {
       this.drawFruitStackShadow(ctx, fruit, def.radius, support);
@@ -1309,6 +1396,29 @@ export struct SuikaPage {
 
   private dropRailRight(): number {
     return this.pageWidth * SUIKA_DROP_RAIL_RIGHT_RATIO + SUIKA_DROP_RAIL_RIGHT_OFFSET_X;
+  }
+
+  private backgroundScale(): number {
+    return Math.max(
+      this.pageWidth / SUIKA_BACKGROUND_WIDTH,
+      this.pageHeight / SUIKA_BACKGROUND_HEIGHT
+    );
+  }
+
+  private backgroundDrawWidth(): number {
+    return SUIKA_BACKGROUND_WIDTH * this.backgroundScale();
+  }
+
+  private backgroundDrawHeight(): number {
+    return SUIKA_BACKGROUND_HEIGHT * this.backgroundScale();
+  }
+
+  private backgroundDrawX(): number {
+    return (this.pageWidth - this.backgroundDrawWidth()) * 0.5;
+  }
+
+  private backgroundDrawY(): number {
+    return (this.pageHeight - this.backgroundDrawHeight()) * 0.5 + this.pageHeight * SUIKA_BACKGROUND_OFFSET_Y_RATIO;
   }
 
   private containerBounds(): SuikaBounds {

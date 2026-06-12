@@ -48,6 +48,9 @@ export interface CollisionStepResult {
   mergeLevel: number;
   mergeX: number;
   mergeY: number;
+  pairChecks: number;
+  narrowChecks: number;
+  collisionHits: number;
 }
 
 export const FRUITS: FruitDef[] = [
