@@ -718,7 +718,7 @@ export struct HubPage {
   }
 
   private tabBarBgColor(): string {
-    return this.isDarkMode() ? '#1b1916' : '#fffaf2';
+    return this.homeBgColor();
   }
 
   private tabBarLineColor(): string {

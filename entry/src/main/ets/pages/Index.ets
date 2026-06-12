@@ -27,6 +27,7 @@ struct Index {
   @State entryBadgeGameId: string = 'rps';
   @State entryBadgeMounted: boolean = false;
   @State entryBadgeVisible: boolean = false;
+  @State minesweeperExitRequestId: number = 0;
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext();
@@ -39,6 +40,10 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'minesweeper') {
+      this.requestMinesweeperExit();
+      return true;
+    }
     if (this.activeGame !== 'hub') {
       this.closeGameAnimated();
       return true;
@@ -100,6 +105,7 @@ struct Index {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           MinesweeperPage({
             bestScore: this.recordFor('minesweeper').highScore,
+            externalExitRequestId: this.minesweeperExitRequestId,
             exitToHub: () => {
               this.closeGameAnimated();
             },
@@ -196,6 +202,13 @@ struct Index {
     }, () => {
       this.activeGame = 'hub';
     });
+  }
+
+  private requestMinesweeperExit(): void {
+    if (this.sceneTransitioning) {
+      return;
+    }
+    this.minesweeperExitRequestId += 1;
   }
 
   private toggleFavorite(gameId: string): void {

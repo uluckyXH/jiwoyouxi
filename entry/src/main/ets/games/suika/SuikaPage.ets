@@ -5,16 +5,26 @@ import { NativeAudioService } from '../../services/AudioService';
 import { integrateFruits, resolveSuikaCollisions } from './SuikaPhysics';
 import { getSpawnLevel, NEXT_FRUIT_DELAY_MS, resolveOverflowState } from './SuikaRules';
 import { FRUITS, FruitBody, SuikaBounds } from './SuikaTypes';
+import { SuikaExitConfirmOverlay } from './SuikaExitConfirmOverlay';
+import { SuikaResultOverlay } from './SuikaResultOverlay';
 
 const SUIKA_BACKGROUND_IMAGE: string = 'games/suika/backgrounds/market_full.png';
 const SUIKA_BACKGROUND_WIDTH: number = 854;
 const SUIKA_BACKGROUND_HEIGHT: number = 1842;
+const SUIKA_SUCCESS_SCORE_THRESHOLD: number = 600;
+const SUIKA_HANGING_SIGN_IMAGE: string = 'games/suika/ui/hanging_sign.png';
+const SUIKA_HANGING_SIGN_ASPECT_RATIO: number = 1120 / 975;
+const SUIKA_TOP_BAR_BACKGROUND: string = '#fff0d5';
+const SUIKA_TOP_BAR_BUTTON_BACKGROUND: string = '#f9dbb2';
+const SUIKA_TOP_BAR_TEXT_COLOR: string = '#7b5137';
+// 可调整：顶部“大 厅 / 鸡窝水果摊 / 暂停”这一行的上下位置。数值越大越往下。
+const SUIKA_TOP_BAR_CONTENT_PADDING_TOP: number = 34;
 // 可调整：Canvas 图片缩放平滑开关。true 可以减少切图缩放后的锯齿感。
 const SUIKA_IMAGE_SMOOTHING_ENABLED: boolean = true;
 // 可调整：背景整体上下位置。数值越小越往上，数值越大越往下；建议每次只改 0.005 到 0.02。
-const SUIKA_BACKGROUND_OFFSET_Y_RATIO: number = 0.11;
+const SUIKA_BACKGROUND_OFFSET_Y_RATIO: number = 0.08;
 // 可调整：投放区域上下位置。数值越小越往上，数值越大越往下。
-const SUIKA_BOARD_TOP_RATIO: number = 0.423;
+const SUIKA_BOARD_TOP_RATIO: number = 0.405;
 // 可调整：小屏兜底顶部位置。数值越小越往上，数值越大越往下。
 const SUIKA_BOARD_TOP_MIN: number = 250;
 // 可调整：投放区域底部留白。数值越大，底部越短；数值越小，底部越高。
@@ -22,11 +32,29 @@ const SUIKA_BOARD_BOTTOM_MARGIN: number = 50;
 // 可调整：投放区域最小高度兜底。数值越大，最小可玩区域越高。
 const SUIKA_BOARD_MIN_HEIGHT: number = 130;
 // 可调整：投放区域高度微调。正数变高，负数变矮；主要从底部扩展，不会把顶部往上顶。
-const SUIKA_BOARD_HEIGHT_EXTRA: number = -16;
+const SUIKA_BOARD_HEIGHT_EXTRA: number = -38;
 // 可调整：是否显示水果区域调试白框。true 显示白色定位框，false 只显示素材图。
 const SUIKA_SHOW_BOARD_DEBUG_FRAME: boolean = false;
 // 可调整：是否显示红色失败线。true 显示红线，false 隐藏红线；只影响显示，不影响失败判定。
 const SUIKA_SHOW_FAIL_LINE: boolean = false;
+// 可调整：是否显示“手上/下个”文字提示条。当前用吊牌和水果预览替代，默认隐藏。
+const SUIKA_SHOW_DROP_STATUS_HINT: boolean = false;
+// 可调整：是否显示左上角吊牌。
+const SUIKA_SHOW_HANGING_SIGN: boolean = true;
+// 可调整：吊牌左侧位置。数值越大越往右。
+const SUIKA_HANGING_SIGN_X: number = 8;
+// 可调整：吊牌顶部位置。数值越大越往下。
+const SUIKA_HANGING_SIGN_Y: number = 85;
+// 可调整：吊牌宽度占屏幕比例。
+const SUIKA_HANGING_SIGN_WIDTH_RATIO: number = 0.42;
+// 可调整：吊牌最小宽度，避免小屏太小。
+const SUIKA_HANGING_SIGN_MIN_WIDTH: number = 132;
+// 可调整：吊牌最大宽度，避免大屏太大。
+const SUIKA_HANGING_SIGN_MAX_WIDTH: number = 190;
+// 可调整：吊牌分数区域整体横向位置。正数向右，负数向左。
+const SUIKA_HANGING_SIGN_SCORE_OFFSET_X: number = 0;
+// 可调整：吊牌分数区域整体纵向位置。正数向下，负数向上。
+const SUIKA_HANGING_SIGN_SCORE_OFFSET_Y: number = 5;
 // 可调整：顶部投放提示条上下位置。数值越小越往上，数值越大越往下。
 const SUIKA_DROP_ZONE_TOP: number = 102;
 // 可调整：顶部投放提示条高度。数值越大条越高，数值越小条越矮。
@@ -34,7 +62,7 @@ const SUIKA_DROP_ZONE_HEIGHT: number = 74;
 // 可调整：顶部提示文字上下位置。数值越小越往上，数值越大越往下。
 const SUIKA_DROP_ZONE_TEXT_Y: number = 128;
 // 可调整：预览水果和投放杆起点。数值越小越往上，数值越大越往下。
-const SUIKA_DROP_PREVIEW_Y: number = 295;
+const SUIKA_DROP_PREVIEW_Y: number = 270;
 // 可调整：投放木板左边界。0.28 表示屏幕宽度 28% 的位置；数值越大，水果越不靠左。
 const SUIKA_DROP_RAIL_LEFT_RATIO: number = 0.3;
 // 可调整：投放木板右边界。0.72 表示屏幕宽度 72% 的位置；数值越小，水果越不靠右。
@@ -139,6 +167,7 @@ export struct SuikaPage {
   private mergeTextUntil: number = 0;
   private finalMergeUntil: number = 0;
   private backgroundPixelMap: image.PixelMap | undefined = undefined;
+  private hangingSignPixelMap: image.PixelMap | undefined = undefined;
   private fruitPixelMaps: Array<image.PixelMap | undefined> = new Array(FRUITS.length);
   private fruitPreviewPixelMaps: Array<image.PixelMap | undefined> = new Array(FRUITS.length);
   private mergeParticles: MergeParticle[] = [];
@@ -146,12 +175,15 @@ export struct SuikaPage {
   private lastMergeSoundAt: number = 0;
   private mergeSoundCooldownMs: number = 80;
   private disposed: boolean = false;
+  private pausedBeforeExitConfirm: boolean = false;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State score: number = 0;
   @State aimX: number = 195;
   @State paused: boolean = false;
   @State gameOver: boolean = false;
+  @State showResultOverlay: boolean = false;
+  @State showExitConfirmOverlay: boolean = false;
   @State tick: number = 0;
 
   aboutToAppear(): void {
@@ -161,6 +193,7 @@ export struct SuikaPage {
       this.audioService.init(context as common.Context);
     }
     this.loadBackgroundImage();
+    this.loadHangingSignImage();
     this.loadFruitImages();
     this.loadFruitPreviewImages();
     this.restart();
@@ -171,6 +204,7 @@ export struct SuikaPage {
     this.stopLoop();
     this.audioService.release();
     this.releaseBackgroundImage();
+    this.releaseHangingSignImage();
     this.releaseFruitImages();
     this.releaseFruitPreviewImages();
   }
@@ -199,11 +233,41 @@ export struct SuikaPage {
         })
 
       this.TopBar()
-      if (this.paused && !this.gameOver) {
+      if (this.paused && !this.gameOver && !this.showExitConfirmOverlay) {
         this.PauseOverlay()
       }
-      if (this.gameOver) {
-        this.ResultOverlay()
+      if (this.gameOver && this.showResultOverlay) {
+        SuikaResultOverlay({
+          success: this.isSuccessResult(),
+          pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight,
+          currentScore: this.score,
+          bestScore: this.bestScore,
+          successScore: SUIKA_SUCCESS_SCORE_THRESHOLD,
+          restartGame: () => {
+            this.restart();
+          },
+          exitToHub: () => {
+            this.exitToHub();
+          },
+          closeOverlay: () => {
+            this.showResultOverlay = false;
+          }
+        })
+      }
+      if (this.showExitConfirmOverlay) {
+        SuikaExitConfirmOverlay({
+          pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight,
+          currentScore: this.score,
+          droppedCount: this.spawnIndex,
+          cancelExit: () => {
+            this.cancelExitConfirm();
+          },
+          confirmExit: () => {
+            this.confirmExitToHub();
+          }
+        })
       }
     }
     .width('100%')
@@ -215,28 +279,23 @@ export struct SuikaPage {
   TopBar() {
     Row({ space: 8 }) {
       Button('大厅')
-        .width(62)
+        .width(66)
         .height(36)
         .borderRadius(8)
-        .backgroundColor(CoopTheme.panel)
-        .fontColor(CoopTheme.ink)
-        .border({ width: 1, color: CoopTheme.glassLine })
+        .backgroundColor(SUIKA_TOP_BAR_BUTTON_BACKGROUND)
+        .fontColor(SUIKA_TOP_BAR_TEXT_COLOR)
+        .border({ width: 1, color: 'rgba(123,81,55,0.08)' })
         .onClick(() => {
-          this.exitToHub();
+          this.requestExitToHub();
         })
-      Column({ space: 2 }) {
-        Text('鸡窝水果摊')
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
-        Text(`今日瓜分：${this.score} · 最高瓜分：${Math.max(this.bestScore, this.score)}`)
-          .fontSize(12)
-          .fontColor(CoopTheme.muted)
-          .maxLines(1)
-          .textOverflow({ overflow: TextOverflow.Ellipsis })
-      }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
+      Text('鸡窝水果摊')
+        .width('100%')
+        .fontSize(24)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(SUIKA_TOP_BAR_TEXT_COLOR)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
+        .layoutWeight(1)
       Button(this.paused ? '继续' : '暂停')
         .width(66)
         .height(36)
@@ -251,15 +310,8 @@ export struct SuikaPage {
     .width('100%')
     .height(88)
     .zIndex(5)
-    .padding({ left: 12, right: 12, top: 30 })
-    .backgroundColor(CoopTheme.glassStrong)
-    .border({ width: { bottom: 1 }, color: CoopTheme.glassLine })
-    .shadow({
-      radius: 16,
-      color: 'rgba(66,92,120,0.10)',
-      offsetX: 0,
-      offsetY: 8
-    })
+    .padding({ left: 12, right: 12, top: SUIKA_TOP_BAR_CONTENT_PADDING_TOP })
+    .backgroundColor(SUIKA_TOP_BAR_BACKGROUND)
   }
 
   @Builder
@@ -295,45 +347,6 @@ export struct SuikaPage {
     .backgroundColor('rgba(7,8,18,0.62)')
   }
 
-  @Builder
-  ResultOverlay() {
-    Column({ space: 12 }) {
-      Text('鸡窝被塞满了！')
-        .fontSize(26)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(CoopTheme.ink)
-      Text(`今日瓜分：${this.score} · 最高瓜分：${Math.max(this.bestScore, this.score)}`)
-        .fontSize(14)
-        .fontColor(CoopTheme.muted)
-      Button('再摆一摊')
-        .width('100%')
-        .height(44)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.ink)
-        .fontColor('#ffffff')
-        .onClick(() => {
-          this.restart();
-        })
-      Button('回大厅')
-        .width('100%')
-        .height(40)
-        .borderRadius(8)
-        .backgroundColor(CoopTheme.panel)
-        .fontColor(CoopTheme.ink)
-        .border({ width: 1, color: CoopTheme.glassLine })
-        .onClick(() => {
-          this.exitToHub();
-        })
-    }
-    .width(Math.min(this.pageWidth - 36, 340))
-    .zIndex(10)
-    .padding(18)
-    .borderRadius(8)
-    .backgroundColor(CoopTheme.glassStrong)
-    .border({ width: 1, color: CoopTheme.glassLine })
-    .shadow(CoopTheme.shadow)
-  }
-
   private restart(): void {
     this.stopLoop();
     this.fruits = [];
@@ -345,6 +358,9 @@ export struct SuikaPage {
     this.score = 0;
     this.paused = false;
     this.gameOver = false;
+    this.showResultOverlay = false;
+    this.showExitConfirmOverlay = false;
+    this.pausedBeforeExitConfirm = false;
     this.settled = false;
     this.pendingSpawnAt = 0;
     this.overflowSince = 0;
@@ -479,9 +495,44 @@ export struct SuikaPage {
     }
     this.settled = true;
     this.gameOver = true;
+    this.showResultOverlay = true;
+    this.showExitConfirmOverlay = false;
     this.stopLoop();
     this.recordScore(this.score);
     this.draw();
+  }
+
+  private requestExitToHub(): void {
+    if (this.gameOver || !this.hasGameStarted()) {
+      this.exitToHub();
+      return;
+    }
+    if (this.showExitConfirmOverlay) {
+      return;
+    }
+    this.pausedBeforeExitConfirm = this.paused;
+    this.paused = true;
+    this.showExitConfirmOverlay = true;
+  }
+
+  private cancelExitConfirm(): void {
+    this.showExitConfirmOverlay = false;
+    this.paused = this.pausedBeforeExitConfirm;
+    this.pausedBeforeExitConfirm = false;
+    this.draw();
+  }
+
+  private confirmExitToHub(): void {
+    this.showExitConfirmOverlay = false;
+    this.exitToHub();
+  }
+
+  private hasGameStarted(): boolean {
+    return this.spawnIndex > 0 || this.fruits.length > 0 || this.score > 0;
+  }
+
+  private isSuccessResult(): boolean {
+    return this.score >= SUIKA_SUCCESS_SCORE_THRESHOLD;
   }
 
   private draw(): void {
@@ -489,6 +540,7 @@ export struct SuikaPage {
     ctx.clearRect(0, 0, this.pageWidth, this.pageHeight);
     this.configureImageSmoothing(ctx);
     this.drawSceneBackground(ctx);
+    this.drawHangingSign(ctx);
     this.drawDropZone(ctx);
     this.drawContainer(ctx);
     for (let i = 0; i < this.fruits.length; i += 1) {
@@ -502,15 +554,17 @@ export struct SuikaPage {
 
   private drawDropZone(ctx: CanvasRenderingContext2D): void {
     const def = FRUITS[this.currentLevel];
-    ctx.fillStyle = 'rgba(71,43,24,0.42)';
-    ctx.fillRect(12, SUIKA_DROP_ZONE_TOP, this.pageWidth - 24, SUIKA_DROP_ZONE_HEIGHT);
-    ctx.strokeStyle = 'rgba(255,235,197,0.60)';
-    ctx.strokeRect(12, SUIKA_DROP_ZONE_TOP, this.pageWidth - 24, SUIKA_DROP_ZONE_HEIGHT);
-    ctx.fillStyle = '#fff2d2';
-    ctx.font = '700 12vp sans-serif';
-    ctx.textAlign = 'left';
-    const title = this.hasCurrentFruit ? `手上 ${def.name}` : `备货 ${def.name}`;
-    ctx.fillText(`${title} · 下个 ${FRUITS[this.nextLevel].name}`, 22, SUIKA_DROP_ZONE_TEXT_Y);
+    if (SUIKA_SHOW_DROP_STATUS_HINT) {
+      ctx.fillStyle = 'rgba(71,43,24,0.42)';
+      ctx.fillRect(12, SUIKA_DROP_ZONE_TOP, this.pageWidth - 24, SUIKA_DROP_ZONE_HEIGHT);
+      ctx.strokeStyle = 'rgba(255,235,197,0.60)';
+      ctx.strokeRect(12, SUIKA_DROP_ZONE_TOP, this.pageWidth - 24, SUIKA_DROP_ZONE_HEIGHT);
+      ctx.fillStyle = '#fff2d2';
+      ctx.font = '700 12vp sans-serif';
+      ctx.textAlign = 'left';
+      const title = this.hasCurrentFruit ? `手上 ${def.name}` : `备货 ${def.name}`;
+      ctx.fillText(`${title} · 下个 ${FRUITS[this.nextLevel].name}`, 22, SUIKA_DROP_ZONE_TEXT_Y);
+    }
     const previewRadius = this.dropPreviewRadius();
     const previewX = this.clampDropPreviewX(this.aimX + SUIKA_DROP_PREVIEW_OFFSET_X, previewRadius);
     const previewY = SUIKA_DROP_PREVIEW_Y + SUIKA_DROP_PREVIEW_OFFSET_Y;
@@ -541,6 +595,89 @@ export struct SuikaPage {
         true
       );
     }
+  }
+
+  private drawHangingSign(ctx: CanvasRenderingContext2D): void {
+    if (!SUIKA_SHOW_HANGING_SIGN || this.hangingSignPixelMap === undefined) {
+      return;
+    }
+    const width = Math.max(
+      SUIKA_HANGING_SIGN_MIN_WIDTH,
+      Math.min(SUIKA_HANGING_SIGN_MAX_WIDTH, this.pageWidth * SUIKA_HANGING_SIGN_WIDTH_RATIO)
+    );
+    const height = width / SUIKA_HANGING_SIGN_ASPECT_RATIO;
+    this.configureImageSmoothing(ctx);
+    ctx.drawImage(
+      this.hangingSignPixelMap,
+      SUIKA_HANGING_SIGN_X,
+      SUIKA_HANGING_SIGN_Y,
+      width,
+      height
+    );
+    this.drawHangingSignScores(ctx, SUIKA_HANGING_SIGN_X, SUIKA_HANGING_SIGN_Y, width, height);
+  }
+
+  private drawHangingSignScores(
+    ctx: CanvasRenderingContext2D,
+    signX: number,
+    signY: number,
+    signWidth: number,
+    signHeight: number
+  ): void {
+    const scoreRows: string[] = [`${this.score}`, `${Math.max(this.bestScore, this.score)}`];
+    const labels: string[] = ['今日瓜分：', '最高纪录：'];
+    const panelX = signX + signWidth * 0.145 + SUIKA_HANGING_SIGN_SCORE_OFFSET_X;
+    const panelWidth = signWidth * 0.71;
+    const panelHeight = signHeight * 0.118;
+    const panelRadius = panelHeight * 0.48;
+    const firstPanelY = signY + signHeight * 0.555 + SUIKA_HANGING_SIGN_SCORE_OFFSET_Y;
+    const panelGap = signHeight * 0.165;
+    const labelX = panelX + signWidth * 0.07;
+    const valueX = panelX + signWidth * 0.43;
+    const labelFontSize = Math.max(8, signWidth * 0.058);
+    const valueFontSize = Math.max(12, signWidth * 0.092);
+
+    ctx.save();
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    for (let i = 0; i < 2; i += 1) {
+      const panelY = firstPanelY + panelGap * i;
+      const centerY = panelY + panelHeight * 0.52;
+      ctx.fillStyle = 'rgba(68,35,18,0.18)';
+      this.fillRoundRect(ctx, panelX + signWidth * 0.012, panelY + panelHeight * 0.12, panelWidth, panelHeight, panelRadius);
+      ctx.fillStyle = 'rgba(92,48,21,0.70)';
+      this.fillRoundRect(ctx, panelX, panelY, panelWidth, panelHeight, panelRadius);
+      ctx.fillStyle = '#fff1d2';
+      ctx.font = `700 ${labelFontSize}vp sans-serif`;
+      ctx.fillText(labels[i], labelX, centerY);
+      ctx.fillStyle = i === 0 ? '#ffe52f' : '#fff7e7';
+      ctx.font = `800 ${valueFontSize}vp sans-serif`;
+      ctx.fillText(scoreRows[i], valueX, centerY);
+    }
+    ctx.restore();
+  }
+
+  private fillRoundRect(
+    ctx: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    radius: number
+  ): void {
+    const r = Math.max(0, Math.min(radius, width * 0.5, height * 0.5));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+    ctx.fill();
   }
 
   private drawDropRailDebug(ctx: CanvasRenderingContext2D, y: number): void {
@@ -1028,6 +1165,31 @@ export struct SuikaPage {
     }
   }
 
+  private async loadHangingSignImage(): Promise<void> {
+    const hostContext = this.getUIContext().getHostContext();
+    if (hostContext === undefined) {
+      return;
+    }
+    let source: image.ImageSource | undefined = undefined;
+    try {
+      const content = await hostContext.resourceManager.getRawFileContent(SUIKA_HANGING_SIGN_IMAGE);
+      source = image.createImageSource(content.buffer);
+      const pixelMap = await source.createPixelMap({ editable: false });
+      if (this.disposed) {
+        await pixelMap.release();
+        return;
+      }
+      this.hangingSignPixelMap = pixelMap;
+      this.draw();
+    } catch (error) {
+      console.error(`Suika hanging sign image load failed (${SUIKA_HANGING_SIGN_IMAGE}): ${JSON.stringify(error)}`);
+    } finally {
+      if (source !== undefined) {
+        await source.release();
+      }
+    }
+  }
+
   private async loadFruitImages(): Promise<void> {
     const hostContext = this.getUIContext().getHostContext();
     if (hostContext === undefined) {
@@ -1108,6 +1270,13 @@ export struct SuikaPage {
     if (this.backgroundPixelMap !== undefined) {
       this.backgroundPixelMap.release();
       this.backgroundPixelMap = undefined;
+    }
+  }
+
+  private releaseHangingSignImage(): void {
+    if (this.hangingSignPixelMap !== undefined) {
+      this.hangingSignPixelMap.release();
+      this.hangingSignPixelMap = undefined;
     }
   }
 
