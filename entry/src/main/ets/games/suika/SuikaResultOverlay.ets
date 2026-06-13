@@ -1,18 +1,15 @@
 import { CoopModalTransition } from '../../components/CoopModalTransition';
-import { MinesweeperFeatherLayer } from './MinesweeperFeatherLayer';
-import { MinesweeperImageButton } from './MinesweeperImageButton';
-import { MinesweeperTheme } from './MinesweeperTheme';
+import { SuikaFeatherLayer } from './SuikaFeatherLayer';
+import { SuikaImageButton } from './SuikaImageButton';
 
 @Component
-export struct MinesweeperResultOverlay {
-  @Prop win: boolean = false;
+export struct SuikaResultOverlay {
+  @Prop success: boolean = false;
   @Prop pageWidth: number = 390;
   @Prop pageHeight: number = 760;
-  @Prop elapsedText: string = '00:00';
   @Prop currentScore: number = 0;
   @Prop bestScore: number = 0;
-  @Prop openedSafeCells: number = 0;
-  @Prop safeCellTotal: number = 54;
+  @Prop successScore: number = 600;
   restartGame: () => void = () => {};
   exitToHub: () => void = () => {};
   closeOverlay: () => void = () => {};
@@ -22,8 +19,8 @@ export struct MinesweeperResultOverlay {
       maskColor: 'rgba(22,13,8,0.42)'
     }) {
       Stack({ alignContent: Alignment.Center }) {
-        MinesweeperFeatherLayer({
-          win: this.win,
+        SuikaFeatherLayer({
+          success: this.success,
           pageWidth: this.pageWidth,
           pageHeight: this.pageHeight
         })
@@ -42,19 +39,21 @@ export struct MinesweeperResultOverlay {
         .height(this.cardHeight())
         .objectFit(ImageFit.Fill)
       Column({ space: this.contentGap() }) {
-        Text(this.win ? MinesweeperTheme.winTitle : MinesweeperTheme.loseTitle)
+        Text(this.titleText())
           .width('100%')
           .fontSize(this.titleFontSize())
           .fontWeight(FontWeight.Bold)
-          .fontColor(this.win ? '#946112' : '#794022')
+          .fontColor(this.success ? '#946112' : '#794022')
           .textAlign(TextAlign.Center)
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
           .textShadow({ radius: 1, color: 'rgba(255,255,255,0.72)', offsetX: 0, offsetY: 1 })
         Text(this.subtitleText())
           .width('100%')
           .fontSize(this.subtitleFontSize())
           .fontColor('#7e6247')
           .textAlign(TextAlign.Center)
-          .maxLines(1)
+          .maxLines(2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Text(this.infoText())
           .width('100%')
@@ -65,8 +64,8 @@ export struct MinesweeperResultOverlay {
           .maxLines(1)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
         Row({ space: 10 }) {
-          MinesweeperImageButton({
-            label: '再来一局',
+          SuikaImageButton({
+            label: '再摆一摊',
             imagePath: 'games/minesweeper/button_yellow.png',
             buttonWidth: this.buttonWidth(),
             buttonHeight: this.buttonHeight(),
@@ -75,7 +74,7 @@ export struct MinesweeperResultOverlay {
               this.restartGame();
             }
           })
-          MinesweeperImageButton({
+          SuikaImageButton({
             label: '回大厅',
             imagePath: 'games/minesweeper/button_green.png',
             buttonWidth: this.buttonWidth(),
@@ -128,7 +127,7 @@ export struct MinesweeperResultOverlay {
   }
 
   private cardImage(): string {
-    return this.win ? 'games/minesweeper/popup_success_card.png' : 'games/minesweeper/popup_failure_card.png';
+    return this.success ? 'games/minesweeper/popup_success_card.png' : 'games/minesweeper/popup_failure_card.png';
   }
 
   private cardWidth(): number {
@@ -136,7 +135,7 @@ export struct MinesweeperResultOverlay {
   }
 
   private cardHeight(): number {
-    return Math.round(this.cardWidth() * (this.win ? 1004 / 1132 : 970 / 1259));
+    return Math.round(this.cardWidth() * (this.success ? 1004 / 1132 : 970 / 1259));
   }
 
   private contentWidth(): number {
@@ -148,11 +147,11 @@ export struct MinesweeperResultOverlay {
   }
 
   private contentY(): number {
-    return Math.round(this.cardHeight() * (this.win ? 0.54 : 0.48));
+    return Math.round(this.cardHeight() * (this.success ? 0.535 : 0.475));
   }
 
   private closeY(): number {
-    return Math.round(this.cardHeight() * (this.win ? 0.31 : 0.33));
+    return Math.round(this.cardHeight() * (this.success ? 0.31 : 0.33));
   }
 
   private contentGap(): number {
@@ -160,11 +159,11 @@ export struct MinesweeperResultOverlay {
   }
 
   private titleFontSize(): number {
-    return this.pageWidth < 340 ? 23 : 27;
+    return this.pageWidth < 340 ? 21 : 24;
   }
 
   private subtitleFontSize(): number {
-    return this.pageWidth < 340 ? 12 : 14;
+    return this.pageWidth < 340 ? 12 : 13;
   }
 
   private infoFontSize(): number {
@@ -180,17 +179,21 @@ export struct MinesweeperResultOverlay {
   }
 
   private buttonFontSize(): number {
-    return this.pageWidth < 340 ? 15 : 17;
+    return this.pageWidth < 340 ? 15 : 16;
+  }
+
+  private titleText(): string {
+    return this.success ? '鸡窝水果摊大丰收！' : '鸡窝被塞满了！';
   }
 
   private subtitleText(): string {
-    return this.win ? '所有鸡雷都被你避开了。' : '鸡窝里混进了鸡雷，再试一次。';
+    if (this.success) {
+      return `今日瓜分超过 ${this.successScore}，水果摊稳稳开张。`;
+    }
+    return `还差一点到 ${this.successScore}，再摆一摊。`;
   }
 
   private infoText(): string {
-    if (this.win) {
-      return `用时 ${this.elapsedText} · 得分 ${this.currentScore} · 最高 ${Math.max(this.bestScore, this.currentScore)}`;
-    }
-    return `已排查 ${this.openedSafeCells}/${this.safeCellTotal}`;
+    return `今日瓜分 ${this.currentScore} · 最高纪录 ${Math.max(this.bestScore, this.currentScore)}`;
   }
 }

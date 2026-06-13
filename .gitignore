@@ -19,3 +19,6 @@ phone_current.png
 # Temporary files
 tmp/
 *.tmp
+
+# Third-party reference projects kept locally for research only
+reference-projects/

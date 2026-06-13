@@ -489,7 +489,7 @@ export struct HubPage {
       this.AchievementRow('收藏家', this.snapshot.favorites.length >= 3, '收藏 3 个游戏')
       this.AchievementRow('节奏手感', this.recordFor('whiteTiles').highScore >= 50, '别踩白块达到 50 行')
       this.AchievementRow('方块脑', this.recordFor('tetris').highScore >= 1000, '俄罗斯方块达到 1000 分')
-      this.AchievementRow('西瓜自由', this.recordFor('suika').highScore >= 500, '合成大西瓜达到 500 分')
+      this.AchievementRow('瓜摊老板', this.recordFor('suika').highScore >= 500, '鸡窝水果摊今日瓜分达到 500')
     }
     .width('100%')
   }
@@ -614,7 +614,7 @@ export struct HubPage {
   }
 
   private homeTag(gameId: string): string {
-    if (gameId === 'suika') return '水果乱炖';
+    if (gameId === 'suika') return '鸡窝瓜摊';
     if (gameId === 'minesweeper') return '小心鸡雷';
     if (gameId === 'tetris') return '方块下蛋';
     if (gameId === 'eggSling') return '咻啪发射';
@@ -718,7 +718,7 @@ export struct HubPage {
   }
 
   private tabBarBgColor(): string {
-    return this.isDarkMode() ? '#1b1916' : '#fffaf2';
+    return this.homeBgColor();
   }
 
   private tabBarLineColor(): string {

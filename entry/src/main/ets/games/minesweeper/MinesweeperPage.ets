@@ -1,6 +1,7 @@
 import { CoopModalTransition } from '../../components/CoopModalTransition';
 import { CoopTheme } from '../../design/CoopTheme';
 import { MinesweeperBoard } from './MinesweeperBoard';
+import { MinesweeperExitConfirmOverlay } from './MinesweeperExitConfirmOverlay';
 import { MinesweeperHud } from './MinesweeperHud';
 import { MinesweeperResultOverlay } from './MinesweeperResultOverlay';
 import {
@@ -24,12 +25,14 @@ import { MineCell, MineDifficulty } from './MinesweeperTypes';
 @Component
 export struct MinesweeperPage {
   @Prop bestScore: number = 0;
+  @Prop @Watch('onExternalExitRequestChanged') externalExitRequestId: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
   private timer: number = -1;
   private settled: boolean = false;
   private devUnlockPauseTapCount: number = 0;
   private devUnlockModeTapCount: number = 0;
+  private pausedBeforeExitConfirm: boolean = false;
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State difficultyKey: string = 'easy';
@@ -43,6 +46,7 @@ export struct MinesweeperPage {
   @State gameOver: boolean = false;
   @State win: boolean = false;
   @State showResultOverlay: boolean = false;
+  @State showExitConfirmOverlay: boolean = false;
 
   aboutToAppear(): void {
     this.restart();
@@ -72,7 +76,7 @@ export struct MinesweeperPage {
           showDevControls: this.devControlsVisible,
           difficultyKey: this.difficultyKey,
           exitToHub: () => {
-            this.exitToHub();
+            this.requestExitToHub();
           },
           togglePause: () => {
             this.handlePauseToggle();
@@ -116,7 +120,7 @@ export struct MinesweeperPage {
       .height('100%')
       .backgroundColor(MinesweeperTheme.pageTint)
 
-      if (this.paused && !this.gameOver) {
+      if (this.paused && !this.gameOver && !this.showExitConfirmOverlay) {
         this.PauseOverlay()
       }
       if (this.gameOver && this.showResultOverlay) {
@@ -137,6 +141,21 @@ export struct MinesweeperPage {
           },
           closeOverlay: () => {
             this.showResultOverlay = false;
+          }
+        })
+      }
+      if (this.showExitConfirmOverlay) {
+        MinesweeperExitConfirmOverlay({
+          pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight,
+          elapsedText: this.timeText(),
+          openedSafeCells: this.openedSafeCells(),
+          safeCellTotal: this.safeCellTotal(),
+          cancelExit: () => {
+            this.cancelExitConfirm();
+          },
+          confirmExit: () => {
+            this.confirmExitToHub();
           }
         })
       }
@@ -199,6 +218,10 @@ export struct MinesweeperPage {
     }
   }
 
+  onExternalExitRequestChanged(): void {
+    this.requestExitToHub();
+  }
+
   private restart(): void {
     this.stopTimer();
     this.elapsed = 0;
@@ -209,6 +232,8 @@ export struct MinesweeperPage {
     this.gameOver = false;
     this.win = false;
     this.showResultOverlay = false;
+    this.showExitConfirmOverlay = false;
+    this.pausedBeforeExitConfirm = false;
     this.settled = false;
     const difficulty = this.difficulty();
     this.cells = createEmptyMineCells(difficulty.rows, difficulty.cols);
@@ -299,6 +324,35 @@ export struct MinesweeperPage {
   private handleModeToggle(): void {
     this.flagMode = !this.flagMode;
     this.trackDevUnlockModeTap();
+  }
+
+  private requestExitToHub(): void {
+    if (this.showExitConfirmOverlay) {
+      this.cancelExitConfirm();
+      return;
+    }
+    if (!this.shouldConfirmExit()) {
+      this.exitToHub();
+      return;
+    }
+    this.pausedBeforeExitConfirm = this.paused;
+    this.paused = true;
+    this.showExitConfirmOverlay = true;
+  }
+
+  private cancelExitConfirm(): void {
+    this.showExitConfirmOverlay = false;
+    this.paused = this.pausedBeforeExitConfirm;
+  }
+
+  private confirmExitToHub(): void {
+    this.showExitConfirmOverlay = false;
+    this.stopTimer();
+    this.exitToHub();
+  }
+
+  private shouldConfirmExit(): boolean {
+    return !this.gameOver && (this.started || this.openedSafeCells() > 0 || this.elapsed > 0);
   }
 
   private trackDevUnlockPauseTap(): void {
