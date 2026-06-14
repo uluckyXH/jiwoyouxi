@@ -183,7 +183,7 @@
   </g>
   <g transform="translate(572 1498)" filter="url(#tinyShadow)">
     <rect x="0" y="0" width="376" height="126" rx="63" fill="url(#pinkButton)" class="stroke"/>
-    <text x="188" y="78" text-anchor="middle" class="buttonText brown">回鸡窝</text>
+    <text x="188" y="78" text-anchor="middle" class="buttonText brown">回大厅</text>
   </g>
 
   <text x="540" y="1702" text-anchor="middle" class="label brown">数字合成，冲到 2048</text>
