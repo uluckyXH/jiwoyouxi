@@ -126,6 +126,8 @@ struct Chicken2048MergePulseTile {
   build() {
     Stack({ alignContent: Alignment.Center }) {
       Text(`${this.value}`)
+        .width(this.tileTextWidth())
+        .height(this.tileSizeValue)
         .fontSize(this.fontSize)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.textColor)
@@ -168,6 +170,10 @@ struct Chicken2048MergePulseTile {
 
   private dotSize(dot: Chicken2048BurstDot): number {
     return Math.max(5, Math.round(this.tileSizeValue * dot.sizeRatio));
+  }
+
+  private tileTextWidth(): number {
+    return Math.round(this.tileSizeValue * 0.84);
   }
 
   private dotCenterX(dot: Chicken2048BurstDot): number {
@@ -232,6 +238,8 @@ struct Chicken2048SpawnPulseTile {
   build() {
     Stack({ alignContent: Alignment.Center }) {
       Text(`${this.value}`)
+        .width(this.tileTextWidth())
+        .height(this.tileSizeValue)
         .fontSize(this.fontSize)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.textColor)
@@ -251,6 +259,10 @@ struct Chicken2048SpawnPulseTile {
     })
     .scale({ x: this.pulseScale, y: this.pulseScale })
     .hitTestBehavior(HitTestMode.None)
+  }
+
+  private tileTextWidth(): number {
+    return Math.round(this.tileSizeValue * 0.84);
   }
 }
 
@@ -537,6 +549,8 @@ export struct Chicken2048Page {
   TileView(tile: Chicken2048Tile) {
     Stack({ alignContent: Alignment.Center }) {
       Text(`${tile.value}`)
+        .width(this.tileTextWidth())
+        .height(this.tileSize())
         .fontSize(this.tileFontSize(tile.value))
         .fontWeight(FontWeight.Bold)
         .fontColor(this.tileTextColor(tile.value))
@@ -1191,13 +1205,25 @@ export struct Chicken2048Page {
   }
 
   private tileFontSize(value: number): number {
-    if (value >= 1024) {
-      return Math.max(24, Math.floor(this.tileSize() * 0.28));
+    const digits = `${Math.max(0, Math.floor(value))}`.length;
+    const tileSize = this.tileSize();
+    let preferred = Math.floor(tileSize * 0.42);
+    if (digits === 2) {
+      preferred = Math.floor(tileSize * 0.38);
+    } else if (digits === 3) {
+      preferred = Math.floor(tileSize * 0.32);
+    } else if (digits === 4) {
+      preferred = Math.floor(tileSize * 0.26);
+    } else if (digits >= 5) {
+      preferred = Math.floor(tileSize * 0.21);
     }
-    if (value >= 128) {
-      return Math.max(28, Math.floor(this.tileSize() * 0.34));
-    }
-    return Math.max(32, Math.floor(this.tileSize() * 0.42));
+    const widthLimit = Math.floor((this.tileTextWidth() / Math.max(1, digits)) * 1.42);
+    const heightLimit = Math.floor(tileSize * 0.44);
+    return Math.max(14, Math.min(preferred, widthLimit, heightLimit));
+  }
+
+  private tileTextWidth(): number {
+    return Math.round(this.tileSize() * 0.84);
   }
 
   private tileColor(value: number): string {
