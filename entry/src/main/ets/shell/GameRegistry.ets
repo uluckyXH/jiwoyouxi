@@ -30,7 +30,7 @@ export const GAME_MODULES: GameModule[] = [
   },
   {
     id: 'chicken2048',
-    title: '鸡窝 2048',
+    title: '2048',
     subtitle: '滑动数字块合成升级，冲到 2048',
     icon: '2',
     tags: ['合成', '棋盘', '轻松'],
@@ -54,15 +54,6 @@ export const GAME_MODULES: GameModule[] = [
     tags: ['物理', '合成', '软弹'],
     accent: '#16a34a',
     highScoreLabel: '最高瓜分'
-  },
-  {
-    id: 'eggSling',
-    title: '弹射鸡蛋',
-    subtitle: '拉弹弓发射鸡蛋，击中目标过关',
-    icon: '◎',
-    tags: ['物理', '关卡', '弹射'],
-    accent: '#ef6f57',
-    highScoreLabel: '最高分'
   }
 ];
 

@@ -11,7 +11,6 @@ import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
 import { TetrisPage } from '../games/tetris/TetrisPage';
 import { SuikaPage } from '../games/suika/SuikaPage';
-import { EggSlingPage } from '../games/eggSling/EggSlingPage';
 
 @Entry
 @Component
@@ -149,18 +148,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('suika', score);
-            }
-          })
-        }
-      } else if (this.activeGame === 'eggSling') {
-        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
-          EggSlingPage({
-            bestScore: this.recordFor('eggSling').highScore,
-            exitToHub: () => {
-              this.closeGameAnimated();
-            },
-            recordScore: (score: number) => {
-              this.recordGameResult('eggSling', score);
             }
           })
         }
