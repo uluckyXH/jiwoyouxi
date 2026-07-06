@@ -24,8 +24,6 @@ export struct TetrisStatusPanel {
   @Prop holdUsed: boolean = false;
   @Prop lastClear: number = 0;
   @Prop combo: number = 0;
-  @Prop dropDelay: number = 700;
-  @Prop queueSize: number = 0;
   @Prop lockResetCount: number = 0;
 
   build() {
@@ -50,34 +48,46 @@ export struct TetrisStatusPanel {
 
   private statusLabel(): string {
     if (this.phase === TETRIS_PHASE_LOCKING) {
-      return '落地缓冲';
+      return '快落定';
     }
     if (this.phase === TETRIS_PHASE_CLEARING) {
-      return '消行扫光';
+      return '消行中';
+    }
+    if (this.combo > 1) {
+      return '连消';
     }
     if (this.holdUsed) {
       return '暂存已用';
     }
     if (this.lastClear === 4) {
-      return 'TETRIS';
+      return '四行消除';
     }
     if (this.lastClear > 0) {
-      return `消 ${this.lastClear} 行`;
+      return '消除成功';
     }
-    return '幽灵落点';
+    return '小提示';
   }
 
   private statusDetail(): string {
     if (this.phase === TETRIS_PHASE_LOCKING) {
-      return `${Math.max(0, MAX_LOCK_RESETS - this.lockResetCount)} 次调整`;
+      return `还可调 ${Math.max(0, MAX_LOCK_RESETS - this.lockResetCount)} 次`;
     }
     if (this.phase === TETRIS_PHASE_CLEARING) {
       return '正在整理棋盘';
     }
     if (this.combo > 1) {
-      return `连消 ${this.combo} · 加分`;
+      return `第 ${this.combo} 次加分`;
     }
-    return `${this.dropDelay}ms · ${this.queueSize} 队列`;
+    if (this.holdUsed) {
+      return '落地后可再换';
+    }
+    if (this.lastClear === 4) {
+      return '一次清四行';
+    }
+    if (this.lastClear > 0) {
+      return `刚清 ${this.lastClear} 行`;
+    }
+    return '浅色影子是落点';
   }
 }
 

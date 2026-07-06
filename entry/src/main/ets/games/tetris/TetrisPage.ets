@@ -1,8 +1,7 @@
-import { CoopTheme } from '../../design/CoopTheme';
 import { TetrisBoard } from './TetrisBoard';
 import { TetrisControlPanel } from './TetrisControl';
 import { TetrisStatsPanel, TetrisStatusPanel } from './TetrisHud';
-import { TetrisPauseOverlay, TetrisResultOverlay } from './TetrisOverlay';
+import { TetrisExitConfirmOverlay, TetrisPauseOverlay, TetrisResultOverlay } from './TetrisOverlay';
 import { TetrisHoldPanel, TetrisNextPanel } from './TetrisPreview';
 import {
   ActivePiece,
@@ -49,6 +48,7 @@ export struct TetrisPage {
   private clearTimer: number = -1;
   private bag: number[] = [];
   private previousPhase: number = TETRIS_PHASE_FALLING;
+  private exitConfirmPhase: number = TETRIS_PHASE_FALLING;
 
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
@@ -67,6 +67,7 @@ export struct TetrisPage {
   @State lockResetCount: number = 0;
   @State clearingRows: number[] = [];
   @State clearSweepProgress: number = 0;
+  @State exitConfirmVisible: boolean = false;
 
   aboutToAppear(): void {
     this.restart();
@@ -91,7 +92,7 @@ export struct TetrisPage {
         Column() {
           this.GameMainArea()
         }
-        .margin({ top: 6 })
+        .margin({ top: this.gameAreaTopMargin() })
         TetrisControlPanel({
           disabled: !this.canAcceptInput(),
           panelWidth: this.controlPanelWidth(),
@@ -124,6 +125,7 @@ export struct TetrisPage {
 
       if (this.phase === TETRIS_PHASE_PAUSED) {
         TetrisPauseOverlay({
+          pageWidth: this.pageWidth,
           resumeGame: () => {
             this.resumeGame();
           },
@@ -148,6 +150,18 @@ export struct TetrisPage {
           }
         })
       }
+
+      if (this.exitConfirmVisible) {
+        TetrisExitConfirmOverlay({
+          pageWidth: this.pageWidth,
+          cancelExit: () => {
+            this.cancelExitConfirm();
+          },
+          confirmExit: () => {
+            this.leaveToHub();
+          }
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -163,74 +177,92 @@ export struct TetrisPage {
 
   @Builder
   TopBar() {
-    Row({ space: 8 }) {
-      Button('← 大厅')
-        .width(78)
-        .height(38)
-        .borderRadius(20)
-        .fontSize(13)
-        .fontWeight(FontWeight.Bold)
-        .backgroundColor('#FFF6E8')
-        .fontColor(CoopTheme.ink)
-        .border({ width: 1, color: TetrisTheme.topBarBorder })
-        .shadow({
-          radius: 12,
-          color: 'rgba(47,29,20,0.12)',
-          offsetX: 0,
-          offsetY: 4
-        })
-        .onClick(() => {
-          this.leaveToHub();
-        })
-
-      Column({ space: 1 }) {
-        Text('俄罗斯方块')
-          .fontSize(20)
+    Row({ space: 10 }) {
+      Stack({ alignContent: Alignment.Center }) {
+        Text('← 大厅')
+          .fontSize(13)
           .fontWeight(FontWeight.Bold)
-          .fontColor(CoopTheme.ink)
+          .fontColor(TetrisTheme.topButtonText)
+          .textAlign(TextAlign.Center)
+      }
+      .width(70)
+      .height(34)
+      .borderRadius(18)
+      .backgroundColor(TetrisTheme.topBarBg)
+      .linearGradient(TetrisTheme.topButtonGradient)
+      .border({ width: 2, color: TetrisTheme.topButtonBorder })
+      .shadow({
+        radius: 10,
+        color: 'rgba(106,61,27,0.20)',
+        offsetX: 0,
+        offsetY: 4
+      })
+      .onClick(() => {
+        this.requestLeaveToHub();
+      })
+
+      Column({ space: 4 }) {
+        Text('俄罗斯方块')
+          .fontSize(24)
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#4B1F14')
           .textAlign(TextAlign.Center)
           .maxLines(1)
-        Text(`最高 ${Math.max(this.bestScore, this.score)}`)
-          .fontSize(11)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(CoopTheme.brandDark)
-          .textAlign(TextAlign.Center)
-          .maxLines(1)
+        Row({ space: 4 }) {
+          Text('🏆')
+            .fontSize(15)
+            .height(18)
+            .textAlign(TextAlign.Center)
+          Text(`最高 ${Math.max(this.bestScore, this.score)}`)
+            .fontSize(13)
+            .fontWeight(FontWeight.Medium)
+            .fontColor('#553123')
+            .textAlign(TextAlign.Center)
+            .maxLines(1)
+        }
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
       }
       .alignItems(HorizontalAlign.Center)
       .justifyContent(FlexAlign.Center)
-      .height(42)
+      .height(54)
       .layoutWeight(1)
 
       Stack({ alignContent: Alignment.Center }) {
-        Text(this.phase === TETRIS_PHASE_PAUSED ? '继续' : '暂停')
-          .width(62)
-          .height(34)
-          .borderRadius(18)
-          .fontSize(13)
-          .fontWeight(FontWeight.Bold)
-          .backgroundColor(CoopTheme.ink)
-          .fontColor('#ffffff')
-          .textAlign(TextAlign.Center)
-          .onClick(() => {
-            this.togglePause();
-          })
+        Row({ space: 4 }) {
+          Text(this.phase === TETRIS_PHASE_PAUSED ? '▶' : 'Ⅱ')
+            .fontSize(14)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(TetrisTheme.pauseButtonText)
+            .textAlign(TextAlign.Center)
+          Text(this.phase === TETRIS_PHASE_PAUSED ? '继续' : '暂停')
+            .fontSize(13)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(TetrisTheme.pauseButtonText)
+            .textAlign(TextAlign.Center)
+        }
+        .justifyContent(FlexAlign.Center)
+        .alignItems(VerticalAlign.Center)
       }
-      .width(78)
-      .height(38)
+      .width(70)
+      .height(34)
+      .borderRadius(18)
+      .backgroundColor('#F25F83')
+      .linearGradient(TetrisTheme.pauseButtonGradient)
+      .border({ width: 2, color: TetrisTheme.pauseButtonBorder })
+      .shadow({
+        radius: 10,
+        color: 'rgba(140,38,54,0.26)',
+        offsetX: 0,
+        offsetY: 4
+      })
+      .onClick(() => {
+        this.togglePause();
+      })
     }
     .width('100%')
-    .height(94)
-    .padding({ left: 14, right: 14, top: 34 })
-    .backgroundColor(TetrisTheme.topBarBg)
-    .linearGradient(TetrisTheme.topBarGradient)
-    .border({ width: { bottom: 1 }, color: TetrisTheme.topBarBorder })
-    .shadow({
-      radius: 22,
-      color: 'rgba(90,64,36,0.16)',
-      offsetX: 0,
-      offsetY: 8
-    })
+    .height(112)
+    .padding({ left: 14, right: 14, top: 30 })
   }
 
   @Builder
@@ -266,8 +298,6 @@ export struct TetrisPage {
           holdUsed: this.holdUsed,
           lastClear: this.lastClear,
           combo: this.combo,
-          dropDelay: speedDelayForLevel(this.level),
-          queueSize: this.nextQueue.length,
           lockResetCount: this.lockResetCount
         })
       }
@@ -293,28 +323,44 @@ export struct TetrisPage {
           clearSweepProgress: this.clearSweepProgress
         })
       }
-      .width(this.boardPixelWidth() + 10)
-      .height(this.boardPixelHeight() + 10)
-      .padding(5)
-      .backgroundColor(TetrisTheme.boardBg)
-      .border({ width: 1, color: '#2B3640' })
-      .borderRadius(TetrisTheme.radiusBoard)
+      .width(this.boardPixelWidth() + 12)
+      .height(this.boardPixelHeight() + 12)
+      .padding(6)
+      .backgroundColor(TetrisTheme.boardInsetBg)
+      .border({ width: 2, color: TetrisTheme.boardInsetBorder })
+      .borderRadius(TetrisTheme.radiusBoard + 2)
       .clip(true)
+      Text('')
+        .width(5)
+        .height(this.boardPixelHeight() + 18)
+        .borderRadius(4)
+        .backgroundColor('rgba(255,211,144,0.18)')
+        .linearGradient(TetrisTheme.boardLeftEdgeGradient)
+        .position({ x: 1, y: -3 })
+      Text('')
+        .width(5)
+        .height(this.boardPixelHeight() + 18)
+        .borderRadius(4)
+        .backgroundColor('rgba(72,29,13,0.22)')
+        .linearGradient(TetrisTheme.boardRightEdgeGradient)
+        .position({ x: this.boardPixelWidth() + 6, y: -3 })
     }
-    .padding(7)
+    .padding(9)
     .backgroundColor(TetrisTheme.boardFrameBg)
-    .border({ width: 1, color: TetrisTheme.boardFrameBorder })
-    .borderRadius(20)
+    .linearGradient(TetrisTheme.boardFrameGradient)
+    .border({ width: 2, color: TetrisTheme.boardFrameBorder })
+    .borderRadius(24)
     .shadow({
-      radius: 22,
-      color: 'rgba(0,0,0,0.13)',
+      radius: 26,
+      color: 'rgba(53,24,10,0.28)',
       offsetX: 0,
-      offsetY: 10
+      offsetY: 12
     })
   }
 
   private restart(): void {
     this.stopTimers();
+    this.exitConfirmVisible = false;
     this.bag = [];
     this.board = createEmptyBoard();
     this.nextQueue = [];
@@ -637,7 +683,43 @@ export struct TetrisPage {
     this.recordScore(Math.max(0, this.score));
   }
 
+  private requestLeaveToHub(): void {
+    if (!this.shouldConfirmExit()) {
+      this.leaveToHub();
+      return;
+    }
+    if (this.exitConfirmVisible) {
+      return;
+    }
+    this.exitConfirmPhase = this.phase;
+    if (this.phase === TETRIS_PHASE_FALLING) {
+      this.clearDropTimer();
+    }
+    if (this.phase === TETRIS_PHASE_LOCKING) {
+      this.clearLockTimer();
+    }
+    this.exitConfirmVisible = true;
+  }
+
+  private cancelExitConfirm(): void {
+    this.exitConfirmVisible = false;
+    if (this.phase === TETRIS_PHASE_GAME_OVER) {
+      return;
+    }
+    if (this.exitConfirmPhase === TETRIS_PHASE_FALLING && this.phase === TETRIS_PHASE_FALLING) {
+      this.scheduleDrop();
+    }
+    if (this.exitConfirmPhase === TETRIS_PHASE_LOCKING && this.phase === TETRIS_PHASE_LOCKING) {
+      this.scheduleLock();
+    }
+  }
+
+  private shouldConfirmExit(): boolean {
+    return this.phase !== TETRIS_PHASE_GAME_OVER;
+  }
+
   private leaveToHub(): void {
+    this.exitConfirmVisible = false;
     this.stopTimers();
     this.exitToHub();
   }
@@ -696,11 +778,15 @@ export struct TetrisPage {
   }
 
   private controlPanelHeight(): number {
-    return Math.max(150, Math.min(172, Math.floor(this.pageHeight * 0.19)));
+    return Math.max(132, Math.min(146, Math.floor(this.pageHeight * 0.18)));
+  }
+
+  private gameAreaTopMargin(): number {
+    return Math.max(58, Math.min(76, Math.floor(this.pageHeight * 0.09)));
   }
 
   private controlPanelTopMargin(): number {
-    return Math.max(52, Math.min(68, Math.floor(this.pageHeight * 0.075)));
+    return Math.max(28, Math.min(42, Math.floor(this.pageHeight * 0.045)));
   }
 
   private controlButtonGap(): number {
@@ -708,7 +794,7 @@ export struct TetrisPage {
   }
 
   private rotateButtonSize(): number {
-    return Math.max(78, Math.min(90, Math.floor(this.controlPanelWidth() * 0.3)));
+    return Math.max(72, Math.min(84, Math.floor(this.controlPanelWidth() * 0.28)));
   }
 
   private controlButtonWidth(): number {

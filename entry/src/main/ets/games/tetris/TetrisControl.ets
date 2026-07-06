@@ -93,12 +93,12 @@ export struct TetrisControlPanel {
       .width(this.buttonWidth)
       .height(this.buttonHeight)
       .borderRadius(TetrisTheme.radiusButton)
-      .backgroundColor(this.pressedTarget === target ? '#FFD28B' : TetrisTheme.panelSoftBg)
+      .backgroundColor(this.pressedTarget === target ? '#F4A62E' : '#FFC74A')
       .linearGradient(this.pressedTarget === target ? TetrisTheme.controlButtonActiveGradient : TetrisTheme.controlButtonGradient)
-      .border({ width: 1, color: this.pressedTarget === target ? '#F1B65B' : TetrisTheme.panelBorder })
+      .border({ width: 1, color: this.pressedTarget === target ? '#9F571E' : '#B8732C' })
       .shadow({
         radius: this.pressedTarget === target ? 7 : 14,
-        color: this.pressedTarget === target ? 'rgba(132,84,32,0.20)' : 'rgba(47,29,20,0.16)',
+        color: this.pressedTarget === target ? 'rgba(132,84,32,0.24)' : 'rgba(155,91,25,0.28)',
         offsetX: 0,
         offsetY: this.pressedTarget === target ? 2 : 6
       })
@@ -127,18 +127,18 @@ export struct TetrisControlPanel {
           .height(this.buttonHeight + 14)
           .style({ strokeWidth: 3 })
           .color(TetrisTheme.hardDropActive)
-          .backgroundColor('rgba(123,97,255,0.18)')
+          .backgroundColor('rgba(242,95,131,0.18)')
       }
     }
     .width(this.buttonWidth)
     .height(this.buttonHeight)
     .borderRadius(TetrisTheme.radiusButton)
     .backgroundColor(this.hardDropCharging ? TetrisTheme.hardDropActive : TetrisTheme.panelSoftBg)
-    .linearGradient(this.hardDropCharging ? TetrisTheme.hardDropGradient : TetrisTheme.controlButtonGradient)
-    .border({ width: 1, color: this.hardDropCharging ? '#6B4FF1' : TetrisTheme.panelBorder })
+    .linearGradient(this.hardDropCharging ? TetrisTheme.hardDropGradient : TetrisTheme.controlDownButtonGradient)
+    .border({ width: 1, color: this.hardDropCharging ? '#A72F49' : TetrisTheme.panelBorder })
     .shadow({
       radius: this.hardDropCharging ? 18 : 14,
-      color: this.hardDropCharging ? 'rgba(123,97,255,0.42)' : 'rgba(47,29,20,0.16)',
+      color: this.hardDropCharging ? 'rgba(206,62,96,0.38)' : 'rgba(106,61,27,0.18)',
       offsetX: 0,
       offsetY: this.hardDropCharging ? 7 : 6
     })
@@ -167,7 +167,7 @@ export struct TetrisControlPanel {
       .border({ width: 1, color: 'rgba(255,255,255,0.44)' })
       .shadow({
         radius: this.pressedTarget === 'rotate' ? 14 : 22,
-        color: this.pressedTarget === 'rotate' ? 'rgba(89,60,224,0.38)' : 'rgba(123,97,255,0.42)',
+        color: this.pressedTarget === 'rotate' ? 'rgba(172,47,75,0.34)' : 'rgba(206,62,96,0.40)',
         offsetX: 0,
         offsetY: this.pressedTarget === 'rotate' ? 5 : 10
       })

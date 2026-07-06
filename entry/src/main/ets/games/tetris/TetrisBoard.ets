@@ -56,12 +56,34 @@ export struct TetrisBoard {
   }
 
   private drawBackground(ctx: CanvasRenderingContext2D, size: number): void {
+    const width = this.boardPixelWidth();
+    const height = this.boardPixelHeight();
+    ctx.fillStyle = TetrisTheme.boardBg;
+    ctx.fillRect(0, 0, width, height);
+
     for (let row = 0; row < BOARD_ROWS; row += 1) {
-      for (let col = 0; col < BOARD_COLS; col += 1) {
-        ctx.fillStyle = row % 2 === 0 ? TetrisTheme.boardBg : TetrisTheme.boardBgAlt;
-        ctx.fillRect(col * size, row * size, size, size);
-      }
+      ctx.fillStyle = row % 2 === 0 ? 'rgba(255,221,168,0.025)' : TetrisTheme.boardBgAlt;
+      ctx.fillRect(0, row * size, width, size);
     }
+
+    ctx.fillStyle = TetrisTheme.boardCellSoftLine;
+    for (let col = 1; col < BOARD_COLS; col += 1) {
+      ctx.fillRect(col * size - 0.5, 0, 1, height);
+    }
+    for (let row = 1; row < BOARD_ROWS; row += 1) {
+      ctx.fillRect(0, row * size - 0.5, width, 1);
+    }
+
+    ctx.fillStyle = TetrisTheme.boardCellBorder;
+    ctx.fillRect(0, 0, width, 1);
+    ctx.fillRect(0, height - 1, width, 1);
+    ctx.fillRect(0, 0, 1, height);
+    ctx.fillRect(width - 1, 0, 1, height);
+
+    ctx.fillStyle = 'rgba(255,220,157,0.055)';
+    ctx.fillRect(0, 0, width, Math.floor(height * 0.18));
+    ctx.fillStyle = 'rgba(20,8,4,0.12)';
+    ctx.fillRect(0, Math.floor(height * 0.74), width, Math.ceil(height * 0.26));
   }
 
   private drawFixedCells(ctx: CanvasRenderingContext2D, size: number): void {
@@ -139,31 +161,66 @@ export struct TetrisBoard {
 
   private drawCell(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string,
     withBorder: boolean): void {
+    const gap = Math.max(1, Math.floor(size * 0.08));
+    const cell = Math.max(4, size - gap * 2);
+    const radius = Math.max(4, Math.floor(size * 0.22));
+    const bodyX = x + gap;
+    const bodyY = y + gap;
+    const shadowOffset = Math.max(1, Math.floor(size * 0.11));
+
+    ctx.fillStyle = 'rgba(30,10,4,0.38)';
+    ctx.beginPath();
+    roundRectPath(ctx, bodyX + 0.5, bodyY + shadowOffset, cell - 1, cell - 0.5, radius);
+    ctx.fill();
+
     ctx.fillStyle = color;
     ctx.beginPath();
-    roundRectPath(ctx, x + 0.5, y + 0.5, size - 1, size - 1, TetrisTheme.radiusCell);
+    roundRectPath(ctx, bodyX + 0.5, bodyY + 0.5, cell - 1, cell - 1, radius);
     ctx.fill();
-    this.drawCellHighlight(ctx, x, y, size);
+    this.drawCellHighlight(ctx, bodyX, bodyY, cell, radius);
+    this.drawCellShade(ctx, bodyX, bodyY, cell, radius);
     if (withBorder) {
       ctx.strokeStyle = TetrisTheme.fixedCellBorder;
-      ctx.lineWidth = 0.5;
+      ctx.lineWidth = Math.max(0.7, size * 0.035);
+      ctx.beginPath();
+      roundRectPath(ctx, bodyX + 0.5, bodyY + 0.5, cell - 1, cell - 1, radius);
       ctx.stroke();
     }
   }
 
-  private drawCellHighlight(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
-    ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  private drawCellHighlight(ctx: CanvasRenderingContext2D, x: number, y: number, size: number,
+    radius: number): void {
+    ctx.fillStyle = 'rgba(255,255,255,0.24)';
     ctx.beginPath();
-    roundRectPath(ctx, x + 2, y + 2, Math.max(2, size - 4), Math.max(2, size * 0.32), TetrisTheme.radiusCell);
+    roundRectPath(ctx, x + 2, y + 2, Math.max(2, size - 4), Math.max(2, size * 0.34), radius * 0.72);
+    ctx.fill();
+
+    ctx.fillStyle = 'rgba(255,255,255,0.34)';
+    ctx.beginPath();
+    roundRectPath(ctx, x + 3, y + 3, Math.max(2, size * 0.38), Math.max(2, size * 0.13), radius * 0.45);
+    ctx.fill();
+  }
+
+  private drawCellShade(ctx: CanvasRenderingContext2D, x: number, y: number, size: number,
+    radius: number): void {
+    ctx.fillStyle = 'rgba(55,16,7,0.20)';
+    ctx.beginPath();
+    roundRectPath(ctx, x + 1.5, y + size * 0.62, Math.max(2, size - 3), Math.max(2, size * 0.32), radius * 0.72);
     ctx.fill();
   }
 
   private drawGhostCell(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+    const gap = Math.max(1, Math.floor(size * 0.08));
+    const cell = Math.max(4, size - gap * 2);
+    const radius = Math.max(4, Math.floor(size * 0.22));
     ctx.fillStyle = TetrisTheme.ghostColor;
-    ctx.globalAlpha = 0.46;
+    ctx.globalAlpha = 0.72;
     ctx.beginPath();
-    roundRectPath(ctx, x + 0.5, y + 0.5, size - 1, size - 1, TetrisTheme.radiusCell);
+    roundRectPath(ctx, x + gap + 0.5, y + gap + 0.5, cell - 1, cell - 1, radius);
     ctx.fill();
+    ctx.strokeStyle = 'rgba(255,238,209,0.48)';
+    ctx.lineWidth = Math.max(0.7, size * 0.03);
+    ctx.stroke();
     ctx.globalAlpha = 1;
   }
 }

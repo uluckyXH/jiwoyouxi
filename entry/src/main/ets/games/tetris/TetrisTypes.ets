@@ -60,13 +60,13 @@ export const TETRIS_PHASE_GAME_OVER: number = 5;
 
 // 方块颜色（kind -> 颜色），UI 与 Canvas 共用。
 export const PIECE_COLORS: string[] = [
-  '#06b6d4', // I
-  '#eab308', // O
-  '#8b5cf6', // T
-  '#22c55e', // S
-  '#ef4444', // Z
-  '#3b82f6', // J
-  '#f97316'  // L
+  '#24C4EA', // I
+  '#FFC43A', // O
+  '#9A76FF', // T
+  '#3CCB91', // S
+  '#FF5573', // Z
+  '#338DFF', // J
+  '#FF8D3A'  // L
 ];
 
 // 消行得分（固定档，不乘等级，对应 1/2/3/4 行）。index 0 不可达，留 0。

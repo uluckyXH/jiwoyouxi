@@ -22,3 +22,8 @@ tmp/
 
 # Third-party reference projects kept locally for research only
 reference-projects/
+
+# Software copyright application materials kept locally
+docs/software-copyright-materials/
+docs/PDF转换避坑指南.md
+docs/软著*
