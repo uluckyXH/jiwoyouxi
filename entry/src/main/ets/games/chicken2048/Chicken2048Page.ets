@@ -636,21 +636,31 @@ export struct Chicken2048Page {
 
   @Builder
   DevToolsPanel() {
-    Row({ space: 7 }) {
-      this.DevToolButton('触发2048', () => {
-        this.triggerDevSuccess();
-      })
-      this.DevToolButton('触发失败', () => {
-        this.triggerDevFailure();
-      })
-      this.DevToolButton('隐藏', () => {
-        this.devToolsVisible = false;
-      })
+    Column({ space: 5 }) {
+      Row({ space: 7 }) {
+        this.DevToolButton('触发2048', () => {
+          this.triggerDevSuccess();
+        })
+        this.DevToolButton('超大数字', () => {
+          this.triggerDevLargeTiles();
+        })
+      }
+      .justifyContent(FlexAlign.Center)
+
+      Row({ space: 7 }) {
+        this.DevToolButton('触发失败', () => {
+          this.triggerDevFailure();
+        })
+        this.DevToolButton('隐藏', () => {
+          this.devToolsVisible = false;
+        })
+      }
+      .justifyContent(FlexAlign.Center)
     }
     .position({ x: Math.max(10, this.pageWidth - this.devPanelWidth() - 10), y: this.devPanelY() })
     .width(this.devPanelWidth())
-    .height(36)
-    .padding({ left: 8, right: 8 })
+    .height(this.devPanelHeight())
+    .padding({ left: 8, right: 8, top: 6, bottom: 6 })
     .borderRadius(18)
     .backgroundColor('rgba(61,38,24,0.78)')
     .border({ width: 1, color: 'rgba(255,244,214,0.34)' })
@@ -896,6 +906,21 @@ export struct Chicken2048Page {
     this.paused = false;
   }
 
+  private triggerDevLargeTiles(): void {
+    const values: number[] = [
+      4096, 4096, 8192, 8192,
+      16384, 16384, 32768, 32768,
+      65536, 65536, 131072, 131072,
+      262144, 262144, 524288, 1048576
+    ];
+    this.applyDevBoard(values, 987654);
+    this.won = true;
+    this.gameOver = false;
+    this.showWinOverlay = false;
+    this.showExitConfirmOverlay = false;
+    this.paused = false;
+  }
+
   private triggerDevFailure(): void {
     const values: number[] = [
       2, 4, 2, 4,
@@ -1130,6 +1155,10 @@ export struct Chicken2048Page {
 
   private devPanelWidth(): number {
     return this.pageWidth < 360 ? 236 : 258;
+  }
+
+  private devPanelHeight(): number {
+    return 67;
   }
 
   private devPanelY(): number {
