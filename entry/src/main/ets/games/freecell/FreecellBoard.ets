@@ -229,56 +229,11 @@ export struct FreecellBoard {
         .borderRadius({ bottomLeft: this.cardRadius(), bottomRight: this.cardRadius() })
         .backgroundColor(FreecellTheme.cardBottomTint)
         .position({ x: 1, y: this.layout().cardHeight * 0.62 })
-      Text(rankLabel(card.rank))
-        .fontSize(this.cornerFontSize())
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.cardFontColor(card))
-        .textAlign(TextAlign.Center)
-        .width(this.cornerBoxWidth())
-        .height(this.cornerFontSize() + 2)
-        .position({ x: this.cornerInset() - this.cornerBoxWidth() * 0.5, y: this.cornerInset() - 1 })
-      Text(suitLabel(card.suit))
-        .fontSize(this.smallSuitFontSize())
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.cardFontColor(card))
-        .textAlign(TextAlign.Center)
-        .width(this.cornerBoxWidth())
-        .height(this.smallSuitFontSize() + 2)
-        .position({
-          x: this.cornerInset() - this.cornerBoxWidth() * 0.5,
-          y: this.cornerInset() + this.smallSuitFontSize()
-        })
-      if (!covered) {
-        if (card.rank >= 11) {
-          Column({ space: 1 }) {
-            Text(rankLabel(card.rank))
-              .fontSize(this.bigSuitFontSize())
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.cardFontColor(card))
-              .textAlign(TextAlign.Center)
-              .width('100%')
-              .height(this.bigSuitFontSize() + 3)
-            Text(suitLabel(card.suit))
-              .fontSize(Math.max(7, this.layout().cardWidth * 0.2))
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.cardFontColor(card))
-              .textAlign(TextAlign.Center)
-              .width('100%')
-          }
-          .width(this.layout().cardWidth)
-          .height(this.layout().cardHeight * 0.48)
-          .justifyContent(FlexAlign.Center)
-          .position({ x: 0, y: this.layout().cardHeight * 0.46 })
-        } else {
-          Text(suitLabel(card.suit))
-            .fontSize(this.bigSuitFontSize())
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.cardFontColor(card))
-            .textAlign(TextAlign.Center)
-            .width(this.layout().cardWidth)
-            .height(this.bigSuitFontSize() + 6)
-            .position({ x: 0, y: this.layout().cardHeight * 0.61 })
-        }
+      if (covered) {
+        this.CoveredCardLabel(card)
+      } else {
+        this.CornerLabels(card)
+        this.CenterMark(card)
       }
     }
     .opacity(dimmed ? 0.34 : 1)
@@ -289,6 +244,67 @@ export struct FreecellBoard {
       offsetX: Math.max(0.6, this.layout().cardWidth * 0.02),
       offsetY: Math.max(1.2, this.layout().cardWidth * 0.04)
     })
+  }
+
+  @Builder
+  CornerLabels(card: FreecellCard) {
+    Text(rankLabel(card.rank))
+      .fontSize(this.cornerFontSize())
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.cardFontColor(card))
+      .textAlign(TextAlign.Center)
+      .width(this.cornerBoxWidth())
+      .height(this.cornerFontSize() + 2)
+      .position({ x: this.cornerInset() - this.cornerBoxWidth() * 0.5, y: this.cornerInset() - 1 })
+    Text(suitLabel(card.suit))
+      .fontSize(this.smallSuitFontSize())
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.cardFontColor(card))
+      .textAlign(TextAlign.Center)
+      .width(this.cornerBoxWidth())
+      .height(this.smallSuitFontSize() + 2)
+      .position({
+        x: this.cornerInset() - this.cornerBoxWidth() * 0.5,
+        y: this.cornerInset() + this.smallSuitFontSize()
+      })
+  }
+
+  @Builder
+  CenterMark(card: FreecellCard) {
+    Text(suitLabel(card.suit))
+      .fontSize(this.bigSuitFontSize())
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.cardFontColor(card))
+      .textAlign(TextAlign.Center)
+      .width(this.layout().cardWidth)
+      .height(this.centerSuitHeight())
+      .position({ x: 0, y: this.centerSuitY() })
+  }
+
+  @Builder
+  CoveredCardLabel(card: FreecellCard) {
+    Column({ space: 0 }) {
+      Text(rankLabel(card.rank))
+        .fontSize(this.coveredRankFontSize())
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.cardFontColor(card))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+        .height(this.coveredRankLineHeight())
+        .maxLines(1)
+      Text(suitLabel(card.suit))
+        .fontSize(this.coveredSuitFontSize())
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.cardFontColor(card))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+        .height(this.coveredSuitLineHeight())
+        .maxLines(1)
+    }
+    .width(this.layout().cardWidth)
+    .height(this.coveredLabelHeight())
+    .justifyContent(FlexAlign.Center)
+    .position({ x: 0, y: this.coveredLabelY() })
   }
 
   @Builder
@@ -399,13 +415,14 @@ export struct FreecellBoard {
       for (let cardIndex = 0; cardIndex < column.length; cardIndex += 1) {
         const source: FreecellLocation = { area: 'tableau', index: columnIndex, cardIndex: cardIndex };
         const card = column[cardIndex];
+        const covered = cardIndex < column.length - 1;
         items.push({
-          key: `tableau-${card.id}-${columnIndex}-${cardIndex}`,
+          key: `tableau-${card.id}-${columnIndex}-${cardIndex}-${covered ? 'covered' : 'open'}`,
           card: card,
           source: source,
           x: this.slotX(columnIndex),
           y: this.layout().tableTop + cardIndex * this.layout().fan,
-          covered: cardIndex < column.length - 1,
+          covered: covered,
           dimmed: this.isDimmed(source)
         });
       }
@@ -599,6 +616,38 @@ export struct FreecellBoard {
       return Math.max(7, Math.min(8, this.layout().cardWidth * 0.2));
     }
     return Math.max(8, this.layout().cardWidth * 0.24);
+  }
+
+  private coveredRankFontSize(): number {
+    return Math.max(6, Math.min(this.layout().compact ? 10 : 12, this.layout().fan * 0.42));
+  }
+
+  private coveredSuitFontSize(): number {
+    return Math.max(6, Math.min(this.layout().compact ? 9 : 10, this.layout().fan * 0.34));
+  }
+
+  private coveredRankLineHeight(): number {
+    return this.coveredRankFontSize() + 1;
+  }
+
+  private coveredSuitLineHeight(): number {
+    return this.coveredSuitFontSize() + 1;
+  }
+
+  private coveredLabelHeight(): number {
+    return this.coveredRankLineHeight() + this.coveredSuitLineHeight();
+  }
+
+  private coveredLabelY(): number {
+    return Math.max(0, (this.layout().fan - this.coveredLabelHeight()) * 0.5);
+  }
+
+  private centerSuitHeight(): number {
+    return this.bigSuitFontSize() + 6;
+  }
+
+  private centerSuitY(): number {
+    return Math.max(this.layout().cardHeight * 0.32, (this.layout().cardHeight - this.centerSuitHeight()) * 0.68);
   }
 
   private bigSuitFontSize(): number {
