@@ -6,6 +6,7 @@ import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
 import { HubPage } from './HubPage';
 import { RpsPage } from '../games/rps/RpsPage';
+import { RpsBattlePage } from '../games/rpsBattle/RpsBattlePage';
 import { FreecellPage } from '../games/freecell/FreecellPage';
 import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
@@ -86,6 +87,18 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('rps', score);
+            }
+          })
+        }
+      } else if (this.activeGame === 'rpsBattle') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          RpsBattlePage({
+            bestScore: this.recordFor('rpsBattle').highScore,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('rpsBattle', score);
             }
           })
         }

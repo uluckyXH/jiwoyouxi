@@ -11,7 +11,7 @@ export class FreecellTheme {
   static readonly pageFallback: string = '#fff0c9';
   static readonly boardTint: string = 'rgba(255,248,221,0.58)';
   static readonly toastBg: string = 'rgba(91,47,12,0.92)';
-  static readonly hudValueBg: string = '#ffedbf';
+  static readonly hudValueBg: string = '#ffefce';
   static readonly hudValueBorder: string = 'rgba(173,103,25,0.16)';
   static readonly hudValueShadow: string = 'rgba(96,49,10,0.08)';
 }

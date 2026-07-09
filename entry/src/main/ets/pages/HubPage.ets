@@ -10,7 +10,7 @@ import {
 } from '../shell/GameModule';
 import { GAME_MODULES, moduleById } from '../shell/GameRegistry';
 
-const HOME_GAME_ORDER: string[] = ['suika', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps'];
+const HOME_GAME_ORDER: string[] = ['suika', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 const HOME_SIDE_PADDING: number = 20;
 const HOME_TOP_PADDING: number = 56;
 const HOME_CONTENT_BOTTOM_SPACE: number = 108;
@@ -620,6 +620,7 @@ export struct HubPage {
   }
 
   private homeTag(gameId: string): string {
+    if (gameId === 'rpsBattle') return '新版乱斗';
     if (gameId === 'suika') return '鸡窝瓜摊';
     if (gameId === 'chicken2048') return '数字叠叠乐';
     if (gameId === 'minesweeper') return '小心鸡雷';

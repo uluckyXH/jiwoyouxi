@@ -38,8 +38,7 @@ export struct FreecellGuideOverlay {
             this.RuleRow('♥', '空当', '每格只停一张')
             this.RuleRow('♦', '辅助', '双击或提示走一步')
           }
-          .width('100%')
-          .padding({ left: 20, right: 0 })
+          .width(this.guideBodyWidth())
           this.GoldButton('知道了', () => {
             this.closeGuide();
           })
@@ -51,7 +50,6 @@ export struct FreecellGuideOverlay {
       }
       .width(this.panelWidth())
       .height(405)
-      .translate({ x: this.panelOffsetX(), y: 0 })
     }
   }
 
@@ -117,11 +115,11 @@ export struct FreecellGuideOverlay {
   }
 
   private panelWidth(): number {
-    return Math.min(this.pageWidth - 88, 288);
+    return Math.min(this.pageWidth - 32, 318);
   }
 
-  private panelOffsetX(): number {
-    return Math.min(28, Math.max(0, (this.pageWidth - this.panelWidth()) * 0.32));
+  private guideBodyWidth(): number {
+    return Math.min(this.panelWidth() - 64, 226);
   }
 }
 

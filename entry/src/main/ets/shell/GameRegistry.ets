@@ -54,6 +54,15 @@ export const GAME_MODULES: GameModule[] = [
     tags: ['物理', '合成', '软弹'],
     accent: '#16a34a',
     highScoreLabel: '最高瓜分'
+  },
+  {
+    id: 'rpsBattle',
+    title: '石头剪刀布大作战·新版',
+    subtitle: '新版重构骨架，先接入口与页面',
+    icon: '✊',
+    tags: ['重构', '乱斗', '观战'],
+    accent: '#2c8f7f',
+    highScoreLabel: '最高存活数'
   }
 ];
 
