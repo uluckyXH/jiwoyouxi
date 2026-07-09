@@ -22,6 +22,8 @@ import {
 
 const RPS_BATTLE_TOP_BAR_CONTENT_PADDING_TOP: number = 34;
 const RPS_BATTLE_TOP_BAR_HEIGHT: number = 88;
+const RPS_BATTLE_TOP_ACTION_GROUP_WIDTH: number = 114;
+const RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH: number = 54;
 const RPS_BATTLE_TARGET_FPS: number = 60;
 const RPS_BATTLE_MAX_FRAME_DELTA_MS: number = 50;
 const RPS_BATTLE_HUD_SYNC_INTERVAL_MS: number = 100;
@@ -306,11 +308,12 @@ export struct RpsBattlePage {
         .layoutWeight(1)
       if (this.phase === 'countdown' || this.phase === 'playing' || this.phase === 'paused') {
         Row({ space: 6 }) {
-          this.TopBarButton('重开', false, 50, () => {
+          this.TopBarButton('重开', false, RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH, () => {
             this.startGame();
           })
           if (this.phase === 'playing' || this.phase === 'paused') {
-            this.TopBarButton(this.phase === 'paused' ? '继续' : '暂停', this.phase === 'playing', 50, () => {
+            this.TopBarButton(this.phase === 'paused' ? '继续' : '暂停', this.phase === 'playing',
+              RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH, () => {
               if (this.phase === 'paused') {
                 this.resumeGame();
               } else {
@@ -319,12 +322,12 @@ export struct RpsBattlePage {
             })
           }
         }
-        .width(106)
+        .width(RPS_BATTLE_TOP_ACTION_GROUP_WIDTH)
         .height(36)
         .justifyContent(FlexAlign.End)
       } else {
         Blank()
-          .width(106)
+          .width(RPS_BATTLE_TOP_ACTION_GROUP_WIDTH)
           .height(36)
       }
     }
@@ -338,13 +341,21 @@ export struct RpsBattlePage {
 
   @Builder
   TopBarButton(label: string, primary: boolean, widthValue: number, action: () => void) {
-    Button(label)
+    Row() {
+      Text(label)
+        .width('100%')
+        .fontSize(this.topBarButtonFontSize(label, widthValue))
+        .fontWeight(FontWeight.Bold)
+        .fontColor(primary ? RpsBattleTheme.primaryButtonText : RpsBattleTheme.topButtonText)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
+    }
+    .justifyContent(FlexAlign.Center)
+    .alignItems(VerticalAlign.Center)
       .width(widthValue)
       .height(36)
       .borderRadius(8)
       .backgroundColor(primary ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.topButtonBg)
-      .fontColor(primary ? RpsBattleTheme.primaryButtonText : RpsBattleTheme.topButtonText)
-      .fontSize(14)
       .border({ width: 1, color: RpsBattleTheme.topButtonLine })
       .onClick(() => {
         action();
@@ -372,6 +383,13 @@ export struct RpsBattlePage {
     this.lastTickAt = Date.now();
     this.lastConvertSoundAt = 0;
     this.startCountdown();
+  }
+
+  private topBarButtonFontSize(label: string, widthValue: number): number {
+    if (widthValue <= RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH && label.length >= 2) {
+      return 13;
+    }
+    return 14;
   }
 
   private startLoop(): void {
