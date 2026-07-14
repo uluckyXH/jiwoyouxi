@@ -69,9 +69,9 @@ export class RpsBattleEngine {
     this.countsCache = rpsBattleEmptyCounts();
     this.nextId = 1;
     this.conversions = 0;
-    this.spawnFaction('rock', this.boardWidth * 0.24, this.boardHeight * 0.28);
-    this.spawnFaction('scissors', this.boardWidth * 0.76, this.boardHeight * 0.30);
-    this.spawnFaction('paper', this.boardWidth * 0.50, this.boardHeight * 0.74);
+    this.spawnFaction('rock', this.options.initialCounts.rock, this.boardWidth * 0.24, this.boardHeight * 0.28);
+    this.spawnFaction('scissors', this.options.initialCounts.scissors, this.boardWidth * 0.76, this.boardHeight * 0.30);
+    this.spawnFaction('paper', this.options.initialCounts.paper, this.boardWidth * 0.50, this.boardHeight * 0.74);
   }
 
   resize(boardWidth: number, boardHeight: number): void {
@@ -181,9 +181,9 @@ export class RpsBattleEngine {
     };
   }
 
-  private spawnFaction(faction: RpsBattleFaction, centerX: number, centerY: number): void {
+  private spawnFaction(faction: RpsBattleFaction, count: number, centerX: number, centerY: number): void {
     const spread = Math.min(this.boardWidth, this.boardHeight) * 0.11;
-    for (let i = 0; i < this.options.initialCount; i += 1) {
+    for (let i = 0; i < count; i += 1) {
       const angle = this.random() * Math.PI * 2;
       const distance = spread * (0.25 + this.random() * 0.75);
       const speedAngle = this.random() * Math.PI * 2;

@@ -1,15 +1,15 @@
 import { RpsBattleTheme } from './RpsBattleTheme';
-import { RpsBattleEntity, RpsBattleFactionInfo } from './RpsBattleTypes';
-import { rpsBattleFactionInfo } from './RpsBattleRules';
+import { RpsBattleEntity, RpsBattleFactionInfo, RpsBattleThemeKey } from './RpsBattleTypes';
+import { rpsBattleThemeFactionInfo } from './RpsBattleThemeConfig';
 
 export class RpsBattleRenderer {
   draw(ctx: CanvasRenderingContext2D, width: number, height: number, entities: RpsBattleEntity[],
-    elapsedSec: number): void {
+    elapsedSec: number, themeKey: RpsBattleThemeKey = 'rps'): void {
     const canvasWidth = Math.max(1, width);
     const canvasHeight = Math.max(1, height);
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     this.drawArena(ctx, canvasWidth, canvasHeight);
-    this.drawEntities(ctx, entities, elapsedSec);
+    this.drawEntities(ctx, entities, elapsedSec, themeKey);
   }
 
   private drawArena(ctx: CanvasRenderingContext2D, width: number, height: number): void {
@@ -37,10 +37,11 @@ export class RpsBattleRenderer {
     ctx.strokeRect(1.5, 1.5, width - 3, height - 3);
   }
 
-  private drawEntities(ctx: CanvasRenderingContext2D, entities: RpsBattleEntity[], elapsedSec: number): void {
+  private drawEntities(ctx: CanvasRenderingContext2D, entities: RpsBattleEntity[], elapsedSec: number,
+    themeKey: RpsBattleThemeKey): void {
     for (let i = 0; i < entities.length; i += 1) {
       const entity = entities[i];
-      const faction = rpsBattleFactionInfo(entity.faction);
+      const faction = rpsBattleThemeFactionInfo(themeKey, entity.faction);
       this.drawEntity(ctx, entity, faction, elapsedSec);
     }
   }

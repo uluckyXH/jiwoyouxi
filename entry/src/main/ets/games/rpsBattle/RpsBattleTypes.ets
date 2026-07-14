@@ -1,5 +1,6 @@
 export type RpsBattleFaction = 'rock' | 'scissors' | 'paper';
-export type RpsBattleScale = 'small' | 'standard' | 'large';
+export type RpsBattleThemeKey = 'rps' | 'colors' | 'countries' | 'brands';
+export type RpsBattleScale = 'small' | 'standard' | 'large' | 'custom';
 export type RpsBattlePhase = 'setup' | 'countdown' | 'playing' | 'paused' | 'result';
 export type RpsBattleFinishReason = 'none' | 'clear' | 'time' | 'draw';
 
@@ -12,6 +13,14 @@ export interface RpsBattleFactionInfo {
   textColor: string;
 }
 
+export interface RpsBattleThemePreset {
+  key: RpsBattleThemeKey;
+  name: string;
+  mark: string;
+  subtitle: string;
+  factions: RpsBattleFactionInfo[];
+}
+
 export interface RpsBattleFactionCounts {
   rock: number;
   scissors: number;
@@ -20,8 +29,7 @@ export interface RpsBattleFactionCounts {
 
 export interface RpsBattleOptions {
   supportFaction: RpsBattleFaction;
-  scale: RpsBattleScale;
-  initialCount: number;
+  initialCounts: RpsBattleFactionCounts;
   durationSec: number;
 }
 
@@ -62,36 +70,27 @@ export interface RpsBattleScaleChoice {
   count: number;
 }
 
+export interface RpsBattleDurationChoice {
+  label: string;
+  durationSec: number;
+}
+
 export const RPS_BATTLE_DURATION_SEC: number = 60;
-export const RPS_BATTLE_FACTIONS: RpsBattleFactionInfo[] = [
-  {
-    id: 'rock',
-    label: '石头',
-    symbol: '✊',
-    color: '#d25f45',
-    softColor: '#ffe0d8',
-    textColor: '#6e2e22'
-  },
-  {
-    id: 'scissors',
-    label: '剪刀',
-    symbol: '✌',
-    color: '#2c8f7f',
-    softColor: '#dcf5ee',
-    textColor: '#155849'
-  },
-  {
-    id: 'paper',
-    label: '布',
-    symbol: '✋',
-    color: '#4e6edb',
-    softColor: '#e3e9ff',
-    textColor: '#243f94'
-  }
-];
+export const RPS_BATTLE_MIN_COUNT_PER_FACTION: number = 3;
+export const RPS_BATTLE_RECOMMENDED_MAX_PER_FACTION: number = 12;
+export const RPS_BATTLE_MAX_COUNT_PER_FACTION: number = 20;
+export const RPS_BATTLE_MAX_TOTAL_ENTITIES: number = 60;
+export const RPS_BATTLE_LOGICAL_FACTIONS: RpsBattleFaction[] = ['rock', 'scissors', 'paper'];
 
 export const RPS_BATTLE_SCALE_CHOICES: RpsBattleScaleChoice[] = [
   { id: 'small', label: '小局', count: 5 },
   { id: 'standard', label: '标准', count: 8 },
   { id: 'large', label: '大局', count: 12 }
+];
+
+export const RPS_BATTLE_DURATION_CHOICES: RpsBattleDurationChoice[] = [
+  { label: '快速', durationSec: 30 },
+  { label: '标准', durationSec: 60 },
+  { label: '持久', durationSec: 90 },
+  { label: '长局', durationSec: 120 }
 ];

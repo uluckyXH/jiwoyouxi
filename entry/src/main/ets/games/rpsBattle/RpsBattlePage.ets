@@ -8,16 +8,23 @@ import { RpsBattlePauseOverlay, RpsBattleResultOverlay } from './RpsBattleOverla
 import { RpsBattleRenderer } from './RpsBattleRenderer';
 import { RpsBattleSetupPanel } from './RpsBattleSetupPanel';
 import {
+  RPS_BATTLE_DURATION_SEC,
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattlePhase,
   RpsBattleResult,
-  RpsBattleScale
+  RpsBattleScale,
+  RpsBattleThemeKey
 } from './RpsBattleTypes';
 import {
+  rpsBattleClampDuration,
+  rpsBattleCountsFromValue,
   rpsBattleCreateOptions,
   rpsBattleEmptyCounts,
-  rpsBattleInitialResult
+  rpsBattleInitialCountForScale,
+  rpsBattleInitialResult,
+  rpsBattleScaleForCounts,
+  rpsBattleStepCount
 } from './RpsBattleRules';
 
 const RPS_BATTLE_TOP_BAR_CONTENT_PADDING_TOP: number = 34;
@@ -80,11 +87,16 @@ export struct RpsBattlePage {
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State phase: RpsBattlePhase = 'setup';
+  @State selectedThemeKey: RpsBattleThemeKey = 'rps';
   @State selectedFaction: RpsBattleFaction = 'rock';
   @State selectedScale: RpsBattleScale = 'standard';
+  @State lineupCounts: RpsBattleFactionCounts = rpsBattleCountsFromValue(8);
+  @State syncCounts: boolean = true;
+  @State advancedLineupOpen: boolean = false;
+  @State durationSec: number = RPS_BATTLE_DURATION_SEC;
   @State counts: RpsBattleFactionCounts = rpsBattleEmptyCounts();
   @State elapsedSec: number = 0;
-  @State timeLeftSec: number = 60;
+  @State timeLeftSec: number = RPS_BATTLE_DURATION_SEC;
   @State conversions: number = 0;
   @State countdownValue: number = RPS_BATTLE_COUNTDOWN_START;
   @State result: RpsBattleResult = rpsBattleInitialResult('rock');
@@ -142,6 +154,7 @@ export struct RpsBattlePage {
       if (this.phase === 'result') {
         RpsBattleResultOverlay({
           result: this.result,
+          themeKey: this.selectedThemeKey,
           restartGame: () => {
             this.startGame();
           },
@@ -188,27 +201,54 @@ export struct RpsBattlePage {
 
   @Builder
   SetupLayer() {
-    Column() {
-      RpsBattleSetupPanel({
-        selectedFaction: this.selectedFaction,
-        selectedScale: this.selectedScale,
-        selectFaction: (faction: RpsBattleFaction) => {
-          this.selectedFaction = faction;
-        },
-        selectScale: (scale: RpsBattleScale) => {
-          this.selectedScale = scale;
-        },
-        startGame: () => {
-          this.startGame();
-        }
-      })
-      .width(this.panelWidth())
-      Blank()
+    Scroll() {
+      Column() {
+        RpsBattleSetupPanel({
+          selectedThemeKey: this.selectedThemeKey,
+          selectedFaction: this.selectedFaction,
+          selectedScale: this.selectedScale,
+          lineupCounts: this.lineupCounts,
+          syncCounts: this.syncCounts,
+          advancedLineupOpen: this.advancedLineupOpen,
+          durationSec: this.durationSec,
+          selectTheme: (themeKey: RpsBattleThemeKey) => {
+            this.selectedThemeKey = themeKey;
+          },
+          selectFaction: (faction: RpsBattleFaction) => {
+            this.selectedFaction = faction;
+          },
+          selectScale: (scale: RpsBattleScale) => {
+            this.selectedScale = scale;
+            this.lineupCounts = rpsBattleCountsFromValue(rpsBattleInitialCountForScale(scale));
+          },
+          selectDuration: (durationSec: number) => {
+            this.durationSec = rpsBattleClampDuration(durationSec);
+          },
+          toggleSyncCounts: () => {
+            this.syncCounts = !this.syncCounts;
+          },
+          toggleAdvancedLineup: () => {
+            this.advancedLineupOpen = !this.advancedLineupOpen;
+          },
+          stepFactionCount: (faction: RpsBattleFaction, step: number) => {
+            this.lineupCounts = rpsBattleStepCount(this.lineupCounts, faction, step, this.syncCounts);
+            this.selectedScale = rpsBattleScaleForCounts(this.lineupCounts);
+          },
+          startGame: () => {
+            this.startGame();
+          }
+        })
+        .width(this.panelWidth())
+        Blank()
+          .height(16)
+      }
+      .width('100%')
+      .constraintSize({ minHeight: '100%' })
+      .padding({ left: 16, right: 16, top: RPS_BATTLE_TOP_BAR_HEIGHT + 24, bottom: 16 })
+      .alignItems(HorizontalAlign.Center)
     }
     .width('100%')
     .height('100%')
-    .padding({ left: 16, right: 16, top: RPS_BATTLE_TOP_BAR_HEIGHT + 24, bottom: 16 })
-    .alignItems(HorizontalAlign.Center)
     .zIndex(1)
   }
 
@@ -216,6 +256,7 @@ export struct RpsBattlePage {
   PlayLayer() {
     Column({ space: 10 }) {
       RpsBattleHud({
+        themeKey: this.selectedThemeKey,
         counts: this.counts,
         timeLeftSec: this.timeLeftSec,
         supportFaction: this.selectedFaction,
@@ -368,7 +409,7 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
-    const options = rpsBattleCreateOptions(this.selectedScale, this.selectedFaction);
+    const options = rpsBattleCreateOptions(this.lineupCounts, this.durationSec, this.selectedFaction);
     this.engine = new RpsBattleEngine(this.boardWidth(), this.boardHeight(), options);
     this.hasRecordedResult = false;
     this.runtimeElapsedSec = 0;
@@ -628,7 +669,7 @@ export struct RpsBattlePage {
     this.runtimeElapsedSec = 0;
     this.counts = rpsBattleEmptyCounts();
     this.elapsedSec = 0;
-    this.timeLeftSec = 60;
+    this.timeLeftSec = this.durationSec;
     this.conversions = 0;
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
@@ -655,7 +696,8 @@ export struct RpsBattlePage {
 
   private drawFrame(): void {
     if (this.engine === null) {
-      this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec);
+      this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec,
+        this.selectedThemeKey);
       return;
     }
     this.renderer.draw(
@@ -663,7 +705,8 @@ export struct RpsBattlePage {
       this.boardWidth(),
       this.boardHeight(),
       this.engine.entitiesForRender(),
-      this.runtimeElapsedSec
+      this.runtimeElapsedSec,
+      this.selectedThemeKey
     );
   }
 
@@ -703,7 +746,8 @@ export struct RpsBattlePage {
     const elapsedMs = Math.max(1, elapsed);
     console.info(
       `RpsBattlePerf loop=displaySync targetFps=${RPS_BATTLE_TARGET_FPS} ` +
-        `scale=${this.selectedScale} entities=${entityCount} frames=${frames} ` +
+        `scale=${this.selectedScale} lineup=${this.lineupCounts.rock}/${this.lineupCounts.scissors}/${this.lineupCounts.paper} ` +
+        `entities=${entityCount} frames=${frames} ` +
         `fps=${(frames * 1000 / elapsedMs).toFixed(1)} ` +
         `interval=${(this.perfFrameIntervalMs / frames).toFixed(1)}ms ` +
         `maxInterval=${this.perfMaxFrameIntervalMs.toFixed(0)}ms ` +
@@ -790,7 +834,7 @@ export struct RpsBattlePage {
   }
 
   private boardHeight(): number {
-    return Math.max(250, this.pageHeight - RPS_BATTLE_TOP_BAR_HEIGHT - 120);
+    return Math.max(250, this.pageHeight - RPS_BATTLE_TOP_BAR_HEIGHT - 122);
   }
 
 }

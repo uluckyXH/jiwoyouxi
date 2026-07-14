@@ -1,21 +1,19 @@
 import {
+  RPS_BATTLE_DURATION_CHOICES,
   RPS_BATTLE_DURATION_SEC,
-  RPS_BATTLE_FACTIONS,
+  RPS_BATTLE_LOGICAL_FACTIONS,
+  RPS_BATTLE_MAX_COUNT_PER_FACTION,
+  RPS_BATTLE_MAX_TOTAL_ENTITIES,
+  RPS_BATTLE_MIN_COUNT_PER_FACTION,
   RPS_BATTLE_SCALE_CHOICES,
   RpsBattleEntity,
   RpsBattleFaction,
   RpsBattleFactionCounts,
-  RpsBattleFactionInfo,
   RpsBattleFinishReason,
   RpsBattleOptions,
   RpsBattleResult,
   RpsBattleScale
 } from './RpsBattleTypes';
-
-export function rpsBattleFactionInfo(faction: RpsBattleFaction): RpsBattleFactionInfo {
-  const found = RPS_BATTLE_FACTIONS.find((item: RpsBattleFactionInfo) => item.id === faction);
-  return found === undefined ? RPS_BATTLE_FACTIONS[0] : found;
-}
 
 export function rpsBattleBeats(attacker: RpsBattleFaction, defender: RpsBattleFaction): boolean {
   return (attacker === 'rock' && defender === 'scissors') ||
@@ -44,14 +42,14 @@ export function rpsBattlePredatorOf(faction: RpsBattleFaction): RpsBattleFaction
 }
 
 export function rpsBattleCreateOptions(
-  scale: RpsBattleScale,
+  initialCounts: RpsBattleFactionCounts,
+  durationSec: number,
   supportFaction: RpsBattleFaction
 ): RpsBattleOptions {
   return {
     supportFaction: supportFaction,
-    scale: scale,
-    initialCount: rpsBattleInitialCountForScale(scale),
-    durationSec: RPS_BATTLE_DURATION_SEC
+    initialCounts: rpsBattleClampCounts(initialCounts),
+    durationSec: rpsBattleClampDuration(durationSec)
   };
 }
 
@@ -60,8 +58,104 @@ export function rpsBattleInitialCountForScale(scale: RpsBattleScale): number {
   return found === undefined ? 8 : found.count;
 }
 
+export function rpsBattleCountsFromValue(value: number): RpsBattleFactionCounts {
+  const count = rpsBattleClampCount(value);
+  return { rock: count, scissors: count, paper: count };
+}
+
 export function rpsBattleEmptyCounts(): RpsBattleFactionCounts {
   return { rock: 0, scissors: 0, paper: 0 };
+}
+
+export function rpsBattleCloneCounts(counts: RpsBattleFactionCounts): RpsBattleFactionCounts {
+  return { rock: counts.rock, scissors: counts.scissors, paper: counts.paper };
+}
+
+export function rpsBattleTotalCount(counts: RpsBattleFactionCounts): number {
+  return counts.rock + counts.scissors + counts.paper;
+}
+
+export function rpsBattleClampCount(value: number): number {
+  if (!Number.isFinite(value)) {
+    return RPS_BATTLE_MIN_COUNT_PER_FACTION;
+  }
+  const rounded = Math.round(value);
+  return Math.max(RPS_BATTLE_MIN_COUNT_PER_FACTION, Math.min(RPS_BATTLE_MAX_COUNT_PER_FACTION, rounded));
+}
+
+export function rpsBattleClampCounts(counts: RpsBattleFactionCounts): RpsBattleFactionCounts {
+  const next: RpsBattleFactionCounts = {
+    rock: rpsBattleClampCount(counts.rock),
+    scissors: rpsBattleClampCount(counts.scissors),
+    paper: rpsBattleClampCount(counts.paper)
+  };
+  while (rpsBattleTotalCount(next) > RPS_BATTLE_MAX_TOTAL_ENTITIES) {
+    const largest = rpsBattleLargestFaction(next);
+    if (largest === 'rock') {
+      next.rock -= 1;
+    } else if (largest === 'scissors') {
+      next.scissors -= 1;
+    } else {
+      next.paper -= 1;
+    }
+  }
+  return next;
+}
+
+export function rpsBattleCanIncreaseCount(
+  counts: RpsBattleFactionCounts,
+  faction: RpsBattleFaction,
+  syncCounts: boolean
+): boolean {
+  const next = rpsBattleStepCount(counts, faction, 1, syncCounts);
+  return next.rock !== counts.rock || next.scissors !== counts.scissors || next.paper !== counts.paper;
+}
+
+export function rpsBattleCanDecreaseCount(
+  counts: RpsBattleFactionCounts,
+  faction: RpsBattleFaction,
+  syncCounts: boolean
+): boolean {
+  const next = rpsBattleStepCount(counts, faction, -1, syncCounts);
+  return next.rock !== counts.rock || next.scissors !== counts.scissors || next.paper !== counts.paper;
+}
+
+export function rpsBattleStepCount(
+  counts: RpsBattleFactionCounts,
+  faction: RpsBattleFaction,
+  step: number,
+  syncCounts: boolean
+): RpsBattleFactionCounts {
+  const delta = step > 0 ? 1 : -1;
+  const next = rpsBattleCloneCounts(counts);
+  if (syncCounts) {
+    next.rock = rpsBattleClampCount(counts.rock + delta);
+    next.scissors = rpsBattleClampCount(counts.scissors + delta);
+    next.paper = rpsBattleClampCount(counts.paper + delta);
+  } else if (faction === 'rock') {
+    next.rock = rpsBattleClampCount(counts.rock + delta);
+  } else if (faction === 'scissors') {
+    next.scissors = rpsBattleClampCount(counts.scissors + delta);
+  } else {
+    next.paper = rpsBattleClampCount(counts.paper + delta);
+  }
+  if (rpsBattleTotalCount(next) > RPS_BATTLE_MAX_TOTAL_ENTITIES) {
+    return rpsBattleCloneCounts(counts);
+  }
+  return next;
+}
+
+export function rpsBattleScaleForCounts(counts: RpsBattleFactionCounts): RpsBattleScale {
+  if (counts.rock !== counts.scissors || counts.rock !== counts.paper) {
+    return 'custom';
+  }
+  const found = RPS_BATTLE_SCALE_CHOICES.find((item) => item.count === counts.rock);
+  return found === undefined ? 'custom' : found.id;
+}
+
+export function rpsBattleClampDuration(durationSec: number): number {
+  const found = RPS_BATTLE_DURATION_CHOICES.find((item) => item.durationSec === durationSec);
+  return found === undefined ? RPS_BATTLE_DURATION_SEC : durationSec;
 }
 
 export function rpsBattleCountEntities(entities: RpsBattleEntity[]): RpsBattleFactionCounts {
@@ -89,6 +183,16 @@ export function rpsBattleCountValue(counts: RpsBattleFactionCounts, faction: Rps
   return counts.paper;
 }
 
+function rpsBattleLargestFaction(counts: RpsBattleFactionCounts): RpsBattleFaction {
+  if (counts.rock >= counts.scissors && counts.rock >= counts.paper) {
+    return 'rock';
+  }
+  if (counts.scissors >= counts.rock && counts.scissors >= counts.paper) {
+    return 'scissors';
+  }
+  return 'paper';
+}
+
 export function rpsBattleAliveFactions(counts: RpsBattleFactionCounts): RpsBattleFaction[] {
   const result: RpsBattleFaction[] = [];
   if (counts.rock > 0) {
@@ -107,8 +211,8 @@ export function rpsBattleLeadingFaction(counts: RpsBattleFactionCounts): RpsBatt
   let winner: RpsBattleFaction | '' = '';
   let best = 0;
   let tied = false;
-  for (let i = 0; i < RPS_BATTLE_FACTIONS.length; i += 1) {
-    const faction = RPS_BATTLE_FACTIONS[i].id;
+  for (let i = 0; i < RPS_BATTLE_LOGICAL_FACTIONS.length; i += 1) {
+    const faction = RPS_BATTLE_LOGICAL_FACTIONS[i];
     const count = rpsBattleCountValue(counts, faction);
     if (count > best) {
       best = count;

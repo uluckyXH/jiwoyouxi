@@ -1,9 +1,11 @@
 import { RpsBattleTheme } from './RpsBattleTheme';
-import { RPS_BATTLE_FACTIONS, RpsBattleFactionCounts, RpsBattleFactionInfo, RpsBattleFaction } from './RpsBattleTypes';
-import { rpsBattleCountValue, rpsBattleFactionInfo } from './RpsBattleRules';
+import { RpsBattleFaction, RpsBattleFactionCounts, RpsBattleFactionInfo, RpsBattleThemeKey } from './RpsBattleTypes';
+import { rpsBattleCountValue } from './RpsBattleRules';
+import { rpsBattleThemeFactionInfo, rpsBattleThemeFactions } from './RpsBattleThemeConfig';
 
 @Component
 export struct RpsBattleHud {
+  @Prop themeKey: RpsBattleThemeKey = 'rps';
   @Prop counts: RpsBattleFactionCounts = { rock: 0, scissors: 0, paper: 0 };
   @Prop timeLeftSec: number = 60;
   @Prop supportFaction: RpsBattleFaction = 'rock';
@@ -12,7 +14,7 @@ export struct RpsBattleHud {
   build() {
     Column({ space: 8 }) {
       Row({ space: 8 }) {
-        ForEach(RPS_BATTLE_FACTIONS, (item: RpsBattleFactionInfo) => {
+        ForEach(rpsBattleThemeFactions(this.themeKey), (item: RpsBattleFactionInfo) => {
           this.FactionCount(item)
         }, (item: RpsBattleFactionInfo) => item.id)
       }
@@ -29,20 +31,28 @@ export struct RpsBattleHud {
 
   @Builder
   FactionCount(item: RpsBattleFactionInfo) {
-    Row({ space: 5 }) {
-      Text(item.symbol)
-        .fontSize(16)
-        .height(22)
-        .textAlign(TextAlign.Center)
-      Text(`${rpsBattleCountValue(this.counts, item.id)}`)
-        .fontSize(16)
-        .fontWeight(FontWeight.Bold)
+    Column({ space: 1 }) {
+      Row({ space: 5 }) {
+        Text(item.symbol)
+          .fontSize(16)
+          .height(20)
+          .textAlign(TextAlign.Center)
+        Text(`${rpsBattleCountValue(this.counts, item.id)}`)
+          .fontSize(16)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(item.textColor)
+          .maxLines(1)
+      }
+      .justifyContent(FlexAlign.Center)
+      Text(item.label)
+        .fontSize(10)
+        .fontWeight(FontWeight.Medium)
         .fontColor(item.textColor)
         .maxLines(1)
     }
     .justifyContent(FlexAlign.Center)
     .layoutWeight(1)
-    .height(38)
+    .height(46)
     .borderRadius(9)
     .backgroundColor(item.softColor)
     .border({ width: 1, color: 'rgba(86,55,35,0.10)' })
@@ -76,7 +86,7 @@ export struct RpsBattleHud {
         .fontSize(12)
         .fontColor(RpsBattleTheme.muted)
         .maxLines(1)
-      Text(rpsBattleFactionInfo(this.supportFaction).label)
+      Text(rpsBattleThemeFactionInfo(this.themeKey, this.supportFaction).label)
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
         .fontColor(RpsBattleTheme.pageInk)

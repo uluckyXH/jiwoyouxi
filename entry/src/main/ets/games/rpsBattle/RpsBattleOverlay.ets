@@ -1,6 +1,7 @@
 import { RpsBattleTheme } from './RpsBattleTheme';
-import { RPS_BATTLE_FACTIONS, RpsBattleFactionInfo, RpsBattleResult } from './RpsBattleTypes';
-import { rpsBattleCountValue, rpsBattleFactionInfo, rpsBattleInitialResult } from './RpsBattleRules';
+import { RpsBattleFactionInfo, RpsBattleResult, RpsBattleThemeKey } from './RpsBattleTypes';
+import { rpsBattleCountValue, rpsBattleInitialResult } from './RpsBattleRules';
+import { rpsBattleThemeFactionInfo, rpsBattleThemeFactions } from './RpsBattleThemeConfig';
 
 @Component
 export struct RpsBattlePauseOverlay {
@@ -54,6 +55,7 @@ export struct RpsBattlePauseOverlay {
 @Component
 export struct RpsBattleResultOverlay {
   @Prop result: RpsBattleResult = rpsBattleInitialResult('rock');
+  @Prop themeKey: RpsBattleThemeKey = 'rps';
   restartGame: () => void = () => {};
   backToSetup: () => void = () => {};
   exitToHub: () => void = () => {};
@@ -73,7 +75,7 @@ export struct RpsBattleResultOverlay {
           .textAlign(TextAlign.Center)
           .maxLines(1)
         Row({ space: 8 }) {
-          ForEach(RPS_BATTLE_FACTIONS, (item: RpsBattleFactionInfo) => {
+          ForEach(rpsBattleThemeFactions(this.themeKey), (item: RpsBattleFactionInfo) => {
             this.CountColumn(item)
           }, (item: RpsBattleFactionInfo) => item.id)
         }
@@ -188,7 +190,7 @@ export struct RpsBattleResultOverlay {
     if (this.result.winner === '') {
       return '平局';
     }
-    const winner = rpsBattleFactionInfo(this.result.winner);
+    const winner = rpsBattleThemeFactionInfo(this.themeKey, this.result.winner);
     return `${winner.symbol} ${winner.label}胜利`;
   }
 
@@ -196,11 +198,11 @@ export struct RpsBattleResultOverlay {
     if (this.result.winner === '') {
       return RpsBattleTheme.pageInk;
     }
-    return rpsBattleFactionInfo(this.result.winner).textColor;
+    return rpsBattleThemeFactionInfo(this.themeKey, this.result.winner).textColor;
   }
 
   private supportText(): string {
-    const support = rpsBattleFactionInfo(this.result.supportFaction);
+    const support = rpsBattleThemeFactionInfo(this.themeKey, this.result.supportFaction);
     if (this.result.winner === '') {
       return `支持 ${support.label} · 本局未分胜负`;
     }
