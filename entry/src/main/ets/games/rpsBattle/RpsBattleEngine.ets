@@ -1,11 +1,15 @@
 import {
+  RpsBattleBlackHoleState,
+  RpsBattleControlZone,
   RpsBattleEntity,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleModeRules,
   RpsBattleOptions,
   RpsBattleResult,
   RpsBattleSnapshot
 } from './RpsBattleTypes';
+import { rpsBattleModeRulesByKey } from './RpsBattleModeConfig';
 import {
   rpsBattleBeats,
   rpsBattleBuildResult,
@@ -15,6 +19,8 @@ import {
   rpsBattlePredatorOf,
   rpsBattlePreyOf
 } from './RpsBattleRules';
+import { RpsBattleBlackHoleSystem } from './RpsBattleBlackHoleSystem';
+import { RpsBattleZoneSystem } from './RpsBattleZoneSystem';
 
 const ENTITY_RADIUS: number = 14;
 const ENTITY_MAX_SPEED: number = 94;
@@ -30,8 +36,11 @@ export class RpsBattleEngine {
   private boardWidth: number;
   private boardHeight: number;
   private options: RpsBattleOptions;
+  private modeRules: RpsBattleModeRules;
   private random: () => number;
   private entities: RpsBattleEntity[] = [];
+  private zoneSystem: RpsBattleZoneSystem = new RpsBattleZoneSystem();
+  private blackHoleSystem: RpsBattleBlackHoleSystem = new RpsBattleBlackHoleSystem();
   private rockEntities: RpsBattleEntity[] = [];
   private scissorsEntities: RpsBattleEntity[] = [];
   private paperEntities: RpsBattleEntity[] = [];
@@ -50,12 +59,17 @@ export class RpsBattleEngine {
   private lastCollisionMs: number = 0;
   private lastConversionMs: number = 0;
   private lastResultMs: number = 0;
+  private lastZoneMs: number = 0;
+  private lastZoneInsideCount: number = 0;
+  private lastBlackHoleMs: number = 0;
+  private lastBlackHoleKillCount: number = 0;
 
   constructor(boardWidth: number, boardHeight: number, options: RpsBattleOptions,
     random: () => number = () => Math.random()) {
     this.boardWidth = Math.max(240, boardWidth);
     this.boardHeight = Math.max(240, boardHeight);
     this.options = options;
+    this.modeRules = rpsBattleModeRulesByKey(options.modeKey);
     this.random = random;
     this.reset();
   }
@@ -69,6 +83,16 @@ export class RpsBattleEngine {
     this.countsCache = rpsBattleEmptyCounts();
     this.nextId = 1;
     this.conversions = 0;
+    if (this.modeRules.hasControlZone) {
+      this.zoneSystem.reset(this.boardWidth, this.boardHeight);
+    } else {
+      this.zoneSystem.clear();
+    }
+    if (this.modeRules.hasBlackHole) {
+      this.blackHoleSystem.reset(this.boardWidth, this.boardHeight, this.random);
+    } else {
+      this.blackHoleSystem.clear();
+    }
     this.spawnFaction('rock', this.options.initialCounts.rock, this.boardWidth * 0.24, this.boardHeight * 0.28);
     this.spawnFaction('scissors', this.options.initialCounts.scissors, this.boardWidth * 0.76, this.boardHeight * 0.30);
     this.spawnFaction('paper', this.options.initialCounts.paper, this.boardWidth * 0.50, this.boardHeight * 0.74);
@@ -86,6 +110,12 @@ export class RpsBattleEngine {
       entity.x = this.clamp(entity.x * ratioX, ENTITY_EDGE_PADDING, this.boardWidth - ENTITY_EDGE_PADDING);
       entity.y = this.clamp(entity.y * ratioY, ENTITY_EDGE_PADDING, this.boardHeight - ENTITY_EDGE_PADDING);
     }
+    if (this.modeRules.hasControlZone) {
+      this.zoneSystem.resize(this.boardWidth, this.boardHeight);
+    }
+    if (this.modeRules.hasBlackHole) {
+      this.blackHoleSystem.resize(this.boardWidth, this.boardHeight);
+    }
   }
 
   update(dtSec: number, elapsedSec: number): RpsBattleResult {
@@ -96,13 +126,30 @@ export class RpsBattleEngine {
     this.lastCollisionMs = 0;
     this.lastConversionMs = 0;
     this.lastResultMs = 0;
+    this.lastZoneMs = 0;
+    this.lastZoneInsideCount = 0;
+    this.lastBlackHoleMs = 0;
+    this.lastBlackHoleKillCount = 0;
     const dt = this.clamp(dtSec, 0, 0.05);
     const movementStartedAt = Date.now();
     this.applyMovement(dt, elapsedSec);
     this.lastMovementMs = Date.now() - movementStartedAt;
+    if (this.modeRules.hasBlackHole) {
+      const blackHoleStartedAt = Date.now();
+      const swallowed = this.blackHoleSystem.update(this.entities, elapsedSec, dt, this.boardWidth, this.boardHeight,
+        this.random);
+      this.removeSwallowedEntities(swallowed);
+      this.lastBlackHoleKillCount = swallowed.length;
+      this.lastBlackHoleMs = Date.now() - blackHoleStartedAt;
+    }
     const collisionStartedAt = Date.now();
     this.resolveCollisions(elapsedSec);
     this.lastCollisionMs = Date.now() - collisionStartedAt;
+    if (this.modeRules.hasControlZone) {
+      const zoneStartedAt = Date.now();
+      this.lastZoneInsideCount = this.zoneSystem.update(this.entities, dt);
+      this.lastZoneMs = Date.now() - zoneStartedAt;
+    }
     const resultStartedAt = Date.now();
     const result = this.resultAt(elapsedSec);
     this.lastResultMs = Date.now() - resultStartedAt;
@@ -149,8 +196,40 @@ export class RpsBattleEngine {
     return this.lastResultMs;
   }
 
+  lastStepZoneMs(): number {
+    return this.lastZoneMs;
+  }
+
+  lastStepZoneInsideCount(): number {
+    return this.lastZoneInsideCount;
+  }
+
+  lastStepBlackHoleMs(): number {
+    return this.lastBlackHoleMs;
+  }
+
+  lastStepBlackHoleKillCount(): number {
+    return this.lastBlackHoleKillCount;
+  }
+
   counts(): RpsBattleFactionCounts {
     return this.copyCounts();
+  }
+
+  controlZoneForRender(): RpsBattleControlZone | null {
+    return this.zoneSystem.currentZone();
+  }
+
+  controlZoneSnapshot(): RpsBattleControlZone | null {
+    return this.zoneSystem.snapshot();
+  }
+
+  blackHoleForRender(): RpsBattleBlackHoleState | null {
+    return this.blackHoleSystem.currentState();
+  }
+
+  blackHoleSnapshot(): RpsBattleBlackHoleState | null {
+    return this.blackHoleSystem.snapshot();
   }
 
   timeLeftSec(elapsedSec: number): number {
@@ -163,6 +242,13 @@ export class RpsBattleEngine {
     const aliveCount = (counts.rock > 0 ? 1 : 0) + (counts.scissors > 0 ? 1 : 0) + (counts.paper > 0 ? 1 : 0);
     if (aliveCount <= 1) {
       result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'clear');
+    } else if (this.modeRules.hasControlZone) {
+      const zoneWinner = this.zoneSystem.finishWinner();
+      if (zoneWinner !== '') {
+        result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'zone', zoneWinner);
+      } else if (elapsedSec >= this.options.durationSec) {
+        result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
+      }
     } else if (elapsedSec >= this.options.durationSec) {
       result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
     }
@@ -174,6 +260,8 @@ export class RpsBattleEngine {
     return {
       entities: rpsBattleCloneEntities(this.entities),
       counts: counts,
+      controlZone: this.zoneSystem.snapshot(),
+      blackHole: this.blackHoleSystem.snapshot(),
       elapsedSec: Math.min(this.options.durationSec, elapsedSec),
       timeLeftSec: Math.max(0, this.options.durationSec - elapsedSec),
       conversions: this.conversions,
@@ -363,6 +451,29 @@ export class RpsBattleEngine {
     this.clampVelocity(entity);
     this.conversions += 1;
     this.lastConversionMs += Date.now() - startedAt;
+  }
+
+  private removeSwallowedEntities(swallowed: RpsBattleEntity[]): void {
+    if (swallowed.length === 0) {
+      return;
+    }
+    for (let i = 0; i < swallowed.length; i += 1) {
+      this.removeEntity(swallowed[i]);
+    }
+  }
+
+  private removeEntity(entity: RpsBattleEntity): void {
+    for (let i = 0; i < this.entities.length; i += 1) {
+      if (this.entities[i].id === entity.id) {
+        this.removeFromFactionCache(entity, entity.faction);
+        const lastIndex = this.entities.length - 1;
+        if (i !== lastIndex) {
+          this.entities[i] = this.entities[lastIndex];
+        }
+        this.entities.pop();
+        return;
+      }
+    }
   }
 
   private nearestEntity(source: RpsBattleEntity, candidates: RpsBattleEntity[]): RpsBattleEntity | undefined {

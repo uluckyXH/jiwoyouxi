@@ -10,6 +10,7 @@ import {
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattleFinishReason,
+  RpsBattleModeKey,
   RpsBattleOptions,
   RpsBattleResult,
   RpsBattleScale
@@ -44,9 +45,11 @@ export function rpsBattlePredatorOf(faction: RpsBattleFaction): RpsBattleFaction
 export function rpsBattleCreateOptions(
   initialCounts: RpsBattleFactionCounts,
   durationSec: number,
-  supportFaction: RpsBattleFaction
+  supportFaction: RpsBattleFaction,
+  modeKey: RpsBattleModeKey = 'classic'
 ): RpsBattleOptions {
   return {
+    modeKey: modeKey,
     supportFaction: supportFaction,
     initialCounts: rpsBattleClampCounts(initialCounts),
     durationSec: rpsBattleClampDuration(durationSec)
@@ -250,13 +253,16 @@ export function rpsBattleBuildResult(
   counts: RpsBattleFactionCounts,
   elapsedSec: number,
   conversions: number,
-  finishReason: RpsBattleFinishReason
+  finishReason: RpsBattleFinishReason,
+  winnerOverride: RpsBattleFaction | '' = ''
 ): RpsBattleResult {
   let winner: RpsBattleFaction | '' = '';
   let reason: RpsBattleFinishReason = finishReason;
   const alive = rpsBattleAliveFactions(counts);
   if (finishReason === 'clear' && alive.length === 1) {
     winner = alive[0];
+  } else if (finishReason === 'zone') {
+    winner = winnerOverride;
   } else if (finishReason === 'time') {
     winner = rpsBattleLeadingFaction(counts);
     if (winner === '') {

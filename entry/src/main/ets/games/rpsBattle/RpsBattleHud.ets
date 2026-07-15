@@ -1,7 +1,14 @@
 import { RpsBattleTheme } from './RpsBattleTheme';
-import { RpsBattleFaction, RpsBattleFactionCounts, RpsBattleFactionInfo, RpsBattleThemeKey } from './RpsBattleTypes';
+import {
+  RpsBattleControlZone,
+  RpsBattleFaction,
+  RpsBattleFactionCounts,
+  RpsBattleFactionInfo,
+  RpsBattleThemeKey
+} from './RpsBattleTypes';
 import { rpsBattleCountValue } from './RpsBattleRules';
 import { rpsBattleThemeFactionInfo, rpsBattleThemeFactions } from './RpsBattleThemeConfig';
+import { RPS_BATTLE_CONTROL_ZONE_MAX_SCORE } from './RpsBattleZoneSystem';
 
 @Component
 export struct RpsBattleHud {
@@ -10,6 +17,7 @@ export struct RpsBattleHud {
   @Prop timeLeftSec: number = 60;
   @Prop supportFaction: RpsBattleFaction = 'rock';
   @Prop conversions: number = 0;
+  @Prop controlZone: RpsBattleControlZone | null = null;
 
   build() {
     Column({ space: 8 }) {
@@ -21,12 +29,36 @@ export struct RpsBattleHud {
       .width('100%')
       Row({ space: 8 }) {
         this.TimePill()
+        if (this.controlZone !== null) {
+          this.ZonePill()
+        }
         this.SupportPill()
         this.ConversionPill()
       }
       .width('100%')
     }
     .width('100%')
+  }
+
+  @Builder
+  ZonePill() {
+    Row({ space: 5 }) {
+      Text('据点')
+        .fontSize(12)
+        .fontColor(RpsBattleTheme.muted)
+        .maxLines(1)
+      Text(this.zoneScoreText())
+        .fontSize(13)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.zoneTextColor())
+        .maxLines(1)
+    }
+    .justifyContent(FlexAlign.Center)
+    .layoutWeight(1)
+    .height(32)
+    .borderRadius(8)
+    .backgroundColor(this.zoneSoftColor())
+    .border({ width: 1, color: RpsBattleTheme.panelLine })
   }
 
   @Builder
@@ -119,5 +151,36 @@ export struct RpsBattleHud {
     .borderRadius(8)
     .backgroundColor(RpsBattleTheme.panelBg)
     .border({ width: 1, color: RpsBattleTheme.panelLine })
+  }
+
+  private zoneScoreText(): string {
+    if (this.controlZone === null) {
+      return `0/${RPS_BATTLE_CONTROL_ZONE_MAX_SCORE}`;
+    }
+    return `${Math.floor(this.controlZone.score)}/${RPS_BATTLE_CONTROL_ZONE_MAX_SCORE}`;
+  }
+
+  private zoneTextColor(): string {
+    const zone = this.controlZone;
+    return zone === null ? RpsBattleTheme.pageInk : this.factionTextColor(zone.owner);
+  }
+
+  private zoneSoftColor(): string {
+    const zone = this.controlZone;
+    return zone === null ? RpsBattleTheme.panelBg : this.factionSoftColor(zone.owner);
+  }
+
+  private factionTextColor(faction: RpsBattleFaction | ''): string {
+    if (faction === '') {
+      return RpsBattleTheme.pageInk;
+    }
+    return rpsBattleThemeFactionInfo(this.themeKey, faction).textColor;
+  }
+
+  private factionSoftColor(faction: RpsBattleFaction | ''): string {
+    if (faction === '') {
+      return RpsBattleTheme.panelBg;
+    }
+    return rpsBattleThemeFactionInfo(this.themeKey, faction).softColor;
   }
 }

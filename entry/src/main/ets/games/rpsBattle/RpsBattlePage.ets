@@ -9,8 +9,10 @@ import { RpsBattleRenderer } from './RpsBattleRenderer';
 import { RpsBattleSetupPanel } from './RpsBattleSetupPanel';
 import {
   RPS_BATTLE_DURATION_SEC,
+  RpsBattleControlZone,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleModeKey,
   RpsBattlePhase,
   RpsBattleResult,
   RpsBattleScale,
@@ -77,17 +79,22 @@ export struct RpsBattlePage {
   private perfCollisionMs: number = 0;
   private perfConversionMs: number = 0;
   private perfResultMs: number = 0;
+  private perfZoneMs: number = 0;
+  private perfBlackHoleMs: number = 0;
   private perfAudioMs: number = 0;
   private perfHudMs: number = 0;
   private perfSfxCallCount: number = 0;
   private perfTargetScanCount: number = 0;
   private perfCollisionCheckCount: number = 0;
+  private perfZoneInsideCount: number = 0;
+  private perfBlackHoleKillCount: number = 0;
   private perfConversionCount: number = 0;
 
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State phase: RpsBattlePhase = 'setup';
   @State selectedThemeKey: RpsBattleThemeKey = 'rps';
+  @State selectedModeKey: RpsBattleModeKey = 'classic';
   @State selectedFaction: RpsBattleFaction = 'rock';
   @State selectedScale: RpsBattleScale = 'standard';
   @State lineupCounts: RpsBattleFactionCounts = rpsBattleCountsFromValue(8);
@@ -98,6 +105,7 @@ export struct RpsBattlePage {
   @State elapsedSec: number = 0;
   @State timeLeftSec: number = RPS_BATTLE_DURATION_SEC;
   @State conversions: number = 0;
+  @State controlZone: RpsBattleControlZone | null = null;
   @State countdownValue: number = RPS_BATTLE_COUNTDOWN_START;
   @State result: RpsBattleResult = rpsBattleInitialResult('rock');
 
@@ -205,6 +213,7 @@ export struct RpsBattlePage {
       Column() {
         RpsBattleSetupPanel({
           selectedThemeKey: this.selectedThemeKey,
+          selectedModeKey: this.selectedModeKey,
           selectedFaction: this.selectedFaction,
           selectedScale: this.selectedScale,
           lineupCounts: this.lineupCounts,
@@ -213,6 +222,9 @@ export struct RpsBattlePage {
           durationSec: this.durationSec,
           selectTheme: (themeKey: RpsBattleThemeKey) => {
             this.selectedThemeKey = themeKey;
+          },
+          selectMode: (modeKey: RpsBattleModeKey) => {
+            this.selectedModeKey = modeKey;
           },
           selectFaction: (faction: RpsBattleFaction) => {
             this.selectedFaction = faction;
@@ -260,7 +272,8 @@ export struct RpsBattlePage {
         counts: this.counts,
         timeLeftSec: this.timeLeftSec,
         supportFaction: this.selectedFaction,
-        conversions: this.conversions
+        conversions: this.conversions,
+        controlZone: this.controlZone
       })
       .width(this.boardWidth())
 
@@ -409,13 +422,19 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
-    const options = rpsBattleCreateOptions(this.lineupCounts, this.durationSec, this.selectedFaction);
+    const options = rpsBattleCreateOptions(
+      this.lineupCounts,
+      this.durationSec,
+      this.selectedFaction,
+      this.selectedModeKey
+    );
     this.engine = new RpsBattleEngine(this.boardWidth(), this.boardHeight(), options);
     this.hasRecordedResult = false;
     this.runtimeElapsedSec = 0;
     this.elapsedSec = 0;
     this.timeLeftSec = options.durationSec;
     this.conversions = 0;
+    this.controlZone = null;
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
     this.phase = 'countdown';
@@ -577,11 +596,15 @@ export struct RpsBattlePage {
         this.engine.lastStepCollisionMs(),
         this.engine.lastStepConversionMs(),
         this.engine.lastStepResultMs(),
+        this.engine.lastStepZoneMs(),
+        this.engine.lastStepBlackHoleMs(),
         audioMs,
         hudMs,
         sfxCalls,
         this.engine.lastStepTargetScanCount(),
         this.engine.lastStepCollisionCheckCount(),
+        this.engine.lastStepZoneInsideCount(),
+        this.engine.lastStepBlackHoleKillCount(),
         this.engine.entityCount(),
         currentConversions - previousConversions,
         currentConversions
@@ -598,11 +621,15 @@ export struct RpsBattlePage {
       this.engine.lastStepCollisionMs(),
       this.engine.lastStepConversionMs(),
       this.engine.lastStepResultMs(),
+      this.engine.lastStepZoneMs(),
+      this.engine.lastStepBlackHoleMs(),
       audioMs,
       hudMs,
       sfxCalls,
       this.engine.lastStepTargetScanCount(),
       this.engine.lastStepCollisionCheckCount(),
+      this.engine.lastStepZoneInsideCount(),
+      this.engine.lastStepBlackHoleKillCount(),
       this.engine.entityCount(),
       currentConversions - previousConversions,
       currentConversions
@@ -617,6 +644,7 @@ export struct RpsBattlePage {
     this.elapsedSec = elapsedSec;
     this.timeLeftSec = this.engine.timeLeftSec(elapsedSec);
     this.conversions = this.engine.conversionCount();
+    this.controlZone = this.engine.controlZoneSnapshot();
   }
 
   private finishGame(result: RpsBattleResult): void {
@@ -671,6 +699,7 @@ export struct RpsBattlePage {
     this.elapsedSec = 0;
     this.timeLeftSec = this.durationSec;
     this.conversions = 0;
+    this.controlZone = null;
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
     this.phase = 'setup';
@@ -697,7 +726,7 @@ export struct RpsBattlePage {
   private drawFrame(): void {
     if (this.engine === null) {
       this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec,
-        this.selectedThemeKey);
+        this.selectedThemeKey, null);
       return;
     }
     this.renderer.draw(
@@ -706,15 +735,17 @@ export struct RpsBattlePage {
       this.boardHeight(),
       this.engine.entitiesForRender(),
       this.runtimeElapsedSec,
-      this.selectedThemeKey
+      this.selectedThemeKey,
+      this.engine.controlZoneForRender(),
+      this.engine.blackHoleForRender()
     );
   }
 
   private collectPerformanceStats(frameIntervalMs: number, updateMs: number, drawMs: number,
     movementMs: number, targetSearchMs: number, collisionMs: number, conversionMs: number, resultMs: number,
-    audioMs: number, hudMs: number, sfxCalls: number,
-    targetScanCount: number, collisionCheckCount: number, entityCount: number, conversionDelta: number,
-    totalConversions: number): void {
+    zoneMs: number, blackHoleMs: number, audioMs: number, hudMs: number, sfxCalls: number,
+    targetScanCount: number, collisionCheckCount: number, zoneInsideCount: number, blackHoleKillCount: number,
+    entityCount: number, conversionDelta: number, totalConversions: number): void {
     if (!RPS_BATTLE_ENABLE_PERF_LOG) {
       return;
     }
@@ -732,11 +763,15 @@ export struct RpsBattlePage {
     this.perfCollisionMs += collisionMs;
     this.perfConversionMs += conversionMs;
     this.perfResultMs += resultMs;
+    this.perfZoneMs += zoneMs;
+    this.perfBlackHoleMs += blackHoleMs;
     this.perfAudioMs += audioMs;
     this.perfHudMs += hudMs;
     this.perfSfxCallCount += sfxCalls;
     this.perfTargetScanCount += targetScanCount;
     this.perfCollisionCheckCount += collisionCheckCount;
+    this.perfZoneInsideCount += zoneInsideCount;
+    this.perfBlackHoleKillCount += blackHoleKillCount;
     this.perfConversionCount += conversionDelta;
     const elapsed = now - this.perfWindowStartedAt;
     if (elapsed < RPS_BATTLE_PERF_LOG_INTERVAL_MS) {
@@ -758,11 +793,15 @@ export struct RpsBattlePage {
         `collisionMs=${(this.perfCollisionMs / frames).toFixed(2)}ms ` +
         `convertMs=${(this.perfConversionMs / frames).toFixed(2)}ms ` +
         `resultMs=${(this.perfResultMs / frames).toFixed(2)}ms ` +
+        `zoneMs=${(this.perfZoneMs / frames).toFixed(2)}ms ` +
+        `blackHoleMs=${(this.perfBlackHoleMs / frames).toFixed(2)}ms ` +
         `audio=${(this.perfAudioMs / frames).toFixed(2)}ms ` +
         `hud=${(this.perfHudMs / frames).toFixed(2)}ms ` +
         `sfx/frame=${(this.perfSfxCallCount / frames).toFixed(2)} ` +
         `target/frame=${(this.perfTargetScanCount / frames).toFixed(0)} ` +
         `collision/frame=${(this.perfCollisionCheckCount / frames).toFixed(0)} ` +
+        `zoneInside/frame=${(this.perfZoneInsideCount / frames).toFixed(0)} ` +
+        `blackHoleKills/frame=${(this.perfBlackHoleKillCount / frames).toFixed(2)} ` +
         `conversions/frame=${(this.perfConversionCount / frames).toFixed(2)} ` +
         `totalConversions=${totalConversions}`
     );
@@ -781,11 +820,15 @@ export struct RpsBattlePage {
     this.perfCollisionMs = 0;
     this.perfConversionMs = 0;
     this.perfResultMs = 0;
+    this.perfZoneMs = 0;
+    this.perfBlackHoleMs = 0;
     this.perfAudioMs = 0;
     this.perfHudMs = 0;
     this.perfSfxCallCount = 0;
     this.perfTargetScanCount = 0;
     this.perfCollisionCheckCount = 0;
+    this.perfZoneInsideCount = 0;
+    this.perfBlackHoleKillCount = 0;
     this.perfConversionCount = 0;
   }
 

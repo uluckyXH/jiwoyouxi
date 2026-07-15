@@ -12,7 +12,8 @@ import vm from 'node:vm';
 const projectRoot = resolve(import.meta.dirname, '..');
 const sourceFiles = [
   'entry/src/main/ets/games/rpsBattle/RpsBattleTypes.ets',
-  'entry/src/main/ets/games/rpsBattle/RpsBattleRules.ets'
+  'entry/src/main/ets/games/rpsBattle/RpsBattleRules.ets',
+  'entry/src/main/ets/games/rpsBattle/RpsBattleModeConfig.ets'
 ];
 
 function loadRpsBattleRules() {
@@ -38,7 +39,11 @@ globalThis.__rpsBattle = {
   rpsBattleStepCount,
   rpsBattleScaleForCounts,
   rpsBattleClampDuration,
-  rpsBattleCreateOptions
+  rpsBattleCreateOptions,
+  RPS_BATTLE_MODES,
+  RPS_BATTLE_MODE_RULES,
+  rpsBattleModeByKey,
+  rpsBattleModeRulesByKey
 };
 `, context);
   return context.__rpsBattle;
@@ -129,6 +134,39 @@ test('启动参数使用三方人数并校验时长', () => {
   assertPlainEqual(options.initialCounts, { rock: 5, scissors: 8, paper: 12 });
   assert.equal(options.durationSec, 120);
   assert.equal(options.supportFaction, 'rock');
+  assert.equal(options.modeKey, 'classic');
+  const zonesOptions = R.rpsBattleCreateOptions({ rock: 5, scissors: 8, paper: 12 }, 120, 'rock', 'zones');
+  assert.equal(zonesOptions.modeKey, 'zones');
+});
+
+test('玩法方案配置包含四个原版入口', () => {
+  assert.equal(R.RPS_BATTLE_MODES.length, 4);
+  assert.equal(R.RPS_BATTLE_MODE_RULES.length, 4);
+  assert.equal(R.rpsBattleModeByKey('classic').name, '经典乱斗');
+  assert.equal(R.rpsBattleModeByKey('zones').objective, '占点到100或限时领先');
+  assert.deepEqual(plain(R.rpsBattleModeByKey('zones').enabledMechanics), ['中心据点', '黑洞']);
+  assert.deepEqual(plain(R.rpsBattleModeByKey('zones').upcomingMechanics), [
+    '绝地求生',
+    '能量道具',
+    '团队道具'
+  ]);
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions.length, 5);
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[0].key, 'controlZone');
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[0].state, 'core');
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[0].canDisable, false);
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].key, 'blackHole');
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].state, 'enabled');
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].canDisable, false);
+  assert.equal(R.rpsBattleModeRulesByKey('classic').hasControlZone, false);
+  assert.equal(R.rpsBattleModeRulesByKey('zones').hasControlZone, true);
+  assert.equal(R.rpsBattleModeRulesByKey('zones').hasBlackHole, true);
+  assert.equal(R.rpsBattleModeRulesByKey('zones').hasLastStand, false);
+  assert.equal(R.rpsBattleModeRulesByKey('zones').hasPowerUps, false);
+  assert.equal(R.rpsBattleModeRulesByKey('zones').hasTeamPowerUps, false);
+  assert.equal(R.rpsBattleModeByKey('traitor').mechanics.includes('叛徒'), true);
+  assert.equal(R.rpsBattleModeByKey('equality').subtitle, '响指 · 障碍');
+  assert.equal(R.rpsBattleModeByKey('missing').key, 'classic');
+  assert.equal(R.rpsBattleModeRulesByKey('missing').key, 'classic');
 });
 
 console.log(`\n通过 ${passed} 项，失败 ${failed} 项\n`);
