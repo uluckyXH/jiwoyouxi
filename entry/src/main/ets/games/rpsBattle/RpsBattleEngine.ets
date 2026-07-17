@@ -9,7 +9,7 @@ import {
   RpsBattleResult,
   RpsBattleSnapshot
 } from './RpsBattleTypes';
-import { rpsBattleModeRulesByKey } from './RpsBattleModeConfig';
+import { rpsBattleResolveModeRulesByKey } from './RpsBattleModeConfig';
 import {
   rpsBattleBeats,
   rpsBattleBuildResult,
@@ -69,7 +69,7 @@ export class RpsBattleEngine {
     this.boardWidth = Math.max(240, boardWidth);
     this.boardHeight = Math.max(240, boardHeight);
     this.options = options;
-    this.modeRules = rpsBattleModeRulesByKey(options.modeKey);
+    this.modeRules = rpsBattleResolveModeRulesByKey(options.modeKey, options.mechanics);
     this.random = random;
     this.reset();
   }
@@ -136,8 +136,9 @@ export class RpsBattleEngine {
     this.lastMovementMs = Date.now() - movementStartedAt;
     if (this.modeRules.hasBlackHole) {
       const blackHoleStartedAt = Date.now();
+      const zone = this.zoneSystem.currentZone();
       const swallowed = this.blackHoleSystem.update(this.entities, elapsedSec, dt, this.boardWidth, this.boardHeight,
-        this.random);
+        this.random, zone === null ? -1 : zone.x, zone === null ? -1 : zone.y, zone === null ? 0 : zone.radius);
       this.removeSwallowedEntities(swallowed);
       this.lastBlackHoleKillCount = swallowed.length;
       this.lastBlackHoleMs = Date.now() - blackHoleStartedAt;

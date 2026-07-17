@@ -1,0 +1,10 @@
+export const FREECELL_INTRO_WAITING_LAYOUT = 'WAITING_LAYOUT';
+export const FREECELL_INTRO_WARMING_ASSETS = 'WARMING_ASSETS';
+export const FREECELL_INTRO_DEALING = 'DEALING';
+export const FREECELL_INTRO_READY = 'READY';
+
+export type FreecellIntroPhase =
+  'WAITING_LAYOUT' |
+  'WARMING_ASSETS' |
+  'DEALING' |
+  'READY';

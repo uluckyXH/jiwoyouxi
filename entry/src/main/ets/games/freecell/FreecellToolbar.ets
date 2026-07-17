@@ -1,4 +1,5 @@
 import { computeFreecellLayout } from './FreecellLayout';
+import { FreecellMotion } from './FreecellMotion';
 import { FreecellLayout } from './FreecellTypes';
 import { FreecellTheme } from './FreecellTheme';
 
@@ -20,6 +21,8 @@ export struct FreecellToolbar {
   @Prop pageWidth: number = 390;
   @Prop pageHeight: number = 760;
   @Prop autoRunning: boolean = false;
+  @Prop sceneVisible: boolean = false;
+  @Prop actionsEnabled: boolean = false;
   newGame: () => void = () => {};
   undo: () => void = () => {};
   autoMove: () => void = () => {};
@@ -47,6 +50,9 @@ export struct FreecellToolbar {
     }
     .width('100%')
     .height('100%')
+    .opacity(this.sceneVisible ? 1 : 0)
+    .translate({ x: 0, y: this.sceneVisible ? 0 : FreecellMotion.sceneRevealOffsetVp })
+    .animation({ duration: FreecellMotion.sceneRevealDuration, curve: Curve.EaseOut })
     .hitTestBehavior(HitTestMode.Transparent)
   }
 
@@ -81,6 +87,9 @@ export struct FreecellToolbar {
   }
 
   private handleTool(id: string): void {
+    if (!this.actionsEnabled) {
+      return;
+    }
     if (id === 'new') {
       this.newGame();
     } else if (id === 'auto') {

@@ -1,4 +1,18 @@
+import {
+  FREECELL_INTRO_ASSET_EMPTY_SLOT,
+  FREECELL_INTRO_ASSET_FOUNDATION_CLUBS,
+  FREECELL_INTRO_ASSET_FOUNDATION_DIAMONDS,
+  FREECELL_INTRO_ASSET_FOUNDATION_HEARTS,
+  FREECELL_INTRO_ASSET_FOUNDATION_SPADES
+} from './FreecellAssetWarmup';
+import { freecellIntroShouldRenderTableauCard } from './FreecellIntroRules';
+import {
+  FREECELL_INTRO_DEALING,
+  FREECELL_INTRO_READY,
+  FreecellIntroPhase
+} from './FreecellIntroTypes';
 import { computeFreecellLayout } from './FreecellLayout';
+import { FreecellMotion } from './FreecellMotion';
 import { FreecellTheme } from './FreecellTheme';
 import {
   FreecellCard,
@@ -31,6 +45,11 @@ interface FreecellTouchPoint {
   y: number;
 }
 
+interface FreecellDealOffset {
+  x: number;
+  y: number;
+}
+
 interface FreecellSourceHit {
   source: FreecellLocation;
   cardId: string;
@@ -48,6 +67,9 @@ export struct FreecellBoard {
   };
   @Prop selectedLocation: FreecellLocation | null = null;
   @Prop hintMarks: FreecellLocation[] = [];
+  @Prop introPhase: FreecellIntroPhase = FREECELL_INTRO_READY;
+  @Prop introDealRound: number = 0;
+  @Prop interactionEnabled: boolean = true;
   @State touchActive: boolean = false;
   @State touchSource: FreecellLocation | null = null;
   @State touchCardId: string = '';
@@ -58,6 +80,9 @@ export struct FreecellBoard {
   tapSource: (source: FreecellLocation, cardId: string) => void = () => {};
   tapTarget: (target: FreecellLocation) => void = () => {};
   dropSource: (source: FreecellLocation, target: FreecellLocation) => void = () => {};
+  skipIntro: () => void = () => {};
+  assetReady: (assetId: string) => void = () => {};
+  assetFailed: (assetId: string) => void = () => {};
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -98,7 +123,8 @@ export struct FreecellBoard {
         suitLabel(suit),
         this.slotX(FREECELL_SUITS.indexOf(suit)),
         this.layout().slotsTop,
-        { area: 'foundation', suit: suit }
+        { area: 'foundation', suit: suit },
+        this.foundationAssetId(suit)
       )
     }, (suit: FreecellSuit) => suit)
   }
@@ -111,7 +137,8 @@ export struct FreecellBoard {
         '',
         this.slotX(index + 4),
         this.layout().slotsTop,
-        { area: 'freecell', index: index }
+        { area: 'freecell', index: index },
+        FREECELL_INTRO_ASSET_EMPTY_SLOT
       )
     }, (index: number) => `${index}`)
   }
@@ -134,7 +161,8 @@ export struct FreecellBoard {
           '',
           this.slotX(index),
           this.layout().tableTop,
-          { area: 'tableau', index: index }
+          { area: 'tableau', index: index },
+          FREECELL_INTRO_ASSET_EMPTY_SLOT
         )
       }
     }, (index: number) => `${index}`)
@@ -207,8 +235,9 @@ export struct FreecellBoard {
       .width(this.layout().cardWidth)
       .height(this.layout().cardHeight)
       .backgroundColor('rgba(255,255,255,0.001)')
-      .hitTestBehavior(HitTestMode.None)
-      .position({ x: item.x, y: item.y })
+    .hitTestBehavior(HitTestMode.None)
+    .position({ x: item.x, y: item.y })
+    .transition(this.cardTransition(item))
   }
 
   @Builder
@@ -308,12 +337,18 @@ export struct FreecellBoard {
   }
 
   @Builder
-  SlotView(path: string, markText: string, x: number, y: number, target: FreecellLocation) {
+  SlotView(path: string, markText: string, x: number, y: number, target: FreecellLocation, assetId: string) {
     Stack({ alignContent: Alignment.Center }) {
       Image($rawfile(path))
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Fill)
+        .onComplete(() => {
+          this.assetReady(assetId);
+        })
+        .onError(() => {
+          this.assetFailed(assetId);
+        })
       if (this.isMarked(target)) {
         Column()
           .width('100%')
@@ -390,6 +425,19 @@ export struct FreecellBoard {
     return 'games/freecell/foundation_slot_clubs_cut.png';
   }
 
+  private foundationAssetId(suit: FreecellSuit): string {
+    if (suit === 'S') {
+      return FREECELL_INTRO_ASSET_FOUNDATION_SPADES;
+    }
+    if (suit === 'H') {
+      return FREECELL_INTRO_ASSET_FOUNDATION_HEARTS;
+    }
+    if (suit === 'D') {
+      return FREECELL_INTRO_ASSET_FOUNDATION_DIAMONDS;
+    }
+    return FREECELL_INTRO_ASSET_FOUNDATION_CLUBS;
+  }
+
   private foundationTop(suit: FreecellSuit): FreecellCard | null {
     const stack = this.foundationStack(suit);
     return stack.length > 0 ? stack[stack.length - 1] : null;
@@ -413,6 +461,9 @@ export struct FreecellBoard {
     for (let columnIndex = 0; columnIndex < this.state.tableau.length; columnIndex += 1) {
       const column = this.state.tableau[columnIndex];
       for (let cardIndex = 0; cardIndex < column.length; cardIndex += 1) {
+        if (!freecellIntroShouldRenderTableauCard(this.introPhase, this.introDealRound, cardIndex)) {
+          continue;
+        }
         const source: FreecellLocation = { area: 'tableau', index: columnIndex, cardIndex: cardIndex };
         const card = column[cardIndex];
         const covered = cardIndex < column.length - 1;
@@ -439,7 +490,56 @@ export struct FreecellBoard {
     return this.layout().cardWidth * 0.92;
   }
 
+  private cardTransition(item: FreecellCardRenderItem): TransitionEffect {
+    if (!this.shouldAnimateInitialCard(item)) {
+      return TransitionEffect.IDENTITY;
+    }
+    const offset = this.dealOffset(item);
+    return TransitionEffect.OPACITY
+      .combine(TransitionEffect.translate({ x: offset.x, y: offset.y }))
+      .combine(TransitionEffect.scale({ x: FreecellMotion.dealCardStartScale, y: FreecellMotion.dealCardStartScale }))
+      .animation({
+        duration: FreecellMotion.dealCardDuration,
+        curve: Curve.EaseOut,
+        delay: this.dealColumnDelay(item)
+      });
+  }
+
+  private shouldAnimateInitialCard(item: FreecellCardRenderItem): boolean {
+    return item.source.area === 'tableau' && this.introPhase === FREECELL_INTRO_DEALING;
+  }
+
+  private dealOffset(item: FreecellCardRenderItem): FreecellDealOffset {
+    const dx = this.dealSourceX() - item.x;
+    const dy = this.dealSourceY() - item.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance <= FreecellMotion.dealCardTravelLimit || distance <= 0.001) {
+      return { x: dx, y: dy };
+    }
+    const ratio = FreecellMotion.dealCardTravelLimit / distance;
+    return { x: dx * ratio, y: dy * ratio };
+  }
+
+  private dealSourceX(): number {
+    return this.layout().offsetX + this.layout().appWidth - this.cardBackWidth() - 1;
+  }
+
+  private dealSourceY(): number {
+    return this.layout().slotsTop + this.layout().cardHeight + 2;
+  }
+
+  private dealColumnDelay(item: FreecellCardRenderItem): number {
+    return (item.source.index ?? 0) * FreecellMotion.dealColumnDelay;
+  }
+
   private handleBoardTouch(event: TouchEvent): void {
+    if (!this.interactionEnabled) {
+      if (event.type === TouchType.Down) {
+        this.skipIntro();
+      }
+      this.clearTouchState();
+      return;
+    }
     const point = this.touchPoint(event);
     if (event.type === TouchType.Down) {
       this.touchActive = true;

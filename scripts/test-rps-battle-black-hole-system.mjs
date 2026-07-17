@@ -29,6 +29,10 @@ globalThis.__rpsBattleBlackHole = {
   RPS_BATTLE_BLACK_HOLE_INITIAL_REACH,
   RPS_BATTLE_BLACK_HOLE_MAX_RADIUS,
   RPS_BATTLE_BLACK_HOLE_MAX_REACH,
+  RPS_BATTLE_BLACK_HOLE_MAX_RADIUS_RATIO,
+  RPS_BATTLE_BLACK_HOLE_MAX_REACH_RATIO,
+  rpsBattleBlackHoleMaxRadiusForBoard,
+  rpsBattleBlackHoleMaxReachForBoard,
   RpsBattleBlackHoleSystem
 };
 `, context);
@@ -148,9 +152,26 @@ test('成长不会超过上限', () => {
   }
   system.update(entities, 9, 1, 400, 300, queuedRandom([0.5, 0.5]));
   const state = system.snapshot();
-  assert.equal(state.radius, B.RPS_BATTLE_BLACK_HOLE_MAX_RADIUS);
-  assert.equal(state.reach, B.RPS_BATTLE_BLACK_HOLE_MAX_REACH);
+  assert.equal(state.radius, B.rpsBattleBlackHoleMaxRadiusForBoard(400, 300));
+  assert.equal(state.reach, B.rpsBattleBlackHoleMaxReachForBoard(400, 300));
   assert.equal(state.swallowed, 20);
+});
+
+test('移动端按短边限制最大吸引范围', () => {
+  assert.equal(B.rpsBattleBlackHoleMaxRadiusForBoard(360, 640), 57.6);
+  assert.equal(B.rpsBattleBlackHoleMaxReachForBoard(360, 640), 151.2);
+  assert.equal(B.rpsBattleBlackHoleMaxRadiusForBoard(900, 900), B.RPS_BATTLE_BLACK_HOLE_MAX_RADIUS);
+  assert.equal(B.rpsBattleBlackHoleMaxReachForBoard(900, 900), B.RPS_BATTLE_BLACK_HOLE_MAX_REACH);
+});
+
+test('激活时避开传入的中心安全圈', () => {
+  const system = new B.RpsBattleBlackHoleSystem();
+  system.reset(400, 300, queuedRandom([0]));
+  system.update([], 9, 1, 400, 300, queuedRandom([0.5, 0.5, 0.9, 0.5]), 200, 150, 62);
+  const state = system.snapshot();
+  const dx = state.x - 200;
+  const dy = state.y - 150;
+  assert.equal(dx * dx + dy * dy >= (62 + B.RPS_BATTLE_BLACK_HOLE_INITIAL_RADIUS + 8) ** 2, true);
 });
 
 test('快照不反向修改系统状态', () => {

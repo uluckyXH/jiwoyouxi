@@ -10,11 +10,13 @@ import {
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattleFinishReason,
+  RpsBattleMechanicSelection,
   RpsBattleModeKey,
   RpsBattleOptions,
   RpsBattleResult,
   RpsBattleScale
 } from './RpsBattleTypes';
+import { rpsBattleCloneMechanicSelection } from './RpsBattleModeConfig';
 
 export function rpsBattleBeats(attacker: RpsBattleFaction, defender: RpsBattleFaction): boolean {
   return (attacker === 'rock' && defender === 'scissors') ||
@@ -46,10 +48,12 @@ export function rpsBattleCreateOptions(
   initialCounts: RpsBattleFactionCounts,
   durationSec: number,
   supportFaction: RpsBattleFaction,
-  modeKey: RpsBattleModeKey = 'classic'
+  modeKey: RpsBattleModeKey = 'classic',
+  mechanics: RpsBattleMechanicSelection = {}
 ): RpsBattleOptions {
   return {
     modeKey: modeKey,
+    mechanics: rpsBattleCloneMechanicSelection(mechanics),
     supportFaction: supportFaction,
     initialCounts: rpsBattleClampCounts(initialCounts),
     durationSec: rpsBattleClampDuration(durationSec)

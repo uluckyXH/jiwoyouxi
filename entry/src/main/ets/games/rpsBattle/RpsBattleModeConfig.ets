@@ -1,4 +1,11 @@
-import { RpsBattleModeKey, RpsBattleModePreset, RpsBattleModeRules } from './RpsBattleTypes';
+import {
+  RpsBattleMechanicKey,
+  RpsBattleMechanicOption,
+  RpsBattleMechanicSelection,
+  RpsBattleModeKey,
+  RpsBattleModePreset,
+  RpsBattleModeRules
+} from './RpsBattleTypes';
 
 export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
   {
@@ -53,7 +60,7 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
         summary: '随机危险点吸入单位',
         state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       },
       {
         key: 'lastStand',
@@ -190,4 +197,175 @@ export function rpsBattleModeByKey(key: RpsBattleModeKey): RpsBattleModePreset {
 export function rpsBattleModeRulesByKey(key: RpsBattleModeKey): RpsBattleModeRules {
   const found = RPS_BATTLE_MODE_RULES.find((item: RpsBattleModeRules) => item.key === key);
   return found === undefined ? RPS_BATTLE_MODE_RULES[0] : found;
+}
+
+export function rpsBattleCloneMechanicSelection(
+  selection: RpsBattleMechanicSelection = {}
+): RpsBattleMechanicSelection {
+  return {
+    baseChase: selection.baseChase,
+    conversion: selection.conversion,
+    controlZone: selection.controlZone,
+    blackHole: selection.blackHole,
+    lastStand: selection.lastStand,
+    powerUps: selection.powerUps,
+    teamPowerUps: selection.teamPowerUps,
+    shrink: selection.shrink,
+    traitor: selection.traitor,
+    snap: selection.snap,
+    obstacles: selection.obstacles
+  };
+}
+
+export function rpsBattleDefaultMechanicSelection(modeKey: RpsBattleModeKey): RpsBattleMechanicSelection {
+  let selection: RpsBattleMechanicSelection = {};
+  const options = rpsBattleModeByKey(modeKey).mechanicOptions;
+  for (let i = 0; i < options.length; i += 1) {
+    const item = options[i];
+    selection = rpsBattleSetMechanicSelectionValue(selection, item.key,
+      item.state !== 'upcoming' && item.defaultEnabled);
+  }
+  return selection;
+}
+
+export function rpsBattleToggleMechanicSelection(
+  modeKey: RpsBattleModeKey,
+  selection: RpsBattleMechanicSelection,
+  mechanicKey: RpsBattleMechanicKey
+): RpsBattleMechanicSelection {
+  const option = rpsBattleMechanicOptionByKey(modeKey, mechanicKey);
+  if (option === undefined || option.state !== 'enabled' || !option.canDisable) {
+    return rpsBattleCloneMechanicSelection(selection);
+  }
+  const enabled = rpsBattleResolvedMechanicEnabled(option, selection);
+  return rpsBattleSetMechanicSelectionValue(selection, mechanicKey, !enabled);
+}
+
+export function rpsBattleMechanicEnabledForMode(
+  modeKey: RpsBattleModeKey,
+  selection: RpsBattleMechanicSelection,
+  mechanicKey: RpsBattleMechanicKey
+): boolean {
+  const option = rpsBattleMechanicOptionByKey(modeKey, mechanicKey);
+  if (option === undefined) {
+    return false;
+  }
+  return rpsBattleResolvedMechanicEnabled(option, selection);
+}
+
+export function rpsBattleResolveModeRulesByKey(
+  key: RpsBattleModeKey,
+  selection: RpsBattleMechanicSelection = {}
+): RpsBattleModeRules {
+  const base = rpsBattleModeRulesByKey(key);
+  const result: RpsBattleModeRules = {
+    key: base.key,
+    hasControlZone: base.hasControlZone,
+    hasBlackHole: base.hasBlackHole,
+    hasLastStand: base.hasLastStand,
+    hasPowerUps: base.hasPowerUps,
+    hasTeamPowerUps: base.hasTeamPowerUps
+  };
+  const options = rpsBattleModeByKey(key).mechanicOptions;
+  for (let i = 0; i < options.length; i += 1) {
+    const item = options[i];
+    const enabled = rpsBattleResolvedMechanicEnabled(item, selection);
+    if (item.key === 'controlZone') {
+      result.hasControlZone = enabled;
+    } else if (item.key === 'blackHole') {
+      result.hasBlackHole = enabled;
+    } else if (item.key === 'lastStand') {
+      result.hasLastStand = enabled;
+    } else if (item.key === 'powerUps') {
+      result.hasPowerUps = enabled;
+    } else if (item.key === 'teamPowerUps') {
+      result.hasTeamPowerUps = enabled;
+    }
+  }
+  return result;
+}
+
+function rpsBattleMechanicOptionByKey(
+  modeKey: RpsBattleModeKey,
+  mechanicKey: RpsBattleMechanicKey
+): RpsBattleMechanicOption | undefined {
+  const options = rpsBattleModeByKey(modeKey).mechanicOptions;
+  return options.find((item: RpsBattleMechanicOption) => item.key === mechanicKey);
+}
+
+function rpsBattleResolvedMechanicEnabled(
+  option: RpsBattleMechanicOption,
+  selection: RpsBattleMechanicSelection
+): boolean {
+  if (option.state === 'upcoming') {
+    return false;
+  }
+  if (option.state === 'core' || !option.canDisable) {
+    return option.defaultEnabled;
+  }
+  return rpsBattleMechanicSelectionValue(selection, option.key, option.defaultEnabled);
+}
+
+function rpsBattleMechanicSelectionValue(
+  selection: RpsBattleMechanicSelection,
+  mechanicKey: RpsBattleMechanicKey,
+  fallback: boolean
+): boolean {
+  let value: boolean | undefined = undefined;
+  if (mechanicKey === 'baseChase') {
+    value = selection.baseChase;
+  } else if (mechanicKey === 'conversion') {
+    value = selection.conversion;
+  } else if (mechanicKey === 'controlZone') {
+    value = selection.controlZone;
+  } else if (mechanicKey === 'blackHole') {
+    value = selection.blackHole;
+  } else if (mechanicKey === 'lastStand') {
+    value = selection.lastStand;
+  } else if (mechanicKey === 'powerUps') {
+    value = selection.powerUps;
+  } else if (mechanicKey === 'teamPowerUps') {
+    value = selection.teamPowerUps;
+  } else if (mechanicKey === 'shrink') {
+    value = selection.shrink;
+  } else if (mechanicKey === 'traitor') {
+    value = selection.traitor;
+  } else if (mechanicKey === 'snap') {
+    value = selection.snap;
+  } else if (mechanicKey === 'obstacles') {
+    value = selection.obstacles;
+  }
+  return value === undefined ? fallback : value;
+}
+
+function rpsBattleSetMechanicSelectionValue(
+  selection: RpsBattleMechanicSelection,
+  mechanicKey: RpsBattleMechanicKey,
+  value: boolean
+): RpsBattleMechanicSelection {
+  const next = rpsBattleCloneMechanicSelection(selection);
+  if (mechanicKey === 'baseChase') {
+    next.baseChase = value;
+  } else if (mechanicKey === 'conversion') {
+    next.conversion = value;
+  } else if (mechanicKey === 'controlZone') {
+    next.controlZone = value;
+  } else if (mechanicKey === 'blackHole') {
+    next.blackHole = value;
+  } else if (mechanicKey === 'lastStand') {
+    next.lastStand = value;
+  } else if (mechanicKey === 'powerUps') {
+    next.powerUps = value;
+  } else if (mechanicKey === 'teamPowerUps') {
+    next.teamPowerUps = value;
+  } else if (mechanicKey === 'shrink') {
+    next.shrink = value;
+  } else if (mechanicKey === 'traitor') {
+    next.traitor = value;
+  } else if (mechanicKey === 'snap') {
+    next.snap = value;
+  } else if (mechanicKey === 'obstacles') {
+    next.obstacles = value;
+  }
+  return next;
 }

@@ -1,8 +1,29 @@
 import { common } from '@kit.AbilityKit';
 import { NativeAudioService } from '../../services/AudioService';
+import {
+  FREECELL_INTRO_ASSET_BACKGROUND,
+  FREECELL_INTRO_ASSET_TITLE,
+  FreecellAssetWarmup
+} from './FreecellAssetWarmup';
 import { FreecellBoard } from './FreecellBoard';
 import { FreecellDecor } from './FreecellDecor';
+import { FreecellHud } from './FreecellHud';
+import { FreecellIntroController } from './FreecellIntroController';
+import { FreecellIntroLayer } from './FreecellIntroLayer';
+import {
+  FREECELL_INTRO_HIDDEN_DEAL_ROUND,
+  freecellIntroCanInteract,
+  freecellIntroLastDealRound
+} from './FreecellIntroRules';
+import {
+  FREECELL_INTRO_DEALING,
+  FREECELL_INTRO_READY,
+  FREECELL_INTRO_WAITING_LAYOUT,
+  FREECELL_INTRO_WARMING_ASSETS,
+  FreecellIntroPhase
+} from './FreecellIntroTypes';
 import { computeFreecellLayout } from './FreecellLayout';
+import { FreecellMotion } from './FreecellMotion';
 import { FreecellExitConfirmOverlay, FreecellGuideOverlay } from './FreecellPromptOverlay';
 import { FreecellResultOverlay } from './FreecellResultOverlay';
 import { FreecellTheme } from './FreecellTheme';
@@ -47,6 +68,8 @@ export struct FreecellPage {
   private lastTapAt: number = 0;
   private settled: boolean = false;
   private audioService: NativeAudioService = new NativeAudioService();
+  private introController: FreecellIntroController = new FreecellIntroController();
+  private introAssets: FreecellAssetWarmup = new FreecellAssetWarmup();
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State gameState: FreecellState = createSolvableGame(randomSeed());
@@ -67,6 +90,9 @@ export struct FreecellPage {
   @State showGuideOverlay: boolean = false;
   @State showExitConfirmOverlay: boolean = false;
   @State layoutReady: boolean = false;
+  @State introPhase: FreecellIntroPhase = FREECELL_INTRO_WAITING_LAYOUT;
+  @State introDealRound: number = FREECELL_INTRO_HIDDEN_DEAL_ROUND;
+  @State introSceneVisible: boolean = false;
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext();
@@ -76,6 +102,7 @@ export struct FreecellPage {
   }
 
   aboutToDisappear(): void {
+    this.introController.stop();
     this.stopTimer();
     this.stopAutoComplete();
     this.clearToastTimer();
@@ -89,18 +116,20 @@ export struct FreecellPage {
         .height('100%')
         .backgroundColor(FreecellTheme.pageFallback)
       if (this.layoutReady) {
-        Image($rawfile('games/freecell/page_bg_coop_garden.png'))
-          .width('100%')
-          .height('100%')
-          .objectFit(ImageFit.Cover)
-        Column()
-          .width('100%')
-          .height('100%')
-          .backgroundColor('rgba(255,251,232,0.08)')
+        FreecellIntroLayer({
+          sceneVisible: this.introSceneVisible,
+          backgroundReady: () => {
+            this.handleIntroAssetReady(FREECELL_INTRO_ASSET_BACKGROUND);
+          },
+          backgroundFailed: () => {
+            this.handleIntroAssetFailed(FREECELL_INTRO_ASSET_BACKGROUND);
+          }
+        })
 
         FreecellDecor({
           pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight
+          pageHeight: this.pageHeight,
+          sceneVisible: this.introSceneVisible
         })
 
         FreecellBoard({
@@ -109,6 +138,9 @@ export struct FreecellPage {
           state: this.gameState,
           selectedLocation: this.selectedLocation,
           hintMarks: this.hintMarks,
+          introPhase: this.introPhase,
+          introDealRound: this.introDealRound,
+          interactionEnabled: this.canInteractWithGame(),
           tapSource: (source: FreecellLocation, cardId: string) => {
             this.handleSourceTap(source, cardId);
           },
@@ -117,15 +149,53 @@ export struct FreecellPage {
           },
           dropSource: (source: FreecellLocation, target: FreecellLocation) => {
             this.handleDrop(source, target);
+          },
+          skipIntro: () => {
+            this.skipIntroDeal();
+          },
+          assetReady: (assetId: string) => {
+            this.handleIntroAssetReady(assetId);
+          },
+          assetFailed: (assetId: string) => {
+            this.handleIntroAssetFailed(assetId);
           }
         })
 
-        this.HudView()
+        FreecellHud({
+          pageWidth: this.pageWidth,
+          pageHeight: this.pageHeight,
+          bestScore: this.bestScore,
+          score: this.score,
+          elapsed: this.elapsed,
+          moves: this.moves,
+          introSceneVisible: this.introSceneVisible,
+          actionsEnabled: this.canInteractWithGame(),
+          requestExit: () => {
+            this.requestExitToHub();
+          },
+          undo: () => {
+            this.undo();
+          },
+          hint: () => {
+            this.showHint();
+          },
+          openGuide: () => {
+            this.openGuide();
+          },
+          titleReady: () => {
+            this.handleIntroAssetReady(FREECELL_INTRO_ASSET_TITLE);
+          },
+          titleFailed: () => {
+            this.handleIntroAssetFailed(FREECELL_INTRO_ASSET_TITLE);
+          }
+        })
 
         FreecellToolbar({
           pageWidth: this.pageWidth,
           pageHeight: this.pageHeight,
           autoRunning: this.autoRunning,
+          sceneVisible: this.introSceneVisible,
+          actionsEnabled: this.canInteractWithGame(),
           newGame: () => {
             this.newGame();
           },
@@ -192,6 +262,7 @@ export struct FreecellPage {
         this.pageWidth = Math.max(280, width);
         this.pageHeight = Math.max(520, height);
         this.layoutReady = true;
+        this.beginIntroIfNeeded();
       }
     })
   }
@@ -211,143 +282,94 @@ export struct FreecellPage {
       .position({ x: (this.pageWidth - this.toastWidth()) * 0.5, y: this.toastY() })
   }
 
-  @Builder
-  HudView() {
-    Stack({ alignContent: Alignment.TopStart }) {
-      this.HudTitle()
-      this.HudBackButton()
-      this.HudTopActions()
-      this.HudStats()
+  private beginIntroIfNeeded(): void {
+    if (this.introPhase !== FREECELL_INTRO_WAITING_LAYOUT) {
+      return;
     }
-    .width('100%')
-    .height('100%')
-    .hitTestBehavior(HitTestMode.Transparent)
+    this.introAssets.reset();
+    this.introDealRound = FREECELL_INTRO_HIDDEN_DEAL_ROUND;
+    this.introPhase = FREECELL_INTRO_WARMING_ASSETS;
+    this.introController.startWarmupBudget(() => {
+      this.finishIntroAsStatic();
+    });
   }
 
-  @Builder
-  HudTitle() {
-    Image($rawfile('games/freecell/klondike_title_banner_cut.png'))
-      .width(this.layout().titleWidth)
-      .height(this.layout().titleHeight)
-      .objectFit(ImageFit.Contain)
-      .position({
-        x: this.layout().offsetX + (this.layout().appWidth - this.layout().titleWidth) * 0.5,
-        y: this.layout().titleTop
-      })
-      .shadow({ radius: 4, color: 'rgba(88,45,8,0.16)', offsetX: 0, offsetY: 4 })
-  }
-
-  @Builder
-  HudBackButton() {
-    Image($rawfile('games/freecell/btn_back_hall.png'))
-      .width(this.hudBackWidth())
-      .height(this.hudBackHeight())
-      .objectFit(ImageFit.Contain)
-      .position({
-        x: this.layout().offsetX + (this.layout().tiny ? 4 : 5),
-        y: this.layout().titleTop + this.layout().titleHeight * (this.layout().tiny ? 0.38 : 0.42)
-      })
-      .onClick(() => {
-        this.requestExitToHub();
-      })
-  }
-
-  @Builder
-  HudTopActions() {
-    if (this.layout().tiny) {
-      this.HudTopAction('games/freecell/btn_settings_cut.png', '玩法', 0, () => {
-        this.openGuide();
-      })
-    } else {
-      this.HudTopAction('games/freecell/btn_undo_cut.png', '撤销', 0, () => {
-        this.undo();
-      })
-      this.HudTopAction('games/freecell/btn_hint_cut_cut.png', '提示', 1, () => {
-        this.showHint();
-      })
-      this.HudTopAction('games/freecell/btn_settings_cut.png', '玩法', 2, () => {
-        this.openGuide();
-      })
+  private handleIntroAssetReady(assetId: string): void {
+    if (this.introPhase !== FREECELL_INTRO_WARMING_ASSETS) {
+      return;
+    }
+    if (this.introAssets.markReady(assetId)) {
+      this.startIntroDeal();
     }
   }
 
-  @Builder
-  HudTopAction(path: string, label: string, index: number, action: () => void) {
-    Stack({ alignContent: Alignment.Top }) {
-      Image($rawfile(path))
-        .width(this.hudTopIconWidth())
-        .height(this.hudTopIconWidth())
-        .objectFit(ImageFit.Contain)
-      Text(label)
-        .width(this.hudTopIconWidth())
-        .fontSize(this.layout().tiny ? 6 : 8)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(FreecellTheme.brown)
-        .textAlign(TextAlign.Center)
-        .textShadow({ radius: 1, color: 'rgba(255,248,224,0.86)', offsetX: 0, offsetY: 1 })
-        .position({ x: 0, y: this.hudTopIconWidth() + (this.layout().tiny ? 4 : 6) })
+  private handleIntroAssetFailed(assetId: string): void {
+    if (this.introPhase !== FREECELL_INTRO_WARMING_ASSETS) {
+      return;
     }
-    .width(this.hudTopIconWidth())
-    .height(this.hudTopIconWidth() + 16)
-    .position({
-      x: this.hudTopStartX() + index * (this.hudTopIconWidth() + this.hudTopGap()),
-      y: this.hudTopY()
-    })
-    .onClick(() => {
-      action();
-    })
+    this.introAssets.markFailed(assetId);
+    this.finishIntroAsStatic();
   }
 
-  @Builder
-  HudStats() {
-    this.HudStatCard('games/freecell/card_score_cut.png', 'score', 0, false)
-    this.HudStatCard('games/freecell/card_timer_cut.png', 'timer', 1, true)
-    this.HudStatCard('games/freecell/card_steps_cut.png', 'moves', 2, false)
-    this.HudStatCard('games/freecell/card_best_score_cut.png', 'best', 3, false)
-    if (!this.layout().compact) {
-      Image($rawfile('games/freecell/coop_badge_corner_cut.png'))
-        .width(Math.min(44, this.layout().appWidth * 0.13))
-        .height(Math.min(44, this.layout().appWidth * 0.13) * 364 / 448)
-        .objectFit(ImageFit.Contain)
-        .position({
-          x: this.layout().offsetX + this.layout().appWidth - Math.min(44, this.layout().appWidth * 0.13) - 2,
-          y: this.layout().statsTop + this.layout().statHeight * 0.08
-        })
+  private startIntroDeal(): void {
+    if (this.introPhase !== FREECELL_INTRO_WARMING_ASSETS) {
+      return;
+    }
+    this.introController.stopWarmupBudget();
+    this.introPhase = FREECELL_INTRO_DEALING;
+    this.revealIntroScene();
+    const lastRound = freecellIntroLastDealRound(this.gameState.tableau);
+    this.introController.startDeal(lastRound, (round: number) => {
+      if (this.introPhase === FREECELL_INTRO_DEALING) {
+        this.introDealRound = round;
+      }
+    }, () => {
+      this.completeIntroDeal();
+    });
+  }
+
+  private completeIntroDeal(): void {
+    if (this.introPhase !== FREECELL_INTRO_DEALING) {
+      return;
+    }
+    this.introDealRound = freecellIntroLastDealRound(this.gameState.tableau);
+    this.introPhase = FREECELL_INTRO_READY;
+  }
+
+  private skipIntroDeal(): void {
+    if (this.introPhase === FREECELL_INTRO_DEALING) {
+      this.finishIntroAsStatic();
     }
   }
 
-  @Builder
-  HudStatCard(path: string, kind: string, index: number, timer: boolean) {
-    Stack({ alignContent: Alignment.TopStart }) {
-      Image($rawfile(path))
-        .width('100%')
-        .height('100%')
-        .objectFit(ImageFit.Contain)
-      Text(this.hudStatText(kind))
-        .width(this.hudStatValueWidth(timer, this.hudStatText(kind)))
-        .height(this.hudStatValueHeight())
-        .fontSize(this.hudStatValueFontSize(timer, this.hudStatText(kind)))
-        .fontWeight(FontWeight.Bold)
-        .fontColor(FreecellTheme.deepBrown)
-        .textAlign(TextAlign.Center)
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-        .backgroundColor(FreecellTheme.hudValueBg)
-        .borderRadius(5)
-        .border({ width: 1, color: FreecellTheme.hudValueBorder })
-        .shadow({ radius: 1, color: FreecellTheme.hudValueShadow, offsetX: 0, offsetY: 1 })
-        .position({ x: this.hudStatValueX(timer, this.hudStatText(kind)), y: this.hudStatValueY() })
+  private finishIntroAsStatic(): void {
+    if (this.introPhase === FREECELL_INTRO_READY) {
+      return;
     }
-    .width(this.layout().statWidth)
-    .height(this.layout().statHeight)
-    .position({
-      x: this.layout().offsetX + this.layout().side + index * (this.layout().statWidth + this.layout().statGap),
-      y: this.layout().statsTop
-    })
+    this.introController.stop();
+    this.introDealRound = freecellIntroLastDealRound(this.gameState.tableau);
+    this.introPhase = FREECELL_INTRO_READY;
+    this.revealIntroScene();
+  }
+
+  private revealIntroScene(): void {
+    if (this.introSceneVisible) {
+      return;
+    }
+    this.getUIContext().animateTo({
+      duration: FreecellMotion.sceneRevealDuration,
+      curve: Curve.EaseOut
+    }, () => {
+      this.introSceneVisible = true;
+    });
+  }
+
+  private canInteractWithGame(): boolean {
+    return freecellIntroCanInteract(this.introPhase);
   }
 
   private handleSourceTap(source: FreecellLocation, cardId: string): void {
-    if (this.won) {
+    if (!this.canInteractWithGame() || this.won) {
       return;
     }
     this.stopAutoComplete();
@@ -383,7 +405,7 @@ export struct FreecellPage {
   }
 
   private handleTargetTap(target: FreecellLocation): void {
-    if (this.won) {
+    if (!this.canInteractWithGame() || this.won) {
       return;
     }
     this.stopAutoComplete();
@@ -394,7 +416,7 @@ export struct FreecellPage {
   }
 
   private handleDrop(source: FreecellLocation, target: FreecellLocation): void {
-    if (this.won) {
+    if (!this.canInteractWithGame() || this.won) {
       return;
     }
     this.stopAutoComplete();
@@ -422,6 +444,9 @@ export struct FreecellPage {
   }
 
   private performMove(source: FreecellLocation, target: FreecellLocation): boolean {
+    if (!this.canInteractWithGame()) {
+      return false;
+    }
     const nextState = cloneState(this.gameState);
     const before = this.snapshot();
     const move = applyMove(nextState, source, target);
@@ -457,7 +482,7 @@ export struct FreecellPage {
   }
 
   private showHint(): void {
-    if (this.won) {
+    if (!this.canInteractWithGame() || this.won) {
       return;
     }
     this.stopAutoComplete();
@@ -477,7 +502,7 @@ export struct FreecellPage {
   }
 
   private toggleAutoComplete(): void {
-    if (this.won) {
+    if (!this.canInteractWithGame() || this.won) {
       return;
     }
     if (this.autoTimer !== -1) {
@@ -526,6 +551,9 @@ export struct FreecellPage {
   }
 
   private undo(): void {
+    if (!this.canInteractWithGame()) {
+      return;
+    }
     this.stopAutoComplete();
     if (this.history.length <= 0) {
       this.showToast('没有可撤销的步骤');
@@ -552,6 +580,9 @@ export struct FreecellPage {
   }
 
   private newGame(): void {
+    if (!this.canInteractWithGame()) {
+      return;
+    }
     this.stopAutoComplete();
     this.stopTimer();
     this.gameState = createSolvableGame(randomSeed());
@@ -573,6 +604,9 @@ export struct FreecellPage {
   }
 
   private openGuide(): void {
+    if (!this.canInteractWithGame()) {
+      return;
+    }
     this.stopAutoComplete();
     this.showGuideOverlay = true;
   }
@@ -721,91 +755,4 @@ export struct FreecellPage {
     return Math.max(80, this.layout().toolbarTop - 46);
   }
 
-  private hudBackWidth(): number {
-    return Math.min(this.layout().appWidth * 0.2, this.layout().tiny ? 48 : 75);
-  }
-
-  private hudBackHeight(): number {
-    return this.hudBackWidth() * 246 / 418;
-  }
-
-  private hudTopIconWidth(): number {
-    return this.layout().tiny
-      ? Math.min(23, Math.max(21, this.layout().cardWidth * 0.9))
-      : Math.min(36, Math.max(28, this.layout().cardWidth * 1.05));
-  }
-
-  private hudTopGap(): number {
-    return this.layout().tiny ? 0 : 4;
-  }
-
-  private hudTopStartX(): number {
-    if (this.layout().tiny) {
-      return this.layout().offsetX + this.layout().appWidth - this.layout().side - this.hudTopIconWidth();
-    }
-    return this.layout().offsetX + this.layout().appWidth - this.hudTopIconWidth() * 3 - this.hudTopGap() * 2 - 8;
-  }
-
-  private hudTopY(): number {
-    return this.layout().titleTop + this.layout().titleHeight * (this.layout().tiny ? 0.38 : 0.46);
-  }
-
-  private hudStatValueY(): number {
-    return this.layout().statHeight * (this.layout().compact && !this.layout().tiny ? 0.54 : 0.5);
-  }
-
-  private hudStatValueWidth(timer: boolean, text: string): number {
-    if (timer) {
-      return this.layout().statWidth * (text.length > 5 ? 0.62 : 0.54);
-    }
-    if (text.length >= 6) {
-      return this.layout().statWidth * 0.54;
-    }
-    if (text.length >= 4) {
-      return this.layout().statWidth * 0.46;
-    }
-    return this.layout().statWidth * 0.36;
-  }
-
-  private hudStatValueX(timer: boolean, text: string): number {
-    const width = this.hudStatValueWidth(timer, text);
-    if (timer) {
-      return this.layout().statWidth * 0.38;
-    }
-    return this.layout().statWidth - width - this.layout().statWidth * 0.12;
-  }
-
-  private hudStatValueHeight(): number {
-    return Math.max(14, this.layout().statHeight * 0.34);
-  }
-
-  private hudStatValueFontSize(timer: boolean, text: string): number {
-    const base = this.hudStatBaseFontSize(timer);
-    const min = timer ? Math.max(7, this.layout().statHeight * 0.2) : Math.max(8, this.layout().statHeight * 0.22);
-    const estimated = this.hudStatValueWidth(timer, text) / Math.max(1, text.length) * (timer ? 1.28 : 1.42);
-    return Math.max(min, Math.min(base, estimated));
-  }
-
-  private hudStatBaseFontSize(timer: boolean): number {
-    if (this.layout().tiny) {
-      return timer ? Math.max(8, Math.min(10, this.layout().statHeight * 0.3)) : Math.max(10, Math.min(13, this.layout().statHeight * 0.36));
-    }
-    if (this.layout().compact) {
-      return timer ? Math.max(9, Math.min(12, this.layout().statHeight * 0.24)) : Math.max(12, Math.min(17, this.layout().statHeight * 0.33));
-    }
-    return timer ? Math.max(9, this.layout().statHeight * 0.31) : Math.max(12, this.layout().statHeight * 0.45);
-  }
-
-  private hudStatText(kind: string): string {
-    if (kind === 'score') {
-      return `${this.score}`;
-    }
-    if (kind === 'timer') {
-      return this.formatTime(this.elapsed);
-    }
-    if (kind === 'moves') {
-      return `${this.moves}`;
-    }
-    return `${Math.max(this.bestScore, this.score)}`;
-  }
 }

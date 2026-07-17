@@ -1,17 +1,22 @@
 import { common } from '@kit.AbilityKit';
 import { displaySync } from '@kit.ArkGraphics2D';
 import { NativeAudioService } from '../../services/AudioService';
+import { RpsBattleCountdownOverlay } from './RpsBattleCountdownOverlay';
 import { RpsBattleTheme } from './RpsBattleTheme';
 import { RpsBattleEngine } from './RpsBattleEngine';
 import { RpsBattleHud } from './RpsBattleHud';
 import { RpsBattlePauseOverlay, RpsBattleResultOverlay } from './RpsBattleOverlay';
+import { RpsBattlePerformanceLogger } from './RpsBattlePerformanceLogger';
 import { RpsBattleRenderer } from './RpsBattleRenderer';
-import { RpsBattleSetupPanel } from './RpsBattleSetupPanel';
+import { RpsBattleSetupScreen } from './RpsBattleSetupScreen';
+import { RpsBattleTopBar } from './RpsBattleTopBar';
 import {
   RPS_BATTLE_DURATION_SEC,
   RpsBattleControlZone,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleMechanicKey,
+  RpsBattleMechanicSelection,
   RpsBattleModeKey,
   RpsBattlePhase,
   RpsBattleResult,
@@ -28,11 +33,12 @@ import {
   rpsBattleScaleForCounts,
   rpsBattleStepCount
 } from './RpsBattleRules';
+import {
+  rpsBattleDefaultMechanicSelection,
+  rpsBattleToggleMechanicSelection
+} from './RpsBattleModeConfig';
 
-const RPS_BATTLE_TOP_BAR_CONTENT_PADDING_TOP: number = 34;
 const RPS_BATTLE_TOP_BAR_HEIGHT: number = 88;
-const RPS_BATTLE_TOP_ACTION_GROUP_WIDTH: number = 114;
-const RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH: number = 54;
 const RPS_BATTLE_TARGET_FPS: number = 60;
 const RPS_BATTLE_MAX_FRAME_DELTA_MS: number = 50;
 const RPS_BATTLE_HUD_SYNC_INTERVAL_MS: number = 100;
@@ -42,7 +48,6 @@ const RPS_BATTLE_BGM_VOLUME: number = 0.38;
 const RPS_BATTLE_SFX_VOLUME: number = 0.72;
 const RPS_BATTLE_CONVERT_SOUND_INTERVAL_MS: number = 120;
 const RPS_BATTLE_ENABLE_PERF_LOG: boolean = true;
-const RPS_BATTLE_PERF_LOG_INTERVAL_MS: number = 1000;
 
 @Component
 export struct RpsBattlePage {
@@ -55,6 +60,10 @@ export struct RpsBattlePage {
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private renderer: RpsBattleRenderer = new RpsBattleRenderer();
   private audioService: NativeAudioService = new NativeAudioService();
+  private performanceLogger: RpsBattlePerformanceLogger = new RpsBattlePerformanceLogger(
+    RPS_BATTLE_TARGET_FPS,
+    RPS_BATTLE_ENABLE_PERF_LOG
+  );
   private displaySyncDriver: displaySync.DisplaySync | null = null;
   private displaySyncRunning: boolean = false;
   private displaySyncFrameHandler: ((info: displaySync.IntervalInfo) => void) | null = null;
@@ -68,33 +77,13 @@ export struct RpsBattlePage {
   private audioReady: boolean = false;
   private pendingBgm: boolean = false;
   private disposed: boolean = false;
-  private perfWindowStartedAt: number = 0;
-  private perfFrameCount: number = 0;
-  private perfFrameIntervalMs: number = 0;
-  private perfMaxFrameIntervalMs: number = 0;
-  private perfUpdateMs: number = 0;
-  private perfDrawMs: number = 0;
-  private perfMovementMs: number = 0;
-  private perfTargetSearchMs: number = 0;
-  private perfCollisionMs: number = 0;
-  private perfConversionMs: number = 0;
-  private perfResultMs: number = 0;
-  private perfZoneMs: number = 0;
-  private perfBlackHoleMs: number = 0;
-  private perfAudioMs: number = 0;
-  private perfHudMs: number = 0;
-  private perfSfxCallCount: number = 0;
-  private perfTargetScanCount: number = 0;
-  private perfCollisionCheckCount: number = 0;
-  private perfZoneInsideCount: number = 0;
-  private perfBlackHoleKillCount: number = 0;
-  private perfConversionCount: number = 0;
 
   @State pageWidth: number = 390;
   @State pageHeight: number = 760;
   @State phase: RpsBattlePhase = 'setup';
   @State selectedThemeKey: RpsBattleThemeKey = 'rps';
   @State selectedModeKey: RpsBattleModeKey = 'classic';
+  @State selectedMechanics: RpsBattleMechanicSelection = rpsBattleDefaultMechanicSelection('classic');
   @State selectedFaction: RpsBattleFaction = 'rock';
   @State selectedScale: RpsBattleScale = 'standard';
   @State lineupCounts: RpsBattleFactionCounts = rpsBattleCountsFromValue(8);
@@ -108,6 +97,8 @@ export struct RpsBattlePage {
   @State controlZone: RpsBattleControlZone | null = null;
   @State countdownValue: number = RPS_BATTLE_COUNTDOWN_START;
   @State result: RpsBattleResult = rpsBattleInitialResult('rock');
+  @State pausedFromPhase: RpsBattlePhase = 'playing';
+  @State exitConfirmationPending: boolean = false;
 
   aboutToAppear(): void {
     this.disposed = false;
@@ -144,14 +135,34 @@ export struct RpsBattlePage {
       } else {
         this.PlayLayer()
       }
-      this.TopBar()
+      RpsBattleTopBar({
+        phase: this.phase,
+        requestExit: () => {
+          this.requestExitToHub();
+        },
+        restartGame: () => {
+          this.startGame();
+        },
+        pauseGame: () => {
+          this.requestPause();
+        },
+        resumeGame: () => {
+          this.resumeGame();
+        }
+      })
+      .position({ x: 0, y: 0 })
+      .zIndex(5)
       if (this.phase === 'paused') {
         RpsBattlePauseOverlay({
+          exitConfirmationPending: this.exitConfirmationPending,
           resumeGame: () => {
             this.resumeGame();
           },
           restartGame: () => {
             this.startGame();
+          },
+          backToSetup: () => {
+            this.backToSetup();
           },
           exitToHub: () => {
             this.leaveToHub();
@@ -209,56 +220,55 @@ export struct RpsBattlePage {
 
   @Builder
   SetupLayer() {
-    Scroll() {
-      Column() {
-        RpsBattleSetupPanel({
-          selectedThemeKey: this.selectedThemeKey,
-          selectedModeKey: this.selectedModeKey,
-          selectedFaction: this.selectedFaction,
-          selectedScale: this.selectedScale,
-          lineupCounts: this.lineupCounts,
-          syncCounts: this.syncCounts,
-          advancedLineupOpen: this.advancedLineupOpen,
-          durationSec: this.durationSec,
-          selectTheme: (themeKey: RpsBattleThemeKey) => {
-            this.selectedThemeKey = themeKey;
-          },
-          selectMode: (modeKey: RpsBattleModeKey) => {
-            this.selectedModeKey = modeKey;
-          },
-          selectFaction: (faction: RpsBattleFaction) => {
-            this.selectedFaction = faction;
-          },
-          selectScale: (scale: RpsBattleScale) => {
-            this.selectedScale = scale;
-            this.lineupCounts = rpsBattleCountsFromValue(rpsBattleInitialCountForScale(scale));
-          },
-          selectDuration: (durationSec: number) => {
-            this.durationSec = rpsBattleClampDuration(durationSec);
-          },
-          toggleSyncCounts: () => {
-            this.syncCounts = !this.syncCounts;
-          },
-          toggleAdvancedLineup: () => {
-            this.advancedLineupOpen = !this.advancedLineupOpen;
-          },
-          stepFactionCount: (faction: RpsBattleFaction, step: number) => {
-            this.lineupCounts = rpsBattleStepCount(this.lineupCounts, faction, step, this.syncCounts);
-            this.selectedScale = rpsBattleScaleForCounts(this.lineupCounts);
-          },
-          startGame: () => {
-            this.startGame();
-          }
-        })
-        .width(this.panelWidth())
-        Blank()
-          .height(16)
+    RpsBattleSetupScreen({
+      contentWidth: this.panelWidth(),
+      selectedThemeKey: this.selectedThemeKey,
+      selectedModeKey: this.selectedModeKey,
+      mechanicSelection: this.selectedMechanics,
+      selectedFaction: this.selectedFaction,
+      selectedScale: this.selectedScale,
+      lineupCounts: this.lineupCounts,
+      syncCounts: this.syncCounts,
+      advancedLineupOpen: this.advancedLineupOpen,
+      durationSec: this.durationSec,
+      selectTheme: (themeKey: RpsBattleThemeKey) => {
+        this.selectedThemeKey = themeKey;
+      },
+      selectMode: (modeKey: RpsBattleModeKey) => {
+        this.selectedModeKey = modeKey;
+        this.selectedMechanics = rpsBattleDefaultMechanicSelection(modeKey);
+      },
+      toggleMechanic: (mechanicKey: RpsBattleMechanicKey) => {
+        this.selectedMechanics = rpsBattleToggleMechanicSelection(
+          this.selectedModeKey,
+          this.selectedMechanics,
+          mechanicKey
+        );
+      },
+      selectFaction: (faction: RpsBattleFaction) => {
+        this.selectedFaction = faction;
+      },
+      selectScale: (scale: RpsBattleScale) => {
+        this.selectedScale = scale;
+        this.lineupCounts = rpsBattleCountsFromValue(rpsBattleInitialCountForScale(scale));
+      },
+      selectDuration: (durationSec: number) => {
+        this.durationSec = rpsBattleClampDuration(durationSec);
+      },
+      toggleSyncCounts: () => {
+        this.syncCounts = !this.syncCounts;
+      },
+      toggleAdvancedLineup: () => {
+        this.advancedLineupOpen = !this.advancedLineupOpen;
+      },
+      stepFactionCount: (faction: RpsBattleFaction, step: number) => {
+        this.lineupCounts = rpsBattleStepCount(this.lineupCounts, faction, step, this.syncCounts);
+        this.selectedScale = rpsBattleScaleForCounts(this.lineupCounts);
+      },
+      startGame: () => {
+        this.startGame();
       }
-      .width('100%')
-      .constraintSize({ minHeight: '100%' })
-      .padding({ left: 16, right: 16, top: RPS_BATTLE_TOP_BAR_HEIGHT + 24, bottom: 16 })
-      .alignItems(HorizontalAlign.Center)
-    }
+    })
     .width('100%')
     .height('100%')
     .zIndex(1)
@@ -305,115 +315,15 @@ export struct RpsBattlePage {
           this.drawFrame();
         })
       if (this.phase === 'countdown') {
-        this.CountdownOverlay()
+        RpsBattleCountdownOverlay({
+          boardWidth: this.boardWidth(),
+          boardHeight: this.boardHeight(),
+          countdownValue: this.countdownValue
+        })
       }
     }
     .width(this.boardWidth())
     .height(this.boardHeight())
-  }
-
-  @Builder
-  CountdownOverlay() {
-    Stack({ alignContent: Alignment.Center }) {
-      Column({ space: 4 }) {
-        Text('开战')
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(RpsBattleTheme.muted)
-          .maxLines(1)
-        Text(`${this.countdownValue}`)
-          .fontSize(64)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(RpsBattleTheme.pageInk)
-          .height(76)
-          .textAlign(TextAlign.Center)
-      }
-      .width(132)
-      .height(126)
-      .justifyContent(FlexAlign.Center)
-      .borderRadius(18)
-      .backgroundColor('rgba(255,248,232,0.82)')
-      .border({ width: 1, color: RpsBattleTheme.panelLine })
-      .shadow({
-        radius: 18,
-        color: 'rgba(42,26,16,0.18)',
-        offsetX: 0,
-        offsetY: 7
-      })
-    }
-    .width(this.boardWidth())
-    .height(this.boardHeight())
-    .backgroundColor('rgba(247,239,217,0.22)')
-  }
-
-  @Builder
-  TopBar() {
-    Row({ space: 8 }) {
-      this.TopBarButton('大厅', false, 66, () => {
-        this.leaveToHub();
-      })
-      Text('石头剪刀布大作战')
-        .width('100%')
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(RpsBattleTheme.topButtonText)
-        .textAlign(TextAlign.Center)
-        .maxLines(1)
-        .layoutWeight(1)
-      if (this.phase === 'countdown' || this.phase === 'playing' || this.phase === 'paused') {
-        Row({ space: 6 }) {
-          this.TopBarButton('重开', false, RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH, () => {
-            this.startGame();
-          })
-          if (this.phase === 'playing' || this.phase === 'paused') {
-            this.TopBarButton(this.phase === 'paused' ? '继续' : '暂停', this.phase === 'playing',
-              RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH, () => {
-              if (this.phase === 'paused') {
-                this.resumeGame();
-              } else {
-                this.pauseGame();
-              }
-            })
-          }
-        }
-        .width(RPS_BATTLE_TOP_ACTION_GROUP_WIDTH)
-        .height(36)
-        .justifyContent(FlexAlign.End)
-      } else {
-        Blank()
-          .width(RPS_BATTLE_TOP_ACTION_GROUP_WIDTH)
-          .height(36)
-      }
-    }
-    .position({ x: 0, y: 0 })
-    .width('100%')
-    .height(RPS_BATTLE_TOP_BAR_HEIGHT)
-    .zIndex(5)
-    .padding({ left: 12, right: 12, top: RPS_BATTLE_TOP_BAR_CONTENT_PADDING_TOP })
-    .backgroundColor(RpsBattleTheme.topBarBg)
-  }
-
-  @Builder
-  TopBarButton(label: string, primary: boolean, widthValue: number, action: () => void) {
-    Row() {
-      Text(label)
-        .width('100%')
-        .fontSize(this.topBarButtonFontSize(label, widthValue))
-        .fontWeight(FontWeight.Bold)
-        .fontColor(primary ? RpsBattleTheme.primaryButtonText : RpsBattleTheme.topButtonText)
-        .textAlign(TextAlign.Center)
-        .maxLines(1)
-    }
-    .justifyContent(FlexAlign.Center)
-    .alignItems(VerticalAlign.Center)
-      .width(widthValue)
-      .height(36)
-      .borderRadius(8)
-      .backgroundColor(primary ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.topButtonBg)
-      .border({ width: 1, color: RpsBattleTheme.topButtonLine })
-      .onClick(() => {
-        action();
-      })
   }
 
   private startGame(): void {
@@ -422,11 +332,14 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
+    this.pausedFromPhase = 'playing';
+    this.exitConfirmationPending = false;
     const options = rpsBattleCreateOptions(
       this.lineupCounts,
       this.durationSec,
       this.selectedFaction,
-      this.selectedModeKey
+      this.selectedModeKey,
+      this.selectedMechanics
     );
     this.engine = new RpsBattleEngine(this.boardWidth(), this.boardHeight(), options);
     this.hasRecordedResult = false;
@@ -443,13 +356,6 @@ export struct RpsBattlePage {
     this.lastTickAt = Date.now();
     this.lastConvertSoundAt = 0;
     this.startCountdown();
-  }
-
-  private topBarButtonFontSize(label: string, widthValue: number): number {
-    if (widthValue <= RPS_BATTLE_TOP_ACTION_BUTTON_WIDTH && label.length >= 2) {
-      return 13;
-    }
-    return 14;
   }
 
   private startLoop(): void {
@@ -531,7 +437,7 @@ export struct RpsBattlePage {
     this.lastTickAt = Date.now();
     this.lastFrameTimestamp = 0;
     this.lastConvertSoundAt = 0;
-    this.resetPerformanceStats(this.lastTickAt);
+    this.performanceLogger.reset(this.lastTickAt);
     this.playBattleBgm();
     this.startLoop();
     this.startHudLoop();
@@ -587,7 +493,9 @@ export struct RpsBattlePage {
       const hudStartedAt = Date.now();
       this.syncHudFromEngine(result.elapsedSec);
       hudMs = Date.now() - hudStartedAt;
-      this.collectPerformanceStats(
+      this.performanceLogger.collect(
+        this.selectedScale,
+        this.lineupCounts,
         frameIntervalMs,
         updateMs,
         drawMs,
@@ -612,7 +520,9 @@ export struct RpsBattlePage {
       this.finishGame(result);
       return;
     }
-    this.collectPerformanceStats(
+    this.performanceLogger.collect(
+      this.selectedScale,
+      this.lineupCounts,
       frameIntervalMs,
       updateMs,
       drawMs,
@@ -653,6 +563,7 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
+    this.exitConfirmationPending = false;
     if (result.winner !== '') {
       this.audioService.play('win', 0.9);
     }
@@ -664,6 +575,26 @@ export struct RpsBattlePage {
     }
   }
 
+  private requestPause(): void {
+    this.exitConfirmationPending = false;
+    this.pauseGame();
+  }
+
+  private requestExitToHub(): void {
+    if (this.phase === 'setup' || this.phase === 'result') {
+      this.leaveToHub();
+      return;
+    }
+    this.exitConfirmationPending = true;
+    if (this.phase === 'countdown') {
+      this.stopCountdown();
+      this.pausedFromPhase = 'countdown';
+      this.phase = 'paused';
+      return;
+    }
+    this.pauseGame();
+  }
+
   private pauseGame(): void {
     if (this.phase !== 'playing') {
       return;
@@ -672,6 +603,7 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
+    this.pausedFromPhase = 'playing';
     this.phase = 'paused';
   }
 
@@ -679,9 +611,15 @@ export struct RpsBattlePage {
     if (this.phase !== 'paused') {
       return;
     }
+    this.exitConfirmationPending = false;
+    if (this.pausedFromPhase === 'countdown') {
+      this.phase = 'countdown';
+      this.startCountdown();
+      return;
+    }
     this.phase = 'playing';
     this.lastTickAt = Date.now();
-    this.resetPerformanceStats(this.lastTickAt);
+    this.performanceLogger.reset(this.lastTickAt);
     this.playBattleBgm();
     this.startLoop();
     this.startHudLoop();
@@ -693,6 +631,8 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
+    this.pausedFromPhase = 'playing';
+    this.exitConfirmationPending = false;
     this.engine = null;
     this.runtimeElapsedSec = 0;
     this.counts = rpsBattleEmptyCounts();
@@ -711,6 +651,7 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
+    this.exitConfirmationPending = false;
     this.exitToHub();
   }
 
@@ -739,97 +680,6 @@ export struct RpsBattlePage {
       this.engine.controlZoneForRender(),
       this.engine.blackHoleForRender()
     );
-  }
-
-  private collectPerformanceStats(frameIntervalMs: number, updateMs: number, drawMs: number,
-    movementMs: number, targetSearchMs: number, collisionMs: number, conversionMs: number, resultMs: number,
-    zoneMs: number, blackHoleMs: number, audioMs: number, hudMs: number, sfxCalls: number,
-    targetScanCount: number, collisionCheckCount: number, zoneInsideCount: number, blackHoleKillCount: number,
-    entityCount: number, conversionDelta: number, totalConversions: number): void {
-    if (!RPS_BATTLE_ENABLE_PERF_LOG) {
-      return;
-    }
-    const now = Date.now();
-    if (this.perfWindowStartedAt === 0) {
-      this.perfWindowStartedAt = now;
-    }
-    this.perfFrameCount += 1;
-    this.perfFrameIntervalMs += frameIntervalMs;
-    this.perfMaxFrameIntervalMs = Math.max(this.perfMaxFrameIntervalMs, frameIntervalMs);
-    this.perfUpdateMs += updateMs;
-    this.perfDrawMs += drawMs;
-    this.perfMovementMs += movementMs;
-    this.perfTargetSearchMs += targetSearchMs;
-    this.perfCollisionMs += collisionMs;
-    this.perfConversionMs += conversionMs;
-    this.perfResultMs += resultMs;
-    this.perfZoneMs += zoneMs;
-    this.perfBlackHoleMs += blackHoleMs;
-    this.perfAudioMs += audioMs;
-    this.perfHudMs += hudMs;
-    this.perfSfxCallCount += sfxCalls;
-    this.perfTargetScanCount += targetScanCount;
-    this.perfCollisionCheckCount += collisionCheckCount;
-    this.perfZoneInsideCount += zoneInsideCount;
-    this.perfBlackHoleKillCount += blackHoleKillCount;
-    this.perfConversionCount += conversionDelta;
-    const elapsed = now - this.perfWindowStartedAt;
-    if (elapsed < RPS_BATTLE_PERF_LOG_INTERVAL_MS) {
-      return;
-    }
-    const frames = Math.max(1, this.perfFrameCount);
-    const elapsedMs = Math.max(1, elapsed);
-    console.info(
-      `RpsBattlePerf loop=displaySync targetFps=${RPS_BATTLE_TARGET_FPS} ` +
-        `scale=${this.selectedScale} lineup=${this.lineupCounts.rock}/${this.lineupCounts.scissors}/${this.lineupCounts.paper} ` +
-        `entities=${entityCount} frames=${frames} ` +
-        `fps=${(frames * 1000 / elapsedMs).toFixed(1)} ` +
-        `interval=${(this.perfFrameIntervalMs / frames).toFixed(1)}ms ` +
-        `maxInterval=${this.perfMaxFrameIntervalMs.toFixed(0)}ms ` +
-        `update=${(this.perfUpdateMs / frames).toFixed(2)}ms ` +
-        `draw=${(this.perfDrawMs / frames).toFixed(2)}ms ` +
-        `move=${(this.perfMovementMs / frames).toFixed(2)}ms ` +
-        `targetMs=${(this.perfTargetSearchMs / frames).toFixed(2)}ms ` +
-        `collisionMs=${(this.perfCollisionMs / frames).toFixed(2)}ms ` +
-        `convertMs=${(this.perfConversionMs / frames).toFixed(2)}ms ` +
-        `resultMs=${(this.perfResultMs / frames).toFixed(2)}ms ` +
-        `zoneMs=${(this.perfZoneMs / frames).toFixed(2)}ms ` +
-        `blackHoleMs=${(this.perfBlackHoleMs / frames).toFixed(2)}ms ` +
-        `audio=${(this.perfAudioMs / frames).toFixed(2)}ms ` +
-        `hud=${(this.perfHudMs / frames).toFixed(2)}ms ` +
-        `sfx/frame=${(this.perfSfxCallCount / frames).toFixed(2)} ` +
-        `target/frame=${(this.perfTargetScanCount / frames).toFixed(0)} ` +
-        `collision/frame=${(this.perfCollisionCheckCount / frames).toFixed(0)} ` +
-        `zoneInside/frame=${(this.perfZoneInsideCount / frames).toFixed(0)} ` +
-        `blackHoleKills/frame=${(this.perfBlackHoleKillCount / frames).toFixed(2)} ` +
-        `conversions/frame=${(this.perfConversionCount / frames).toFixed(2)} ` +
-        `totalConversions=${totalConversions}`
-    );
-    this.resetPerformanceStats(now);
-  }
-
-  private resetPerformanceStats(startedAt: number = 0): void {
-    this.perfWindowStartedAt = startedAt;
-    this.perfFrameCount = 0;
-    this.perfFrameIntervalMs = 0;
-    this.perfMaxFrameIntervalMs = 0;
-    this.perfUpdateMs = 0;
-    this.perfDrawMs = 0;
-    this.perfMovementMs = 0;
-    this.perfTargetSearchMs = 0;
-    this.perfCollisionMs = 0;
-    this.perfConversionMs = 0;
-    this.perfResultMs = 0;
-    this.perfZoneMs = 0;
-    this.perfBlackHoleMs = 0;
-    this.perfAudioMs = 0;
-    this.perfHudMs = 0;
-    this.perfSfxCallCount = 0;
-    this.perfTargetScanCount = 0;
-    this.perfCollisionCheckCount = 0;
-    this.perfZoneInsideCount = 0;
-    this.perfBlackHoleKillCount = 0;
-    this.perfConversionCount = 0;
   }
 
   private resolveFrameIntervalMs(frameTimestamp: number, now: number): number {

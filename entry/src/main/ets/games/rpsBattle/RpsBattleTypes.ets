@@ -47,6 +47,20 @@ export interface RpsBattleMechanicOption {
   canDisable: boolean;
 }
 
+export interface RpsBattleMechanicSelection {
+  baseChase?: boolean;
+  conversion?: boolean;
+  controlZone?: boolean;
+  blackHole?: boolean;
+  lastStand?: boolean;
+  powerUps?: boolean;
+  teamPowerUps?: boolean;
+  shrink?: boolean;
+  traitor?: boolean;
+  snap?: boolean;
+  obstacles?: boolean;
+}
+
 export interface RpsBattleModeRules {
   key: RpsBattleModeKey;
   hasControlZone: boolean;
@@ -64,6 +78,7 @@ export interface RpsBattleFactionCounts {
 
 export interface RpsBattleOptions {
   modeKey: RpsBattleModeKey;
+  mechanics: RpsBattleMechanicSelection;
   supportFaction: RpsBattleFaction;
   initialCounts: RpsBattleFactionCounts;
   durationSec: number;

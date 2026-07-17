@@ -14,6 +14,8 @@ export class RpsBattleTheme {
   static readonly arenaGrid: string = 'rgba(123,81,55,0.04)';
   static readonly primaryButtonBg: string = '#563723';
   static readonly primaryButtonText: string = '#ffffff';
+  static readonly dangerButtonBg: string = '#9e4b39';
+  static readonly dangerButtonText: string = '#ffffff';
   static readonly selectedBg: string = '#fff4d9';
   static readonly selectedLine: string = '#7b5137';
   static readonly overlayBg: string = 'rgba(42,26,16,0.42)';

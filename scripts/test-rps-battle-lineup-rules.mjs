@@ -40,6 +40,10 @@ globalThis.__rpsBattle = {
   rpsBattleScaleForCounts,
   rpsBattleClampDuration,
   rpsBattleCreateOptions,
+  rpsBattleDefaultMechanicSelection,
+  rpsBattleToggleMechanicSelection,
+  rpsBattleMechanicEnabledForMode,
+  rpsBattleResolveModeRulesByKey,
   RPS_BATTLE_MODES,
   RPS_BATTLE_MODE_RULES,
   rpsBattleModeByKey,
@@ -135,6 +139,7 @@ test('启动参数使用三方人数并校验时长', () => {
   assert.equal(options.durationSec, 120);
   assert.equal(options.supportFaction, 'rock');
   assert.equal(options.modeKey, 'classic');
+  assertPlainEqual(options.mechanics, {});
   const zonesOptions = R.rpsBattleCreateOptions({ rock: 5, scissors: 8, paper: 12 }, 120, 'rock', 'zones');
   assert.equal(zonesOptions.modeKey, 'zones');
 });
@@ -156,7 +161,7 @@ test('玩法方案配置包含四个原版入口', () => {
   assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[0].canDisable, false);
   assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].key, 'blackHole');
   assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].state, 'enabled');
-  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].canDisable, false);
+  assert.equal(R.rpsBattleModeByKey('zones').mechanicOptions[1].canDisable, true);
   assert.equal(R.rpsBattleModeRulesByKey('classic').hasControlZone, false);
   assert.equal(R.rpsBattleModeRulesByKey('zones').hasControlZone, true);
   assert.equal(R.rpsBattleModeRulesByKey('zones').hasBlackHole, true);
@@ -167,6 +172,29 @@ test('玩法方案配置包含四个原版入口', () => {
   assert.equal(R.rpsBattleModeByKey('equality').subtitle, '响指 · 障碍');
   assert.equal(R.rpsBattleModeByKey('missing').key, 'classic');
   assert.equal(R.rpsBattleModeRulesByKey('missing').key, 'classic');
+});
+
+test('玩法机制默认开启和本局关闭规则正确', () => {
+  const defaults = R.rpsBattleDefaultMechanicSelection('zones');
+  assert.equal(defaults.controlZone, true);
+  assert.equal(defaults.blackHole, true);
+  assert.equal(defaults.lastStand, false);
+  assert.equal(R.rpsBattleMechanicEnabledForMode('zones', defaults, 'controlZone'), true);
+  assert.equal(R.rpsBattleMechanicEnabledForMode('zones', defaults, 'blackHole'), true);
+  assert.equal(R.rpsBattleMechanicEnabledForMode('zones', defaults, 'lastStand'), false);
+
+  const blackHoleOff = R.rpsBattleToggleMechanicSelection('zones', defaults, 'blackHole');
+  assert.equal(blackHoleOff.blackHole, false);
+  assert.equal(R.rpsBattleResolveModeRulesByKey('zones', blackHoleOff).hasControlZone, true);
+  assert.equal(R.rpsBattleResolveModeRulesByKey('zones', blackHoleOff).hasBlackHole, false);
+
+  const triedCoreOff = R.rpsBattleToggleMechanicSelection('zones', blackHoleOff, 'controlZone');
+  assert.equal(triedCoreOff.controlZone, true);
+  assert.equal(R.rpsBattleResolveModeRulesByKey('zones', triedCoreOff).hasControlZone, true);
+
+  const triedUpcomingOn = R.rpsBattleResolveModeRulesByKey('zones', { lastStand: true, powerUps: true });
+  assert.equal(triedUpcomingOn.hasLastStand, false);
+  assert.equal(triedUpcomingOn.hasPowerUps, false);
 });
 
 console.log(`\n通过 ${passed} 项，失败 ${failed} 项\n`);

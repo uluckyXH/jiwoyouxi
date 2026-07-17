@@ -255,7 +255,7 @@
 
 ### 高级规则入口
 
-不建议第一阶段开放可点击开关。后续可以在玩法方案摘要下方增加默认收起的 `高级规则`：
+不建议把所有机制一次性开放为可点击开关。已实现且验证过的增强机制可以先在玩法方案摘要下方提供轻量开关；未实现机制仍只展示为 `后续`：
 
 ```text
 高级规则
@@ -266,11 +266,11 @@
 
 ```text
 团队占点机制
-[x] 中心据点
-[x] 黑洞       已接入
-[ ] 绝地求生   后续
-[ ] 能量道具   后续
-[ ] 团队道具   后续
+[锁] 中心据点   核心
+[开关] 黑洞     已接入
+[ ] 绝地求生    后续
+[ ] 能量道具    后续
+[ ] 团队道具    后续
 ```
 
 实现完成后的目标态：
@@ -296,14 +296,15 @@
 | 类型 | 示例 | UI 行为 |
 | --- | --- | --- |
 | 核心机制 | 团队占点的中心据点、经典乱斗的碰撞转阵 | 默认开启，不允许关闭 |
-| 默认机制 | 团队占点的黑洞、绝地、团队道具 | 实现后默认开启，完成高级规则验证后允许关闭 |
+| 默认机制 | 团队占点的黑洞、绝地、团队道具 | 实现后默认开启，已完成验证的机制允许关闭 |
 | 后续机制 | 尚未迁移的绝地、道具 | 展示为后续或禁用，不可点击 |
 
-当前阶段仍然不要做可点击高级规则，原因：
+当前阶段不要把所有高级规则都做成可点击开关，原因：
 
 - 当前优先是保证模式卡片和中心据点稳定。
-- 绝地、道具底层还没有逐项迁移，黑洞虽然已接入但暂未开放高级规则开关。
-- 提前开放开关会制造“点了但没效果”的风险。
+- 绝地、道具底层还没有逐项迁移，不能给玩家开启入口。
+- 黑洞已经接入运行时，可以作为已实现增强机制提供开局前开关。
+- 提前开放未实现机制会制造“点了但没效果”的风险。
 
 ## 数据结构建议
 
@@ -354,7 +355,7 @@ export interface RpsBattleMechanicOption {
 ```ts
 [
   { key: 'controlZone', label: '中心据点', state: 'core', defaultEnabled: true, canDisable: false },
-  { key: 'blackHole', label: '黑洞', state: 'enabled', defaultEnabled: true, canDisable: false },
+  { key: 'blackHole', label: '黑洞', state: 'enabled', defaultEnabled: true, canDisable: true },
   { key: 'lastStand', label: '绝地求生', state: 'upcoming', defaultEnabled: true, canDisable: false },
   { key: 'powerUps', label: '能量道具', state: 'upcoming', defaultEnabled: true, canDisable: false },
   { key: 'teamPowerUps', label: '团队道具', state: 'upcoming', defaultEnabled: true, canDisable: false }
@@ -462,7 +463,7 @@ selectMode: (modeKey: RpsBattleModeKey) => void = () => {};
 ## 暂不做
 
 - 不直接实现全部原版开关。
-- 不做可点击的高级规则折叠区。
+- 不做全量可点击的高级规则折叠区。
 - 未迁移机制只允许展示为“后续”，不允许开启运行。
 - 不接玩法素材图。
 - 不接死斗、多局赛制和下注积分。
