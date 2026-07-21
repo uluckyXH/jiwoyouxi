@@ -300,6 +300,8 @@ export function rpsBattleCloneEntity(entity: RpsBattleEntity): RpsBattleEntity {
     vx: entity.vx,
     vy: entity.vy,
     radius: entity.radius,
+    shield: entity.shield,
+    speedBoostUntilSec: entity.speedBoostUntilSec,
     convertedAt: entity.convertedAt
   };
 }

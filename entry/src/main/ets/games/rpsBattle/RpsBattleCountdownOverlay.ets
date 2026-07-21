@@ -25,17 +25,17 @@ export struct RpsBattleCountdownOverlay {
       .height(126)
       .justifyContent(FlexAlign.Center)
       .borderRadius(18)
-      .backgroundColor('rgba(255,248,232,0.82)')
+      .backgroundColor(RpsBattleTheme.countdownPanelBg)
       .border({ width: 1, color: RpsBattleTheme.panelLine })
       .shadow({
         radius: 18,
-        color: 'rgba(42,26,16,0.18)',
+        color: RpsBattleTheme.panelShadowColor,
         offsetX: 0,
         offsetY: 7
       })
     }
     .width(this.boardWidth)
     .height(this.boardHeight)
-    .backgroundColor('rgba(247,239,217,0.22)')
+    .backgroundColor(RpsBattleTheme.countdownShade)
   }
 }

@@ -87,7 +87,7 @@ export struct RpsBattleHud {
     .height(46)
     .borderRadius(9)
     .backgroundColor(item.softColor)
-    .border({ width: 1, color: 'rgba(86,55,35,0.10)' })
+    .border({ width: 1, color: RpsBattleTheme.softLine })
   }
 
   @Builder

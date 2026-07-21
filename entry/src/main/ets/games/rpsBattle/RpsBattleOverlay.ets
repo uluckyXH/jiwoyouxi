@@ -48,7 +48,7 @@ export struct RpsBattlePauseOverlay {
       .border({ width: 1, color: RpsBattleTheme.panelLine })
       .shadow({
         radius: 18,
-        color: 'rgba(42,26,16,0.22)',
+        color: RpsBattleTheme.panelShadowColor,
         offsetX: 0,
         offsetY: 8
       })
@@ -176,7 +176,7 @@ export struct RpsBattleResultOverlay {
       .border({ width: 1, color: RpsBattleTheme.panelLine })
       .shadow({
         radius: 18,
-        color: 'rgba(42,26,16,0.22)',
+        color: RpsBattleTheme.panelShadowColor,
         offsetX: 0,
         offsetY: 8
       })
@@ -206,7 +206,7 @@ export struct RpsBattleResultOverlay {
     .backgroundColor(item.softColor)
     .border({
       width: this.result.winner === item.id ? 2 : 1,
-      color: this.result.winner === item.id ? item.color : 'rgba(86,55,35,0.10)'
+      color: this.result.winner === item.id ? item.color : RpsBattleTheme.softLine
     })
   }
 
@@ -225,7 +225,7 @@ export struct RpsBattleResultOverlay {
     .layoutWeight(1)
     .height(32)
     .borderRadius(8)
-    .backgroundColor('#fff8e8')
+    .backgroundColor(RpsBattleTheme.optionBg)
     .border({ width: 1, color: RpsBattleTheme.panelLine })
   }
 

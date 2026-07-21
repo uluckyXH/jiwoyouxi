@@ -5,6 +5,13 @@ import {
   RpsBattleEntity,
   RpsBattleFaction,
   RpsBattleFactionInfo,
+  RpsBattleLastStandPulse,
+  RpsBattleLastStandState,
+  RpsBattlePowerUp,
+  RpsBattlePowerUpKind,
+  RpsBattlePowerUpPulse,
+  RpsBattlePowerUpState,
+  RpsBattleReviveMark,
   RpsBattleThemeKey
 } from './RpsBattleTypes';
 import { rpsBattleThemeFactionInfo } from './RpsBattleThemeConfig';
@@ -14,12 +21,16 @@ export class RpsBattleRenderer {
   draw(ctx: CanvasRenderingContext2D, width: number, height: number, entities: RpsBattleEntity[],
     elapsedSec: number, themeKey: RpsBattleThemeKey = 'rps',
     controlZone: RpsBattleControlZone | null = null,
-    blackHole: RpsBattleBlackHoleState | null = null): void {
+    blackHole: RpsBattleBlackHoleState | null = null,
+    powerUps: RpsBattlePowerUpState | null = null,
+    lastStand: RpsBattleLastStandState | null = null): void {
     const canvasWidth = Math.max(1, width);
     const canvasHeight = Math.max(1, height);
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     this.drawArena(ctx, canvasWidth, canvasHeight);
     this.drawControlZone(ctx, controlZone, themeKey);
+    this.drawPowerUps(ctx, powerUps, elapsedSec, themeKey);
+    this.drawLastStand(ctx, lastStand, elapsedSec, themeKey);
     this.drawBlackHole(ctx, blackHole, elapsedSec);
     this.drawEntities(ctx, entities, elapsedSec, themeKey);
   }
@@ -56,15 +67,15 @@ export class RpsBattleRenderer {
     }
     const pulse = 0.5 + Math.sin(elapsedSec * 5.2) * 0.5;
     ctx.beginPath();
-    ctx.strokeStyle = 'rgba(75,48,110,0.22)';
-    ctx.fillStyle = 'rgba(75,48,110,0.05)';
+    ctx.strokeStyle = RpsBattleTheme.blackHoleReachLine;
+    ctx.fillStyle = RpsBattleTheme.blackHoleReachFill;
     ctx.lineWidth = 2;
     ctx.arc(blackHole.x, blackHole.y, blackHole.reach, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.strokeStyle = `rgba(95,63,138,${0.28 + pulse * 0.18})`;
+    ctx.strokeStyle = `rgba(91,68,130,${0.24 + pulse * 0.18})`;
     ctx.lineWidth = 3;
     ctx.arc(blackHole.x, blackHole.y, blackHole.radius + 10 + pulse * 7, 0, Math.PI * 2);
     ctx.stroke();
@@ -102,7 +113,7 @@ export class RpsBattleRenderer {
     }
     const hasOwner = zone.owner !== '';
     const ownerColor = this.factionColor(themeKey, zone.owner, '#7f735f');
-    const edgeColor = this.factionColor(themeKey, zone.capturingFaction, 'rgba(86,55,35,0.34)');
+    const edgeColor = this.factionColor(themeKey, zone.capturingFaction, RpsBattleTheme.arenaLine);
     const progress = Math.max(0, Math.min(1, zone.score / RPS_BATTLE_CONTROL_ZONE_MAX_SCORE));
 
     ctx.beginPath();
@@ -136,6 +147,146 @@ export class RpsBattleRenderer {
     ctx.fillText(`${Math.floor(zone.score)}`, zone.x, zone.y);
   }
 
+  private drawLastStand(ctx: CanvasRenderingContext2D, state: RpsBattleLastStandState | null,
+    elapsedSec: number, themeKey: RpsBattleThemeKey): void {
+    if (state === null) {
+      return;
+    }
+    for (let i = 0; i < state.reviveMarks.length; i += 1) {
+      this.drawReviveMark(ctx, state.reviveMarks[i], elapsedSec, themeKey);
+    }
+    for (let i = 0; i < state.pulses.length; i += 1) {
+      this.drawLastStandPulse(ctx, state.pulses[i], elapsedSec, themeKey);
+    }
+  }
+
+  private drawPowerUps(ctx: CanvasRenderingContext2D, state: RpsBattlePowerUpState | null, elapsedSec: number,
+    themeKey: RpsBattleThemeKey): void {
+    if (state === null) {
+      return;
+    }
+    for (let i = 0; i < state.items.length; i += 1) {
+      this.drawPowerUpItem(ctx, state.items[i], elapsedSec);
+    }
+    for (let i = 0; i < state.pulses.length; i += 1) {
+      this.drawPowerUpPulse(ctx, state.pulses[i], elapsedSec, themeKey);
+    }
+  }
+
+  private drawPowerUpItem(ctx: CanvasRenderingContext2D, item: RpsBattlePowerUp, elapsedSec: number): void {
+    const pulse = 0.5 + Math.sin(elapsedSec * 4.8 + item.id * 0.31) * 0.5;
+    ctx.beginPath();
+    ctx.fillStyle = this.powerUpFill(item.kind);
+    ctx.strokeStyle = this.powerUpLine(item.kind);
+    ctx.lineWidth = 2;
+    ctx.arc(item.x, item.y, item.radius + pulse * 1.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.globalAlpha = 0.22 + pulse * 0.16;
+    ctx.strokeStyle = this.powerUpLine(item.kind);
+    ctx.lineWidth = 3;
+    ctx.arc(item.x, item.y, item.radius + 6 + pulse * 3, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '700 11vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.powerUpMark(item.kind), item.x, item.y + 1);
+  }
+
+  private drawPowerUpPulse(ctx: CanvasRenderingContext2D, pulse: RpsBattlePowerUpPulse, elapsedSec: number,
+    themeKey: RpsBattleThemeKey): void {
+    const age = Math.max(0, elapsedSec - pulse.startedAtSec);
+    const progress = Math.max(0, Math.min(1, age / 0.72));
+    if (progress >= 1) {
+      return;
+    }
+    const faction = rpsBattleThemeFactionInfo(themeKey, pulse.faction);
+    const radius = 20 + progress * 24;
+    ctx.beginPath();
+    ctx.globalAlpha = 0.46 * (1 - progress);
+    ctx.strokeStyle = faction.color;
+    ctx.lineWidth = pulse.isTeam ? 5 : 4;
+    ctx.arc(pulse.x, pulse.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = faction.textColor;
+    ctx.font = '700 12vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.powerUpPulseText(pulse), pulse.x, pulse.y - radius - 8);
+    ctx.globalAlpha = 1;
+  }
+
+  private drawReviveMark(ctx: CanvasRenderingContext2D, mark: RpsBattleReviveMark, elapsedSec: number,
+    themeKey: RpsBattleThemeKey): void {
+    const faction = rpsBattleThemeFactionInfo(themeKey, mark.faction);
+    const remaining = Math.max(0, mark.dueAtSec - elapsedSec);
+    const progress = Math.max(0, Math.min(1, (elapsedSec - mark.createdAtSec) /
+      Math.max(0.1, mark.dueAtSec - mark.createdAtSec)));
+    ctx.beginPath();
+    ctx.fillStyle = this.softZoneFill(faction.color);
+    ctx.strokeStyle = faction.color;
+    ctx.lineWidth = 2;
+    ctx.arc(mark.x, mark.y, 19, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = RpsBattleTheme.primaryButtonBg;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    ctx.arc(mark.x, mark.y, 24, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * progress);
+    ctx.stroke();
+    ctx.lineCap = 'butt';
+
+    ctx.fillStyle = faction.textColor;
+    ctx.font = '700 12vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${Math.ceil(remaining)}`, mark.x, mark.y + 1);
+
+    ctx.font = '700 10vp sans-serif';
+    ctx.fillText('复活', mark.x, mark.y + 36);
+  }
+
+  private drawLastStandPulse(ctx: CanvasRenderingContext2D, pulse: RpsBattleLastStandPulse, elapsedSec: number,
+    themeKey: RpsBattleThemeKey): void {
+    const age = Math.max(0, elapsedSec - pulse.startedAtSec);
+    const progress = Math.max(0, Math.min(1, age / 0.9));
+    if (progress >= 1) {
+      return;
+    }
+    const faction = rpsBattleThemeFactionInfo(themeKey, pulse.faction);
+    const radius = pulse.kind === 'revive' ? 28 + progress * 24 : 24 + progress * 18;
+    ctx.beginPath();
+    ctx.globalAlpha = 0.42 * (1 - progress);
+    ctx.strokeStyle = faction.color;
+    ctx.lineWidth = pulse.kind === 'revive' ? 5 : 4;
+    ctx.arc(pulse.x, pulse.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = faction.textColor;
+    ctx.font = '700 12vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.lastStandPulseText(pulse), pulse.x, pulse.y - radius - 8);
+    ctx.globalAlpha = 1;
+  }
+
+  private lastStandPulseText(pulse: RpsBattleLastStandPulse): string {
+    if (pulse.kind === 'split') {
+      return '绝地分裂';
+    }
+    if (pulse.kind === 'reviveMark') {
+      return '复活印记';
+    }
+    return '原地复活';
+  }
+
   private drawEntities(ctx: CanvasRenderingContext2D, entities: RpsBattleEntity[], elapsedSec: number,
     themeKey: RpsBattleThemeKey): void {
     for (let i = 0; i < entities.length; i += 1) {
@@ -149,8 +300,18 @@ export class RpsBattleRenderer {
     elapsedSec: number): void {
     const pulseAge = Math.max(0, 1 - (elapsedSec - entity.convertedAt) / 0.42);
     const radius = entity.radius + pulseAge * 3;
+    if (elapsedSec < entity.speedBoostUntilSec) {
+      ctx.beginPath();
+      ctx.globalAlpha = 0.24;
+      ctx.strokeStyle = faction.color;
+      ctx.lineWidth = 5;
+      ctx.moveTo(entity.x - entity.vx * 0.08, entity.y - entity.vy * 0.08);
+      ctx.lineTo(entity.x - entity.vx * 0.19, entity.y - entity.vy * 0.19);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     ctx.beginPath();
-    ctx.fillStyle = 'rgba(55,31,18,0.18)';
+    ctx.fillStyle = RpsBattleTheme.entityShadow;
     ctx.arc(entity.x + 1.5, entity.y + 4, radius * 0.96, 0, Math.PI * 2);
     ctx.fill();
 
@@ -171,6 +332,14 @@ export class RpsBattleRenderer {
     ctx.arc(entity.x, entity.y, radius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
+
+    if (entity.shield > 0) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(245,158,11,0.84)';
+      ctx.lineWidth = 3;
+      ctx.arc(entity.x, entity.y, radius + 5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
 
     ctx.beginPath();
     ctx.fillStyle = 'rgba(255,255,255,0.24)';
@@ -199,5 +368,46 @@ export class RpsBattleRenderer {
       return fallback;
     }
     return rpsBattleThemeFactionInfo(themeKey, faction).color;
+  }
+
+  private powerUpFill(kind: RpsBattlePowerUpKind): string {
+    if (kind === 'speed') {
+      return 'rgba(37,99,235,0.84)';
+    }
+    if (kind === 'shield') {
+      return 'rgba(217,119,6,0.86)';
+    }
+    return 'rgba(124,58,237,0.84)';
+  }
+
+  private powerUpLine(kind: RpsBattlePowerUpKind): string {
+    if (kind === 'speed') {
+      return 'rgba(147,197,253,0.92)';
+    }
+    if (kind === 'shield') {
+      return 'rgba(253,230,138,0.94)';
+    }
+    return 'rgba(196,181,253,0.92)';
+  }
+
+  private powerUpMark(kind: RpsBattlePowerUpKind): string {
+    if (kind === 'speed') {
+      return '>>';
+    }
+    if (kind === 'shield') {
+      return '盾';
+    }
+    return 'x2';
+  }
+
+  private powerUpPulseText(pulse: RpsBattlePowerUpPulse): string {
+    const prefix = pulse.isTeam ? '全队' : '';
+    if (pulse.kind === 'speed') {
+      return `${prefix}加速`;
+    }
+    if (pulse.kind === 'shield') {
+      return `${prefix}护盾`;
+    }
+    return `${prefix}分裂`;
   }
 }

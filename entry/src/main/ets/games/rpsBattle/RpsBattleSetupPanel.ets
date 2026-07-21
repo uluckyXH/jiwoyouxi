@@ -179,14 +179,14 @@ export struct RpsBattleSetupPanel {
       Text(item.name)
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.selectedThemeKey === item.key ? '#ffffff' : RpsBattleTheme.pageInk)
+        .fontColor(this.selectedThemeKey === item.key ? item.factions[1].textColor : RpsBattleTheme.pageInk)
         .maxLines(1)
     }
     .justifyContent(FlexAlign.Center)
     .width('100%')
     .height(54)
     .borderRadius(8)
-    .backgroundColor(this.selectedThemeKey === item.key ? item.factions[1].color : '#fff8e8')
+    .backgroundColor(this.selectedThemeKey === item.key ? item.factions[1].softColor : RpsBattleTheme.optionBg)
     .border({
       width: this.selectedThemeKey === item.key ? 2 : 1,
       color: this.selectedThemeKey === item.key ? item.factions[1].color : RpsBattleTheme.panelLine
@@ -220,7 +220,7 @@ export struct RpsBattleSetupPanel {
     .backgroundColor(item.softColor)
     .border({
       width: this.selectedFaction === item.id ? 2 : 1,
-      color: this.selectedFaction === item.id ? item.color : 'rgba(86,55,35,0.10)'
+      color: this.selectedFaction === item.id ? item.color : RpsBattleTheme.softLine
     })
     .onClick(() => {
       this.selectFaction(item.id);
@@ -244,7 +244,7 @@ export struct RpsBattleSetupPanel {
     .layoutWeight(1)
     .height(58)
     .borderRadius(8)
-    .backgroundColor(this.selectedScale === item.id ? RpsBattleTheme.selectedBg : '#fff8e8')
+    .backgroundColor(this.selectedScale === item.id ? RpsBattleTheme.selectedBg : RpsBattleTheme.optionBg)
     .border({
       width: this.selectedScale === item.id ? 2 : 1,
       color: this.selectedScale === item.id ? RpsBattleTheme.selectedLine : RpsBattleTheme.panelLine
@@ -277,7 +277,7 @@ export struct RpsBattleSetupPanel {
         .fontWeight(FontWeight.Bold)
         .fontColor(RpsBattleTheme.pageInk)
         .textAlign(TextAlign.Center)
-        .backgroundColor('#fff8e8')
+        .backgroundColor(RpsBattleTheme.optionBg)
         .borderRadius(8)
         .border({ width: 1, color: RpsBattleTheme.panelLine })
     }
@@ -285,7 +285,7 @@ export struct RpsBattleSetupPanel {
     .height(52)
     .padding({ left: 10, right: 8 })
     .borderRadius(8)
-    .backgroundColor('#fffaf0')
+    .backgroundColor(RpsBattleTheme.panelSoftBg)
     .border({ width: 1, color: RpsBattleTheme.panelLine })
     .onClick(() => {
       this.toggleAdvancedLineup();
@@ -350,7 +350,7 @@ export struct RpsBattleSetupPanel {
     .justifyContent(FlexAlign.Center)
     .alignItems(VerticalAlign.Center)
     .borderRadius(8)
-    .backgroundColor(this.syncCounts === syncMode ? RpsBattleTheme.primaryButtonBg : '#fff8e8')
+    .backgroundColor(this.syncCounts === syncMode ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.optionBg)
     .border({
       width: 1,
       color: this.syncCounts === syncMode ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.panelLine
@@ -401,7 +401,7 @@ export struct RpsBattleSetupPanel {
     .padding({ left: 8, right: 8 })
     .borderRadius(8)
     .backgroundColor(item.softColor)
-    .border({ width: 1, color: 'rgba(86,55,35,0.10)' })
+    .border({ width: 1, color: RpsBattleTheme.softLine })
     .alignItems(VerticalAlign.Center)
   }
 
@@ -421,7 +421,7 @@ export struct RpsBattleSetupPanel {
     .width(40)
     .height(40)
     .borderRadius(8)
-    .backgroundColor('#fff8e8')
+    .backgroundColor(RpsBattleTheme.optionBg)
     .opacity(enabled ? 1 : 0.36)
     .border({ width: 1, color: RpsBattleTheme.panelLine })
     .onClick(() => {
@@ -448,7 +448,7 @@ export struct RpsBattleSetupPanel {
     .layoutWeight(1)
     .height(52)
     .borderRadius(8)
-    .backgroundColor(this.durationSec === item.durationSec ? RpsBattleTheme.selectedBg : '#fff8e8')
+    .backgroundColor(this.durationSec === item.durationSec ? RpsBattleTheme.selectedBg : RpsBattleTheme.optionBg)
     .border({
       width: this.durationSec === item.durationSec ? 2 : 1,
       color: this.durationSec === item.durationSec ? RpsBattleTheme.selectedLine : RpsBattleTheme.panelLine

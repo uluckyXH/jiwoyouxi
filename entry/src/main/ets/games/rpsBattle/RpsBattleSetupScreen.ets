@@ -150,7 +150,7 @@ export struct RpsBattleSetupScreen {
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     .shadow({
       radius: 10,
-      color: 'rgba(86,55,35,0.10)',
+      color: RpsBattleTheme.boardShadowColor,
       offsetX: 0,
       offsetY: -2
     })
@@ -169,15 +169,16 @@ export struct RpsBattleSetupScreen {
   }
 
   private optionalMechanicSummary(): string {
+    const labels: string[] = [];
     const options = rpsBattleModeByKey(this.selectedModeKey).mechanicOptions;
     for (let i = 0; i < options.length; i += 1) {
       const item: RpsBattleMechanicOption = options[i];
       if (item.state === 'enabled' && item.canDisable) {
         const enabled = rpsBattleMechanicEnabledForMode(this.selectedModeKey, this.mechanicSelection, item.key);
-        return `${item.label}${enabled ? '开' : '关'}`;
+        labels.push(`${item.label}${enabled ? '开' : '关'}`);
       }
     }
-    return '';
+    return labels.join(' / ');
   }
 
   private scaleLabel(): string {

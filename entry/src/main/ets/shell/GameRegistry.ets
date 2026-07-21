@@ -57,10 +57,10 @@ export const GAME_MODULES: GameModule[] = [
   },
   {
     id: 'rpsBattle',
-    title: '石头剪刀布大作战·新版',
-    subtitle: '新版重构骨架，先接入口与页面',
+    title: '石头剪刀布大作战',
+    subtitle: '三方自动追捕，配置阵营和机制后开始乱斗',
     icon: '✊',
-    tags: ['重构', '乱斗', '观战'],
+    tags: ['观战', '策略', '乱斗'],
     accent: '#2c8f7f',
     highScoreLabel: '最高存活数'
   }
@@ -68,5 +68,9 @@ export const GAME_MODULES: GameModule[] = [
 
 export function moduleById(id: string): GameModule {
   const found = GAME_MODULES.find((item: GameModule) => item.id === id);
-  return found === undefined ? GAME_MODULES[0] : found;
+  if (found !== undefined) {
+    return found;
+  }
+  const fallback = GAME_MODULES.find((item: GameModule) => item.id === 'rpsBattle');
+  return fallback === undefined ? GAME_MODULES[0] : fallback;
 }

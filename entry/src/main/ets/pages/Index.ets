@@ -25,7 +25,7 @@ struct Index {
   @State tetrisSession: number = 0;
   @State sceneDirection: string = 'push';
   @State sceneTransitioning: boolean = false;
-  @State entryBadgeGameId: string = 'rps';
+  @State entryBadgeGameId: string = 'rpsBattle';
   @State entryBadgeMounted: boolean = false;
   @State entryBadgeVisible: boolean = false;
   @State minesweeperExitRequestId: number = 0;
@@ -169,7 +169,8 @@ struct Index {
       if (this.entryBadgeMounted) {
         GameEntryBadge({
           gameId: this.entryBadgeGameId,
-          badgeVisible: this.entryBadgeVisible
+          badgeVisible: this.entryBadgeVisible,
+          isDarkMode: this.snapshot.appearanceMode === APPEARANCE_DARK
         })
       }
     }

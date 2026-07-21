@@ -15,7 +15,7 @@ export struct RpsBattleSetupCardHeader {
         .fontWeight(FontWeight.Bold)
         .fontColor(RpsBattleTheme.primaryButtonText)
         .textAlign(TextAlign.Center)
-        .backgroundColor(RpsBattleTheme.primaryButtonBg)
+        .backgroundColor(RpsBattleTheme.brandAccent)
         .borderRadius(7)
       Column({ space: 1 }) {
         Text(this.title)

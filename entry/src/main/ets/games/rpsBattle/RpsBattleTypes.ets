@@ -8,6 +8,8 @@ export type RpsBattleMechanicState = 'core' | 'enabled' | 'upcoming';
 export type RpsBattleScale = 'small' | 'standard' | 'large' | 'custom';
 export type RpsBattlePhase = 'setup' | 'countdown' | 'playing' | 'paused' | 'result';
 export type RpsBattleFinishReason = 'none' | 'clear' | 'time' | 'draw' | 'zone';
+export type RpsBattleLastStandEventKind = 'split' | 'reviveMark' | 'revive';
+export type RpsBattlePowerUpKind = 'speed' | 'shield' | 'split';
 
 export interface RpsBattleFactionInfo {
   id: RpsBattleFaction;
@@ -92,6 +94,8 @@ export interface RpsBattleEntity {
   vx: number;
   vy: number;
   radius: number;
+  shield: number;
+  speedBoostUntilSec: number;
   convertedAt: number;
 }
 
@@ -100,6 +104,8 @@ export interface RpsBattleSnapshot {
   counts: RpsBattleFactionCounts;
   controlZone: RpsBattleControlZone | null;
   blackHole: RpsBattleBlackHoleState | null;
+  lastStand: RpsBattleLastStandState | null;
+  powerUps: RpsBattlePowerUpState | null;
   elapsedSec: number;
   timeLeftSec: number;
   conversions: number;
@@ -124,6 +130,72 @@ export interface RpsBattleBlackHoleState {
   reach: number;
   nextAtSec: number;
   swallowed: number;
+}
+
+export interface RpsBattlePowerUp {
+  id: number;
+  kind: RpsBattlePowerUpKind;
+  x: number;
+  y: number;
+  radius: number;
+  expiresAtSec: number;
+}
+
+export interface RpsBattlePowerUpPickup {
+  collectorId: number;
+  faction: RpsBattleFaction;
+  kind: RpsBattlePowerUpKind;
+  x: number;
+  y: number;
+  isTeam: boolean;
+}
+
+export interface RpsBattlePowerUpPulse {
+  faction: RpsBattleFaction;
+  kind: RpsBattlePowerUpKind;
+  x: number;
+  y: number;
+  startedAtSec: number;
+  isTeam: boolean;
+}
+
+export interface RpsBattlePowerUpState {
+  items: RpsBattlePowerUp[];
+  pulses: RpsBattlePowerUpPulse[];
+  spawnedCount: number;
+  pickedCount: number;
+  teamEffectCount: number;
+}
+
+export interface RpsBattleReviveMark {
+  faction: RpsBattleFaction;
+  x: number;
+  y: number;
+  createdAtSec: number;
+  dueAtSec: number;
+}
+
+export interface RpsBattleLastStandPulse {
+  faction: RpsBattleFaction;
+  x: number;
+  y: number;
+  startedAtSec: number;
+  kind: RpsBattleLastStandEventKind;
+}
+
+export interface RpsBattleSpawnRequest {
+  faction: RpsBattleFaction;
+  x: number;
+  y: number;
+  speedScale: number;
+  eventKind: RpsBattleLastStandEventKind;
+}
+
+export interface RpsBattleLastStandState {
+  reviveMarks: RpsBattleReviveMark[];
+  pulses: RpsBattleLastStandPulse[];
+  splitCount: number;
+  reviveCount: number;
 }
 
 export interface RpsBattleResult {

@@ -23,6 +23,17 @@ const HOME_TAB_SYMBOL_SIZE: number = 23;
 const HOME_TAB_LABEL_HEIGHT: number = 16;
 const HOME_HEADER_ACTION_SIZE: number = 42;
 const HOME_HEADER_SYMBOL_SIZE: number = 22;
+const HOME_BANNER_IMAGE: string = 'app/home/banner.png';
+const HOME_HERO_BANNER_HEIGHT: number = 200;
+const HOME_HERO_BANNER_IMAGE_HEIGHT: number = 250;
+const HOME_HERO_BANNER_IMAGE_OFFSET_Y: number = -38;
+const HOME_GAME_CARD_HEIGHT: number = 108;
+const HOME_GAME_CARD_SLOT_HEIGHT: number = 122;
+const HOME_GAME_GRID_GAP: number = 10;
+const HOME_GAME_LOGO_TILE_SIZE: number = 62;
+const HOME_GAME_LOGO_IMAGE_SIZE: number = 56;
+const HOME_WIDE_GAME_LOGO_TILE_SIZE: number = 54;
+const HOME_WIDE_GAME_LOGO_IMAGE_SIZE: number = 48;
 
 @Component
 export struct HubPage {
@@ -34,6 +45,7 @@ export struct HubPage {
   updateAppearanceMode: (appearanceMode: string) => void = () => {};
   @State activeTab: number = 0;
   @State pressedTab: number = -1;
+  @State appearanceModeOverride: string = '';
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
@@ -151,53 +163,18 @@ export struct HubPage {
         this.openGame(this.heroGameId());
       }
     }) {
-      Stack() {
-        Row()
+      Stack({ alignContent: Alignment.TopStart }) {
+        Image($rawfile(HOME_BANNER_IMAGE))
           .width('100%')
-          .height('100%')
-          .backgroundColor(this.heroBannerBgColor())
-        Row() {
-          Image($r('app.media.app_icon'))
-            .width(128)
-            .height(118)
-            .objectFit(ImageFit.Contain)
-            .shadow(this.softShadow())
-          Column({ space: 7 }) {
-            Text('鸡窝游戏')
-              .fontSize(30)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.inkColor())
-            Text('没网也能玩一窝')
-              .fontSize(13)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.mutedColor())
-            Text('开始游戏 ▶')
-              .height(38)
-              .padding({ left: 18, right: 18 })
-              .borderRadius(19)
-              .fontSize(14)
-              .fontWeight(FontWeight.Bold)
-              .fontColor('#fffaf2')
-              .textAlign(TextAlign.Center)
-              .backgroundColor(this.activeColor())
-              .shadow({
-                radius: 18,
-                color: 'rgba(255,111,118,0.30)',
-                offsetX: 0,
-                offsetY: 8
-              })
-          }
-          .alignItems(HorizontalAlign.Center)
-          .layoutWeight(1)
-        }
-        .height('100%')
-        .width('100%')
-        .padding({ left: 10, right: 16 })
+          .height(HOME_HERO_BANNER_IMAGE_HEIGHT)
+          .objectFit(ImageFit.Cover)
+          .translate({ x: 0, y: HOME_HERO_BANNER_IMAGE_OFFSET_Y })
       }
       .width('100%')
-      .height(178)
+      .height(HOME_HERO_BANNER_HEIGHT)
       .borderRadius(28)
       .clip(true)
+      .backgroundColor(this.heroBannerBgColor())
       .border({ width: 1, color: this.lineColor() })
       .shadow(this.cardShadow())
     }
@@ -248,11 +225,12 @@ export struct HubPage {
         GridItem() {
           this.HomeGameCard(item)
         }
+        .padding({ top: 2, bottom: 10 })
       }, (item: GameModule) => item.id)
     }
     .columnsTemplate('1fr 1fr')
-    .rowsGap(10)
-    .columnsGap(10)
+    .rowsGap(HOME_GAME_GRID_GAP)
+    .columnsGap(HOME_GAME_GRID_GAP)
     .width('100%')
     .height(this.homeGridHeight())
   }
@@ -264,56 +242,77 @@ export struct HubPage {
         this.openGame(module.id);
       }
     }) {
-      Row({ space: 10 }) {
-        Stack() {
-          Text(module.icon)
-            .fontSize(30)
-            .fontColor(module.accent)
-          Text(this.isFavorite(module.id) ? '★' : '☆')
-            .width(24)
-            .height(24)
-            .fontSize(15)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.isFavorite(module.id) ? CoopTheme.brand : this.favoriteInactiveColor())
-            .textAlign(TextAlign.Center)
-            .backgroundColor(this.favoriteBadgeBgColor())
-            .borderRadius(12)
-            .border({ width: 1, color: this.lineColor() })
-            .position({ x: 31, y: -7 })
-            .onClick(() => {
-              this.toggleFavorite(module.id);
-            })
-        }
-        .width(48)
-        .height(48)
-        .borderRadius(16)
-        .backgroundColor(this.gameIconBgColor())
-        .border({ width: 1, color: this.iconTileLineColor() })
+      Stack({ alignContent: Alignment.TopStart }) {
+        Row()
+          .width(42)
+          .height(4)
+          .borderRadius(2)
+          .backgroundColor(module.accent)
+          .opacity(this.isDarkMode() ? 0.72 : 0.58)
+          .position({ x: 14, y: 10 })
+        Row({ space: 12 }) {
+          this.GameLogoTile(module, HOME_GAME_LOGO_TILE_SIZE, HOME_GAME_LOGO_IMAGE_SIZE, true)
 
-        Column({ space: 5 }) {
-          Text(module.title)
-            .fontSize(15)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.inkColor())
-            .maxLines(2)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-          Text(this.homeTag(module.id))
-            .fontSize(10)
-            .fontWeight(FontWeight.Medium)
-            .fontColor(this.mutedColor())
-            .maxLines(1)
+          Column({ space: 6 }) {
+            Text(module.title)
+              .fontSize(15)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.inkColor())
+              .maxLines(2)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.homeTag(module.id))
+              .fontSize(10)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.mutedColor())
+              .maxLines(1)
+          }
+          .alignItems(HorizontalAlign.Start)
+          .layoutWeight(1)
         }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
+        .width('100%')
+        .height('100%')
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
-      .height(96)
-      .padding(12)
+      .height(HOME_GAME_CARD_HEIGHT)
+      .padding({ left: 12, right: 12, top: 16, bottom: 12 })
       .borderRadius(20)
-      .backgroundColor(this.panelColor())
-      .border({ width: 1, color: this.lineColor() })
+      .backgroundColor(this.gameCardBgColor())
+      .border({ width: 1, color: this.gameCardLineColor() })
       .shadow(this.cardShadow())
     }
+  }
+
+  @Builder
+  GameLogoTile(module: GameModule, tileSize: number, imageSize: number, showFavorite: boolean) {
+    Stack({ alignContent: Alignment.Center }) {
+      Image($rawfile(this.gameLogoPath(module.id)))
+        .width(imageSize)
+        .height(imageSize)
+        .objectFit(ImageFit.Contain)
+        .shadow(this.logoShadow())
+      if (showFavorite) {
+        Text(this.isFavorite(module.id) ? '★' : '☆')
+          .width(24)
+          .height(24)
+          .fontSize(15)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.isFavorite(module.id) ? CoopTheme.brand : this.favoriteInactiveColor())
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.favoriteBadgeBgColor())
+          .borderRadius(12)
+          .border({ width: 1, color: this.lineColor() })
+          .position({ x: tileSize - 18, y: -7 })
+          .onClick(() => {
+            this.toggleFavorite(module.id);
+          })
+      }
+    }
+    .width(tileSize)
+    .height(tileSize)
+    .borderRadius(18)
+    .backgroundColor(this.gameIconBgColor())
+    .border({ width: 1, color: this.iconTileLineColor() })
   }
 
   @Builder
@@ -424,10 +423,10 @@ export struct HubPage {
   FavoriteList() {
     Column({ space: 10 }) {
       this.SectionTitleRow('收藏', '♡', false)
-      if (this.snapshot.favorites.length === 0) {
+      if (this.visibleFavoriteIds().length === 0) {
         this.EmptyPanel('在游戏卡片右上角点星标收藏。')
       } else {
-        ForEach(this.snapshot.favorites, (gameId: string) => {
+        ForEach(this.visibleFavoriteIds(), (gameId: string) => {
           this.WideGameRow(moduleById(gameId))
         }, (gameId: string) => gameId)
       }
@@ -443,14 +442,7 @@ export struct HubPage {
       }
     }) {
       Row({ space: 12 }) {
-        Text(module.icon)
-          .width(48)
-          .height(48)
-          .fontSize(28)
-          .fontColor(module.accent)
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.gameIconBgColor())
-          .borderRadius(16)
+        this.GameLogoTile(module, HOME_WIDE_GAME_LOGO_TILE_SIZE, HOME_WIDE_GAME_LOGO_IMAGE_SIZE, false)
         Column({ space: 3 }) {
           Text(module.title)
             .fontSize(15)
@@ -474,9 +466,9 @@ export struct HubPage {
       .width('100%')
       .padding(12)
       .borderRadius(20)
-      .backgroundColor(this.panelColor())
-      .border({ width: 1, color: this.lineColor() })
-      .shadow(this.softShadow())
+      .backgroundColor(this.gameCardBgColor())
+      .border({ width: 1, color: this.gameCardLineColor() })
+      .shadow(this.cardShadow())
     }
   }
 
@@ -605,14 +597,14 @@ export struct HubPage {
 
   private homeGridHeight(): number {
     const rows = Math.ceil(this.homeModules().length / 2);
-    return rows * 96 + Math.max(0, rows - 1) * 10;
+    return rows * HOME_GAME_CARD_SLOT_HEIGHT + Math.max(0, rows - 1) * HOME_GAME_GRID_GAP;
   }
 
   private heroGameId(): string {
-    if (this.snapshot.recent.length > 0) {
-      const id = this.snapshot.recent[0];
+    for (let index = 0; index < this.snapshot.recent.length; index += 1) {
+      const id = this.snapshot.recent[index];
       const found = GAME_MODULES.find((item: GameModule) => item.id === id);
-      if (found !== undefined) {
+      if (found !== undefined && this.isVisibleGameId(id)) {
         return id;
       }
     }
@@ -620,13 +612,22 @@ export struct HubPage {
   }
 
   private homeTag(gameId: string): string {
-    if (gameId === 'rpsBattle') return '新版乱斗';
+    if (gameId === 'rpsBattle') return '鸡窝乱斗';
     if (gameId === 'suika') return '鸡窝瓜摊';
     if (gameId === 'chicken2048') return '数字叠叠乐';
     if (gameId === 'minesweeper') return '小心鸡雷';
     if (gameId === 'tetris') return '方块下蛋';
     if (gameId === 'freecell') return '纸牌归位';
     return '鸡窝乱斗';
+  }
+
+  private gameLogoPath(gameId: string): string {
+    if (gameId === 'suika') return 'app/game_logos/game_icon_suika.png';
+    if (gameId === 'minesweeper') return 'app/game_logos/game_icon_minesweeper.png';
+    if (gameId === 'tetris') return 'app/game_logos/game_icon_tetris.png';
+    if (gameId === 'chicken2048') return 'app/game_logos/game_icon_chicken2048.png';
+    if (gameId === 'freecell') return 'app/game_logos/game_icon_freecell.png';
+    return 'app/game_logos/game_icon_rps.png';
   }
 
   private greetingTitle(): string {
@@ -642,12 +643,22 @@ export struct HubPage {
     return this.snapshot.favorites.includes(gameId);
   }
 
+  private isVisibleGameId(gameId: string): boolean {
+    return HOME_GAME_ORDER.includes(gameId);
+  }
+
+  private visibleFavoriteIds(): string[] {
+    return this.snapshot.favorites.filter((gameId: string) => this.isVisibleGameId(gameId));
+  }
+
   private isDarkMode(): boolean {
-    return this.snapshot.appearanceMode === APPEARANCE_DARK;
+    const appearanceMode = this.appearanceModeOverride.length > 0 ? this.appearanceModeOverride : this.snapshot.appearanceMode;
+    return appearanceMode === APPEARANCE_DARK;
   }
 
   private toggleAppearanceMode(): void {
     const nextMode = this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK;
+    this.appearanceModeOverride = nextMode;
     this.getUIContext().animateTo({
       duration: CoopMotion.modalDuration,
       curve: Curve.EaseOut
@@ -716,12 +727,20 @@ export struct HubPage {
     return this.isDarkMode() ? 'rgba(201,181,156,0.62)' : 'rgba(123,108,98,0.58)';
   }
 
+  private gameCardBgColor(): string {
+    return this.isDarkMode() ? '#25221e' : '#fffdf8';
+  }
+
+  private gameCardLineColor(): string {
+    return this.isDarkMode() ? 'rgba(255,231,196,0.18)' : 'rgba(126,78,35,0.16)';
+  }
+
   private gameIconBgColor(): string {
-    return this.isDarkMode() ? '#2d261f' : '#fff0d2';
+    return this.isDarkMode() ? '#332c25' : '#fff3d9';
   }
 
   private iconTileLineColor(): string {
-    return this.isDarkMode() ? 'rgba(255,236,205,0.14)' : 'rgba(111,73,39,0.12)';
+    return this.isDarkMode() ? 'rgba(255,236,205,0.20)' : 'rgba(111,73,39,0.16)';
   }
 
   private tabBarBgColor(): string {
@@ -743,29 +762,51 @@ export struct HubPage {
   private softShadow(): ShadowOptions {
     if (this.isDarkMode()) {
       return {
-        radius: 22,
-        color: 'rgba(0,0,0,0.34)',
+        radius: 26,
+        color: 'rgba(0,0,0,0.42)',
         offsetX: 0,
-        offsetY: 10
+        offsetY: 12
       };
     }
-    return CoopTheme.shadow;
+    return {
+      radius: 26,
+      color: 'rgba(112,73,34,0.18)',
+      offsetX: 0,
+      offsetY: 12
+    };
   }
 
   private cardShadow(): ShadowOptions {
     if (this.isDarkMode()) {
       return {
-        radius: 18,
-        color: 'rgba(0,0,0,0.30)',
+        radius: 30,
+        color: 'rgba(0,0,0,0.48)',
         offsetX: 0,
-        offsetY: 8
+        offsetY: 16
       };
     }
     return {
-      radius: 20,
-      color: 'rgba(111,74,34,0.12)',
+      radius: 30,
+      color: 'rgba(112,69,28,0.22)',
       offsetX: 0,
-      offsetY: 8
+      offsetY: 16
+    };
+  }
+
+  private logoShadow(): ShadowOptions {
+    if (this.isDarkMode()) {
+      return {
+        radius: 12,
+        color: 'rgba(0,0,0,0.34)',
+        offsetX: 0,
+        offsetY: 5
+      };
+    }
+    return {
+      radius: 12,
+      color: 'rgba(96,57,24,0.14)',
+      offsetX: 0,
+      offsetY: 5
     };
   }
 
@@ -810,7 +851,9 @@ export struct HubPage {
   private totalPlayCount(): number {
     let total = 0;
     this.snapshot.records.forEach((item: GameRecord) => {
-      total += item.playCount;
+      if (this.isVisibleGameId(item.gameId)) {
+        total += item.playCount;
+      }
     });
     return total;
   }
@@ -818,7 +861,7 @@ export struct HubPage {
   private playedGameCount(): number {
     let total = 0;
     this.snapshot.records.forEach((item: GameRecord) => {
-      if (item.playCount > 0) {
+      if (this.isVisibleGameId(item.gameId) && item.playCount > 0) {
         total += 1;
       }
     });
@@ -829,7 +872,7 @@ export struct HubPage {
     let count = 0;
     if (this.totalPlayCount() >= 1) count += 1;
     if (this.playedGameCount() >= 6) count += 1;
-    if (this.snapshot.favorites.length >= 3) count += 1;
+    if (this.visibleFavoriteIds().length >= 3) count += 1;
     if (this.recordFor('freecell').highScore >= 520) count += 1;
     if (this.recordFor('chicken2048').highScore >= 2048) count += 1;
     if (this.recordFor('tetris').highScore >= 1000) count += 1;
@@ -844,7 +887,7 @@ export struct HubPage {
   private playStreak(): number {
     const days: number[] = [];
     this.snapshot.records.forEach((item: GameRecord) => {
-      if (item.lastPlayedAt > 0) {
+      if (this.isVisibleGameId(item.gameId) && item.lastPlayedAt > 0) {
         const day = Math.floor(item.lastPlayedAt / 86400000);
         if (!days.includes(day)) {
           days.push(day);

@@ -307,7 +307,7 @@ export struct RpsBattlePage {
         .border({ width: 2, color: RpsBattleTheme.arenaLine })
         .shadow({
           radius: 12,
-          color: 'rgba(86,55,35,0.12)',
+          color: RpsBattleTheme.boardShadowColor,
           offsetX: 0,
           offsetY: 5
         })
@@ -506,6 +506,8 @@ export struct RpsBattlePage {
         this.engine.lastStepResultMs(),
         this.engine.lastStepZoneMs(),
         this.engine.lastStepBlackHoleMs(),
+        this.engine.lastStepLastStandMs(),
+        this.engine.lastStepPowerUpMs(),
         audioMs,
         hudMs,
         sfxCalls,
@@ -513,6 +515,11 @@ export struct RpsBattlePage {
         this.engine.lastStepCollisionCheckCount(),
         this.engine.lastStepZoneInsideCount(),
         this.engine.lastStepBlackHoleKillCount(),
+        this.engine.lastStepLastStandEventCount(),
+        this.engine.lastStepLastStandReviveCount(),
+        this.engine.lastStepPowerUpPickupCount(),
+        this.engine.lastStepPowerUpTeamEffectCount(),
+        this.engine.lastStepPowerUpActiveCount(),
         this.engine.entityCount(),
         currentConversions - previousConversions,
         currentConversions
@@ -533,6 +540,8 @@ export struct RpsBattlePage {
       this.engine.lastStepResultMs(),
       this.engine.lastStepZoneMs(),
       this.engine.lastStepBlackHoleMs(),
+      this.engine.lastStepLastStandMs(),
+      this.engine.lastStepPowerUpMs(),
       audioMs,
       hudMs,
       sfxCalls,
@@ -540,6 +549,11 @@ export struct RpsBattlePage {
       this.engine.lastStepCollisionCheckCount(),
       this.engine.lastStepZoneInsideCount(),
       this.engine.lastStepBlackHoleKillCount(),
+      this.engine.lastStepLastStandEventCount(),
+      this.engine.lastStepLastStandReviveCount(),
+      this.engine.lastStepPowerUpPickupCount(),
+      this.engine.lastStepPowerUpTeamEffectCount(),
+      this.engine.lastStepPowerUpActiveCount(),
       this.engine.entityCount(),
       currentConversions - previousConversions,
       currentConversions
@@ -667,7 +681,7 @@ export struct RpsBattlePage {
   private drawFrame(): void {
     if (this.engine === null) {
       this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec,
-        this.selectedThemeKey, null);
+        this.selectedThemeKey, null, null, null, null);
       return;
     }
     this.renderer.draw(
@@ -678,7 +692,9 @@ export struct RpsBattlePage {
       this.runtimeElapsedSec,
       this.selectedThemeKey,
       this.engine.controlZoneForRender(),
-      this.engine.blackHoleForRender()
+      this.engine.blackHoleForRender(),
+      this.engine.powerUpsForRender(),
+      this.engine.lastStandForRender()
     );
   }
 

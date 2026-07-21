@@ -94,18 +94,18 @@ export struct RpsBattleModeSetupCard {
         .fontSize(20)
         .height(24)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.modeOptionSelected(item) ? RpsBattleTheme.primaryButtonText : RpsBattleTheme.pageInk)
+        .fontColor(this.modeOptionSelected(item) ? this.modeAccentColor(item.key) : RpsBattleTheme.pageInk)
         .textAlign(TextAlign.Center)
         .maxLines(1)
       Text(item.name)
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.modeOptionSelected(item) ? RpsBattleTheme.primaryButtonText : RpsBattleTheme.pageInk)
+        .fontColor(RpsBattleTheme.pageInk)
         .textAlign(TextAlign.Center)
         .maxLines(1)
       Text(item.subtitle)
         .fontSize(10)
-        .fontColor(this.modeOptionSelected(item) ? 'rgba(255,255,255,0.76)' : RpsBattleTheme.muted)
+        .fontColor(RpsBattleTheme.muted)
         .textAlign(TextAlign.Center)
         .maxLines(1)
     }
@@ -113,10 +113,10 @@ export struct RpsBattleModeSetupCard {
     .width('100%')
     .height(72)
     .borderRadius(8)
-    .backgroundColor(this.modeOptionSelected(item) ? RpsBattleTheme.primaryButtonBg : '#fff8e8')
+    .backgroundColor(this.modeOptionSelected(item) ? this.modeSelectedBg(item.key) : RpsBattleTheme.optionBg)
     .border({
       width: this.modeOptionSelected(item) ? 2 : 1,
-      color: this.modeOptionSelected(item) ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.panelLine
+      color: this.modeOptionSelected(item) ? this.modeAccentColor(item.key) : RpsBattleTheme.panelLine
     })
     .onClick(() => {
       this.selectMode(item.key);
@@ -212,7 +212,7 @@ export struct RpsBattleModeSetupCard {
     .justifyContent(FlexAlign.Center)
     .alignItems(VerticalAlign.Center)
     .borderRadius(8)
-    .backgroundColor(this.mechanicEnabled(item) ? RpsBattleTheme.primaryButtonBg : '#fff8e8')
+    .backgroundColor(this.mechanicEnabled(item) ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.optionBg)
     .border({ width: 1, color: this.mechanicEnabled(item) ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.panelLine })
     .onClick(() => {
       this.toggleMechanic(item.key);
@@ -303,7 +303,7 @@ export struct RpsBattleModeSetupCard {
 
   private mechanicMarkBg(item: RpsBattleMechanicOption): string {
     if (item.state === 'upcoming' || !this.mechanicEnabled(item)) {
-      return '#fff8e8';
+      return RpsBattleTheme.optionBg;
     }
     return RpsBattleTheme.primaryButtonBg;
   }
@@ -334,9 +334,9 @@ export struct RpsBattleModeSetupCard {
 
   private mechanicStateBg(state: RpsBattleMechanicState): string {
     if (state === 'upcoming') {
-      return '#fff8e8';
+      return RpsBattleTheme.optionBg;
     }
-    return '#fff4d9';
+    return RpsBattleTheme.selectedBg;
   }
 
   private mechanicCanToggle(item: RpsBattleMechanicOption): boolean {
@@ -345,5 +345,31 @@ export struct RpsBattleModeSetupCard {
 
   private mechanicEnabled(item: RpsBattleMechanicOption): boolean {
     return rpsBattleMechanicEnabledForMode(this.selectedModeKey, this.mechanicSelection, item.key);
+  }
+
+  private modeAccentColor(modeKey: RpsBattleModeKey): string {
+    if (modeKey === 'zones') {
+      return '#256f9c';
+    }
+    if (modeKey === 'traitor') {
+      return RpsBattleTheme.dangerButtonBg;
+    }
+    if (modeKey === 'equality') {
+      return '#7c3aed';
+    }
+    return RpsBattleTheme.primaryButtonBg;
+  }
+
+  private modeSelectedBg(modeKey: RpsBattleModeKey): string {
+    if (modeKey === 'zones') {
+      return 'rgba(37,111,156,0.10)';
+    }
+    if (modeKey === 'traitor') {
+      return 'rgba(180,83,63,0.10)';
+    }
+    if (modeKey === 'equality') {
+      return 'rgba(124,58,237,0.10)';
+    }
+    return RpsBattleTheme.selectedBg;
   }
 }

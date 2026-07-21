@@ -18,6 +18,8 @@ export class RpsBattlePerformanceLogger {
   private resultMs: number = 0;
   private zoneMs: number = 0;
   private blackHoleMs: number = 0;
+  private lastStandMs: number = 0;
+  private powerUpMs: number = 0;
   private audioMs: number = 0;
   private hudMs: number = 0;
   private sfxCallCount: number = 0;
@@ -25,6 +27,11 @@ export class RpsBattlePerformanceLogger {
   private collisionCheckCount: number = 0;
   private zoneInsideCount: number = 0;
   private blackHoleKillCount: number = 0;
+  private lastStandEventCount: number = 0;
+  private lastStandReviveCount: number = 0;
+  private powerUpPickupCount: number = 0;
+  private powerUpTeamEffectCount: number = 0;
+  private powerUpActiveCount: number = 0;
   private conversionCount: number = 0;
 
   constructor(targetFps: number, enabled: boolean) {
@@ -34,9 +41,12 @@ export class RpsBattlePerformanceLogger {
 
   collect(scale: RpsBattleScale, lineup: RpsBattleFactionCounts, frameIntervalMs: number, updateMs: number,
     drawMs: number, movementMs: number, targetSearchMs: number, collisionMs: number, conversionMs: number,
-    resultMs: number, zoneMs: number, blackHoleMs: number, audioMs: number, hudMs: number, sfxCalls: number,
+    resultMs: number, zoneMs: number, blackHoleMs: number, lastStandMs: number, powerUpMs: number,
+    audioMs: number, hudMs: number, sfxCalls: number,
     targetScanCount: number, collisionCheckCount: number, zoneInsideCount: number, blackHoleKillCount: number,
-    entityCount: number, conversionDelta: number, totalConversions: number): void {
+    lastStandEventCount: number, lastStandReviveCount: number, powerUpPickupCount: number,
+    powerUpTeamEffectCount: number, powerUpActiveCount: number, entityCount: number, conversionDelta: number,
+    totalConversions: number): void {
     if (!this.enabled) {
       return;
     }
@@ -56,6 +66,8 @@ export class RpsBattlePerformanceLogger {
     this.resultMs += resultMs;
     this.zoneMs += zoneMs;
     this.blackHoleMs += blackHoleMs;
+    this.lastStandMs += lastStandMs;
+    this.powerUpMs += powerUpMs;
     this.audioMs += audioMs;
     this.hudMs += hudMs;
     this.sfxCallCount += sfxCalls;
@@ -63,6 +75,11 @@ export class RpsBattlePerformanceLogger {
     this.collisionCheckCount += collisionCheckCount;
     this.zoneInsideCount += zoneInsideCount;
     this.blackHoleKillCount += blackHoleKillCount;
+    this.lastStandEventCount += lastStandEventCount;
+    this.lastStandReviveCount += lastStandReviveCount;
+    this.powerUpPickupCount += powerUpPickupCount;
+    this.powerUpTeamEffectCount += powerUpTeamEffectCount;
+    this.powerUpActiveCount += powerUpActiveCount;
     this.conversionCount += conversionDelta;
     const elapsed = now - this.windowStartedAt;
     if (elapsed < RPS_BATTLE_PERF_LOG_INTERVAL_MS) {
@@ -86,6 +103,8 @@ export class RpsBattlePerformanceLogger {
         `resultMs=${(this.resultMs / frames).toFixed(2)}ms ` +
         `zoneMs=${(this.zoneMs / frames).toFixed(2)}ms ` +
         `blackHoleMs=${(this.blackHoleMs / frames).toFixed(2)}ms ` +
+        `lastStandMs=${(this.lastStandMs / frames).toFixed(2)}ms ` +
+        `powerUpMs=${(this.powerUpMs / frames).toFixed(2)}ms ` +
         `audio=${(this.audioMs / frames).toFixed(2)}ms ` +
         `hud=${(this.hudMs / frames).toFixed(2)}ms ` +
         `sfx/frame=${(this.sfxCallCount / frames).toFixed(2)} ` +
@@ -93,6 +112,11 @@ export class RpsBattlePerformanceLogger {
         `collision/frame=${(this.collisionCheckCount / frames).toFixed(0)} ` +
         `zoneInside/frame=${(this.zoneInsideCount / frames).toFixed(0)} ` +
         `blackHoleKills/frame=${(this.blackHoleKillCount / frames).toFixed(2)} ` +
+        `lastStandEvents/frame=${(this.lastStandEventCount / frames).toFixed(2)} ` +
+        `lastStandRevives/frame=${(this.lastStandReviveCount / frames).toFixed(2)} ` +
+        `powerUpsActive=${(this.powerUpActiveCount / frames).toFixed(2)} ` +
+        `powerUpsPicked/frame=${(this.powerUpPickupCount / frames).toFixed(2)} ` +
+        `teamPowerUps/frame=${(this.powerUpTeamEffectCount / frames).toFixed(2)} ` +
         `conversions/frame=${(this.conversionCount / frames).toFixed(2)} ` +
         `totalConversions=${totalConversions}`
     );
@@ -113,6 +137,8 @@ export class RpsBattlePerformanceLogger {
     this.resultMs = 0;
     this.zoneMs = 0;
     this.blackHoleMs = 0;
+    this.lastStandMs = 0;
+    this.powerUpMs = 0;
     this.audioMs = 0;
     this.hudMs = 0;
     this.sfxCallCount = 0;
@@ -120,6 +146,11 @@ export class RpsBattlePerformanceLogger {
     this.collisionCheckCount = 0;
     this.zoneInsideCount = 0;
     this.blackHoleKillCount = 0;
+    this.lastStandEventCount = 0;
+    this.lastStandReviveCount = 0;
+    this.powerUpPickupCount = 0;
+    this.powerUpTeamEffectCount = 0;
+    this.powerUpActiveCount = 0;
     this.conversionCount = 0;
   }
 }

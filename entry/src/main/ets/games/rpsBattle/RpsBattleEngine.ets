@@ -1,12 +1,18 @@
 import {
+  RPS_BATTLE_MAX_TOTAL_ENTITIES,
   RpsBattleBlackHoleState,
   RpsBattleControlZone,
   RpsBattleEntity,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleLastStandState,
   RpsBattleModeRules,
   RpsBattleOptions,
+  RpsBattlePowerUpKind,
+  RpsBattlePowerUpPickup,
+  RpsBattlePowerUpState,
   RpsBattleResult,
+  RpsBattleSpawnRequest,
   RpsBattleSnapshot
 } from './RpsBattleTypes';
 import { rpsBattleResolveModeRulesByKey } from './RpsBattleModeConfig';
@@ -20,6 +26,8 @@ import {
   rpsBattlePreyOf
 } from './RpsBattleRules';
 import { RpsBattleBlackHoleSystem } from './RpsBattleBlackHoleSystem';
+import { RpsBattleLastStandSystem } from './RpsBattleLastStandSystem';
+import { RpsBattlePowerUpSystem } from './RpsBattlePowerUpSystem';
 import { RpsBattleZoneSystem } from './RpsBattleZoneSystem';
 
 const ENTITY_RADIUS: number = 14;
@@ -31,6 +39,24 @@ const ENTITY_FLEE_DISTANCE: number = 92;
 const ENTITY_FLEE_DISTANCE_SQ: number = ENTITY_FLEE_DISTANCE * ENTITY_FLEE_DISTANCE;
 const ENTITY_EDGE_PADDING: number = 18;
 const COLLISION_GRID_CELL_SIZE: number = ENTITY_RADIUS * 3;
+const ENTITY_SPEED_BOOST_DURATION_SEC: number = 6;
+const ENTITY_SPEED_BOOST_NUDGE: number = 1.22;
+const ENTITY_SPEED_BOOST_LIMIT_MULTIPLIER: number = 1.25;
+const ENTITY_SPLIT_OFFSET: number = 18;
+const ENTITY_SPLIT_RADIUS_SCALE: number = 0.86;
+const RPS_BATTLE_TEAM_SPLIT_MAX_PER_PICKUP: number = 8;
+const RPS_BATTLE_REINFORCEMENT_RESERVE: number = 3;
+const RPS_BATTLE_REVIVE_BLACK_HOLE_SAFE_PADDING: number = ENTITY_RADIUS * 2.5;
+const RPS_BATTLE_ZONE_CONTESTER_ACCEL: number = 58;
+const RPS_BATTLE_ZONE_GUARD_ACCEL: number = 42;
+const RPS_BATTLE_ZONE_SUPPORT_ACCEL: number = 24;
+const RPS_BATTLE_ZONE_PREDATOR_PRESSURE_SCALE: number = 0.32;
+const RPS_BATTLE_ZONE_INSIDE_OWNER_SCALE: number = 0.35;
+
+interface RpsBattleSpawnPoint {
+  x: number;
+  y: number;
+}
 
 export class RpsBattleEngine {
   private boardWidth: number;
@@ -41,6 +67,8 @@ export class RpsBattleEngine {
   private entities: RpsBattleEntity[] = [];
   private zoneSystem: RpsBattleZoneSystem = new RpsBattleZoneSystem();
   private blackHoleSystem: RpsBattleBlackHoleSystem = new RpsBattleBlackHoleSystem();
+  private lastStandSystem: RpsBattleLastStandSystem = new RpsBattleLastStandSystem();
+  private powerUpSystem: RpsBattlePowerUpSystem = new RpsBattlePowerUpSystem();
   private rockEntities: RpsBattleEntity[] = [];
   private scissorsEntities: RpsBattleEntity[] = [];
   private paperEntities: RpsBattleEntity[] = [];
@@ -63,6 +91,13 @@ export class RpsBattleEngine {
   private lastZoneInsideCount: number = 0;
   private lastBlackHoleMs: number = 0;
   private lastBlackHoleKillCount: number = 0;
+  private lastLastStandMs: number = 0;
+  private lastLastStandEventCount: number = 0;
+  private lastLastStandReviveCount: number = 0;
+  private lastPowerUpMs: number = 0;
+  private lastPowerUpPickupCount: number = 0;
+  private lastPowerUpTeamEffectCount: number = 0;
+  private lastPowerUpActiveCount: number = 0;
 
   constructor(boardWidth: number, boardHeight: number, options: RpsBattleOptions,
     random: () => number = () => Math.random()) {
@@ -93,9 +128,19 @@ export class RpsBattleEngine {
     } else {
       this.blackHoleSystem.clear();
     }
+    if (this.modeRules.hasPowerUps) {
+      this.powerUpSystem.reset(0);
+    } else {
+      this.powerUpSystem.clear();
+    }
     this.spawnFaction('rock', this.options.initialCounts.rock, this.boardWidth * 0.24, this.boardHeight * 0.28);
     this.spawnFaction('scissors', this.options.initialCounts.scissors, this.boardWidth * 0.76, this.boardHeight * 0.30);
     this.spawnFaction('paper', this.options.initialCounts.paper, this.boardWidth * 0.50, this.boardHeight * 0.74);
+    if (this.modeRules.hasLastStand) {
+      this.lastStandSystem.reset(this.entities, this.copyCounts(), this.boardWidth, this.boardHeight);
+    } else {
+      this.lastStandSystem.clear();
+    }
   }
 
   resize(boardWidth: number, boardHeight: number): void {
@@ -116,6 +161,12 @@ export class RpsBattleEngine {
     if (this.modeRules.hasBlackHole) {
       this.blackHoleSystem.resize(this.boardWidth, this.boardHeight);
     }
+    if (this.modeRules.hasLastStand) {
+      this.lastStandSystem.resize(ratioX, ratioY, this.boardWidth, this.boardHeight);
+    }
+    if (this.modeRules.hasPowerUps) {
+      this.powerUpSystem.resize(ratioX, ratioY, this.boardWidth, this.boardHeight);
+    }
   }
 
   update(dtSec: number, elapsedSec: number): RpsBattleResult {
@@ -130,10 +181,31 @@ export class RpsBattleEngine {
     this.lastZoneInsideCount = 0;
     this.lastBlackHoleMs = 0;
     this.lastBlackHoleKillCount = 0;
+    this.lastLastStandMs = 0;
+    this.lastLastStandEventCount = 0;
+    this.lastLastStandReviveCount = 0;
+    this.lastPowerUpMs = 0;
+    this.lastPowerUpPickupCount = 0;
+    this.lastPowerUpTeamEffectCount = 0;
+    this.lastPowerUpActiveCount = 0;
     const dt = this.clamp(dtSec, 0, 0.05);
+    if (this.modeRules.hasPowerUps) {
+      const powerUpStartedAt = Date.now();
+      this.powerUpSystem.updateSpawnAndExpire(true, elapsedSec, this.boardWidth, this.boardHeight, this.random);
+      this.lastPowerUpMs += Date.now() - powerUpStartedAt;
+    }
     const movementStartedAt = Date.now();
     this.applyMovement(dt, elapsedSec);
     this.lastMovementMs = Date.now() - movementStartedAt;
+    if (this.modeRules.hasPowerUps) {
+      const powerUpStartedAt = Date.now();
+      const pickups = this.powerUpSystem.collect(this.entities, elapsedSec, this.modeRules.hasTeamPowerUps);
+      this.applyPowerUpPickups(pickups, elapsedSec);
+      this.lastPowerUpPickupCount = this.powerUpSystem.lastFramePickedCount();
+      this.lastPowerUpTeamEffectCount = this.powerUpSystem.lastFrameTeamEffectCount();
+      this.lastPowerUpActiveCount = this.powerUpSystem.activeCount();
+      this.lastPowerUpMs += Date.now() - powerUpStartedAt;
+    }
     if (this.modeRules.hasBlackHole) {
       const blackHoleStartedAt = Date.now();
       const zone = this.zoneSystem.currentZone();
@@ -150,6 +222,16 @@ export class RpsBattleEngine {
       const zoneStartedAt = Date.now();
       this.lastZoneInsideCount = this.zoneSystem.update(this.entities, dt);
       this.lastZoneMs = Date.now() - zoneStartedAt;
+    }
+    if (this.modeRules.hasLastStand) {
+      const lastStandStartedAt = Date.now();
+      const spawnRequests = this.lastStandSystem.update(this.entities, this.copyCounts(), elapsedSec, this.boardWidth,
+        this.boardHeight, this.random);
+      this.applyLastStandSpawnRequests(spawnRequests, elapsedSec);
+      this.lastStandSystem.completeFrame(this.entities, this.copyCounts());
+      this.lastLastStandEventCount = this.lastStandSystem.lastFrameEventCount();
+      this.lastLastStandReviveCount = this.lastStandSystem.lastFrameReviveCount();
+      this.lastLastStandMs = Date.now() - lastStandStartedAt;
     }
     const resultStartedAt = Date.now();
     const result = this.resultAt(elapsedSec);
@@ -213,6 +295,34 @@ export class RpsBattleEngine {
     return this.lastBlackHoleKillCount;
   }
 
+  lastStepLastStandMs(): number {
+    return this.lastLastStandMs;
+  }
+
+  lastStepLastStandEventCount(): number {
+    return this.lastLastStandEventCount;
+  }
+
+  lastStepLastStandReviveCount(): number {
+    return this.lastLastStandReviveCount;
+  }
+
+  lastStepPowerUpMs(): number {
+    return this.lastPowerUpMs;
+  }
+
+  lastStepPowerUpPickupCount(): number {
+    return this.lastPowerUpPickupCount;
+  }
+
+  lastStepPowerUpTeamEffectCount(): number {
+    return this.lastPowerUpTeamEffectCount;
+  }
+
+  lastStepPowerUpActiveCount(): number {
+    return this.lastPowerUpActiveCount;
+  }
+
   counts(): RpsBattleFactionCounts {
     return this.copyCounts();
   }
@@ -233,6 +343,22 @@ export class RpsBattleEngine {
     return this.blackHoleSystem.snapshot();
   }
 
+  lastStandForRender(): RpsBattleLastStandState | null {
+    return this.lastStandSystem.snapshot();
+  }
+
+  lastStandSnapshot(): RpsBattleLastStandState | null {
+    return this.lastStandSystem.snapshot();
+  }
+
+  powerUpsForRender(): RpsBattlePowerUpState | null {
+    return this.powerUpSystem.snapshot();
+  }
+
+  powerUpsSnapshot(): RpsBattlePowerUpState | null {
+    return this.powerUpSystem.snapshot();
+  }
+
   timeLeftSec(elapsedSec: number): number {
     return Math.max(0, this.options.durationSec - elapsedSec);
   }
@@ -241,15 +367,15 @@ export class RpsBattleEngine {
     const counts = this.copyCounts();
     let result: RpsBattleResult = rpsBattleInitialResult(this.options.supportFaction);
     const aliveCount = (counts.rock > 0 ? 1 : 0) + (counts.scissors > 0 ? 1 : 0) + (counts.paper > 0 ? 1 : 0);
-    if (aliveCount <= 1) {
-      result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'clear');
-    } else if (this.modeRules.hasControlZone) {
+    if (this.modeRules.hasControlZone) {
       const zoneWinner = this.zoneSystem.finishWinner();
       if (zoneWinner !== '') {
         result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'zone', zoneWinner);
       } else if (elapsedSec >= this.options.durationSec) {
         result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
       }
+    } else if (aliveCount <= 1 && !this.waitingForLastStandRevive()) {
+      result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'clear');
     } else if (elapsedSec >= this.options.durationSec) {
       result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
     }
@@ -263,6 +389,8 @@ export class RpsBattleEngine {
       counts: counts,
       controlZone: this.zoneSystem.snapshot(),
       blackHole: this.blackHoleSystem.snapshot(),
+      lastStand: this.lastStandSystem.snapshot(),
+      powerUps: this.powerUpSystem.snapshot(),
       elapsedSec: Math.min(this.options.durationSec, elapsedSec),
       timeLeftSec: Math.max(0, this.options.durationSec - elapsedSec),
       conversions: this.conversions,
@@ -275,25 +403,41 @@ export class RpsBattleEngine {
     for (let i = 0; i < count; i += 1) {
       const angle = this.random() * Math.PI * 2;
       const distance = spread * (0.25 + this.random() * 0.75);
-      const speedAngle = this.random() * Math.PI * 2;
-      const speed = 28 + this.random() * 26;
-      const entity: RpsBattleEntity = {
-        id: this.nextId,
-        faction: faction,
-        x: this.clamp(centerX + Math.cos(angle) * distance, ENTITY_EDGE_PADDING, this.boardWidth - ENTITY_EDGE_PADDING),
-        y: this.clamp(centerY + Math.sin(angle) * distance, ENTITY_EDGE_PADDING, this.boardHeight - ENTITY_EDGE_PADDING),
-        vx: Math.cos(speedAngle) * speed,
-        vy: Math.sin(speedAngle) * speed,
-        radius: ENTITY_RADIUS,
-        convertedAt: 0
-      };
-      this.entities.push(entity);
-      this.addToFactionCache(entity);
-      this.nextId += 1;
+      this.spawnEntity(
+        faction,
+        centerX + Math.cos(angle) * distance,
+        centerY + Math.sin(angle) * distance,
+        1,
+        1,
+        0
+      );
     }
   }
 
+  private spawnEntity(faction: RpsBattleFaction, x: number, y: number, speedScale: number, radiusScale: number,
+    convertedAtSec: number): RpsBattleEntity {
+    const speedAngle = this.random() * Math.PI * 2;
+    const speed = (28 + this.random() * 26) * speedScale;
+    const entity: RpsBattleEntity = {
+      id: this.nextId,
+      faction: faction,
+      x: this.clamp(x, ENTITY_EDGE_PADDING, this.boardWidth - ENTITY_EDGE_PADDING),
+      y: this.clamp(y, ENTITY_EDGE_PADDING, this.boardHeight - ENTITY_EDGE_PADDING),
+      vx: Math.cos(speedAngle) * speed,
+      vy: Math.sin(speedAngle) * speed,
+      radius: ENTITY_RADIUS * radiusScale,
+      shield: 0,
+      speedBoostUntilSec: 0,
+      convertedAt: convertedAtSec
+    };
+    this.entities.push(entity);
+    this.addToFactionCache(entity);
+    this.nextId += 1;
+    return entity;
+  }
+
   private applyMovement(dt: number, elapsedSec: number): void {
+    const zone = this.modeRules.hasControlZone ? this.zoneSystem.currentZone() : null;
     for (let i = 0; i < this.entities.length; i += 1) {
       const entity = this.entities[i];
       let ax = 0;
@@ -334,12 +478,29 @@ export class RpsBattleEngine {
           }
         }
       }
+      if (zone !== null) {
+        const zoneAccel = this.zoneIntentAccel(entity, predator, zone);
+        if (zoneAccel > 0) {
+          const dx = zone.x - entity.x;
+          const dy = zone.y - entity.y;
+          const distanceSq = dx * dx + dy * dy;
+          if (distanceSq < 0.000001) {
+            const angle = entity.id * 1.37;
+            ax += Math.cos(angle) * zoneAccel;
+            ay += Math.sin(angle) * zoneAccel;
+          } else {
+            const inverseDistance = 1 / Math.sqrt(distanceSq);
+            ax += dx * inverseDistance * zoneAccel;
+            ay += dy * inverseDistance * zoneAccel;
+          }
+        }
+      }
       const wander = elapsedSec * 1.8 + entity.id * 0.73;
       ax += Math.cos(wander) * ENTITY_WANDER_ACCEL;
       ay += Math.sin(wander * 0.83) * ENTITY_WANDER_ACCEL;
       entity.vx += ax * dt;
       entity.vy += ay * dt;
-      this.clampVelocity(entity);
+      this.clampVelocity(entity, elapsedSec);
       entity.x += entity.vx * dt;
       entity.y += entity.vy * dt;
       this.resolveBounds(entity);
@@ -421,8 +582,8 @@ export class RpsBattleEngine {
     a.vy -= ny * push;
     b.vx += nx * push;
     b.vy += ny * push;
-    this.clampVelocity(a);
-    this.clampVelocity(b);
+    this.clampVelocity(a, elapsedSec);
+    this.clampVelocity(b, elapsedSec);
     this.resolveConversion(a, b, elapsedSec);
   }
 
@@ -431,8 +592,14 @@ export class RpsBattleEngine {
       return;
     }
     if (rpsBattleBeats(a.faction, b.faction)) {
+      if (this.consumeShield(b)) {
+        return;
+      }
       this.convertEntity(b, a.faction, elapsedSec);
     } else if (rpsBattleBeats(b.faction, a.faction)) {
+      if (this.consumeShield(a)) {
+        return;
+      }
       this.convertEntity(a, b.faction, elapsedSec);
     }
   }
@@ -449,7 +616,7 @@ export class RpsBattleEngine {
     entity.convertedAt = elapsedSec;
     entity.vx += (this.random() - 0.5) * 54;
     entity.vy += (this.random() - 0.5) * 54;
-    this.clampVelocity(entity);
+    this.clampVelocity(entity, elapsedSec);
     this.conversions += 1;
     this.lastConversionMs += Date.now() - startedAt;
   }
@@ -461,6 +628,155 @@ export class RpsBattleEngine {
     for (let i = 0; i < swallowed.length; i += 1) {
       this.removeEntity(swallowed[i]);
     }
+  }
+
+  private applyPowerUpPickups(pickups: RpsBattlePowerUpPickup[], elapsedSec: number): void {
+    for (let i = 0; i < pickups.length; i += 1) {
+      const pickup = pickups[i];
+      if (pickup.isTeam) {
+        this.applyTeamPowerUp(pickup.faction, pickup.kind, elapsedSec);
+        continue;
+      }
+      const collector = this.findEntityById(pickup.collectorId);
+      if (collector !== null) {
+        this.applyPowerUpToEntity(collector, pickup.kind, elapsedSec);
+      }
+    }
+  }
+
+  private applyTeamPowerUp(faction: RpsBattleFaction, kind: RpsBattlePowerUpKind, elapsedSec: number): void {
+    const members = this.entitiesOfFaction(faction);
+    if (kind === 'split') {
+      const spawnCount = Math.min(
+        members.length,
+        Math.max(0, RPS_BATTLE_MAX_TOTAL_ENTITIES - this.entities.length),
+        RPS_BATTLE_TEAM_SPLIT_MAX_PER_PICKUP
+      );
+      for (let i = 0; i < spawnCount; i += 1) {
+        this.spawnSplitFromEntity(members[i], elapsedSec);
+      }
+      return;
+    }
+    for (let i = 0; i < members.length; i += 1) {
+      this.applyPowerUpToEntity(members[i], kind, elapsedSec);
+    }
+  }
+
+  private applyPowerUpToEntity(entity: RpsBattleEntity, kind: RpsBattlePowerUpKind, elapsedSec: number): void {
+    if (kind === 'speed') {
+      entity.speedBoostUntilSec = Math.max(entity.speedBoostUntilSec, elapsedSec + ENTITY_SPEED_BOOST_DURATION_SEC);
+      entity.vx *= ENTITY_SPEED_BOOST_NUDGE;
+      entity.vy *= ENTITY_SPEED_BOOST_NUDGE;
+      this.clampVelocity(entity, elapsedSec);
+      return;
+    }
+    if (kind === 'shield') {
+      entity.shield = Math.max(entity.shield, 1);
+      return;
+    }
+    if (this.entities.length >= RPS_BATTLE_MAX_TOTAL_ENTITIES) {
+      return;
+    }
+    this.spawnSplitFromEntity(entity, elapsedSec);
+  }
+
+  private spawnSplitFromEntity(entity: RpsBattleEntity, elapsedSec: number): void {
+    const x = entity.x + (this.random() * 2 - 1) * ENTITY_SPLIT_OFFSET;
+    const y = entity.y + (this.random() * 2 - 1) * ENTITY_SPLIT_OFFSET;
+    this.spawnEntity(entity.faction, x, y, 1, ENTITY_SPLIT_RADIUS_SCALE, elapsedSec);
+  }
+
+  private applyLastStandSpawnRequests(requests: RpsBattleSpawnRequest[], elapsedSec: number): void {
+    for (let i = 0; i < requests.length; i += 1) {
+      const request = requests[i];
+      const maxEntities = request.eventKind === 'revive' ?
+        RPS_BATTLE_MAX_TOTAL_ENTITIES + RPS_BATTLE_REINFORCEMENT_RESERVE :
+        RPS_BATTLE_MAX_TOTAL_ENTITIES;
+      if (this.entities.length >= maxEntities) {
+        continue;
+      }
+      let spawnPoint: RpsBattleSpawnPoint = {
+        x: request.x,
+        y: request.y
+      };
+      if (request.eventKind === 'revive') {
+        spawnPoint = this.resolveSafeReviveSpawnPoint(request);
+      }
+      this.spawnEntity(request.faction, spawnPoint.x, spawnPoint.y, request.speedScale, 1, elapsedSec);
+    }
+  }
+
+  private resolveSafeReviveSpawnPoint(request: RpsBattleSpawnRequest): RpsBattleSpawnPoint {
+    const x = this.clamp(request.x, ENTITY_EDGE_PADDING, this.boardWidth - ENTITY_EDGE_PADDING);
+    const y = this.clamp(request.y, ENTITY_EDGE_PADDING, this.boardHeight - ENTITY_EDGE_PADDING);
+    const blackHole = this.blackHoleSystem.currentState();
+    if (blackHole === null || !blackHole.active) {
+      return {
+        x: x,
+        y: y
+      };
+    }
+    const safeDistance = Math.max(
+      blackHole.radius + ENTITY_RADIUS * 4,
+      blackHole.reach + RPS_BATTLE_REVIVE_BLACK_HOLE_SAFE_PADDING
+    );
+    if (!this.insideBlackHoleDanger(x, y, blackHole, safeDistance)) {
+      return {
+        x: x,
+        y: y
+      };
+    }
+    const home = this.factionHomeSpawnPoint(request.faction);
+    if (!this.insideBlackHoleDanger(home.x, home.y, blackHole, safeDistance)) {
+      return home;
+    }
+    return this.farthestReviveSpawnPoint(blackHole);
+  }
+
+  private factionHomeSpawnPoint(faction: RpsBattleFaction): RpsBattleSpawnPoint {
+    let xRatio = 0.50;
+    let yRatio = 0.74;
+    if (faction === 'rock') {
+      xRatio = 0.24;
+      yRatio = 0.28;
+    } else if (faction === 'scissors') {
+      xRatio = 0.76;
+      yRatio = 0.30;
+    }
+    return {
+      x: this.clamp(this.boardWidth * xRatio, ENTITY_EDGE_PADDING, this.boardWidth - ENTITY_EDGE_PADDING),
+      y: this.clamp(this.boardHeight * yRatio, ENTITY_EDGE_PADDING, this.boardHeight - ENTITY_EDGE_PADDING)
+    };
+  }
+
+  private farthestReviveSpawnPoint(blackHole: RpsBattleBlackHoleState): RpsBattleSpawnPoint {
+    const left = ENTITY_EDGE_PADDING;
+    const right = this.boardWidth - ENTITY_EDGE_PADDING;
+    const top = ENTITY_EDGE_PADDING;
+    const bottom = this.boardHeight - ENTITY_EDGE_PADDING;
+    let best: RpsBattleSpawnPoint = {
+      x: left,
+      y: top
+    };
+    let bestDistanceSq = this.distanceSq(best.x, best.y, blackHole.x, blackHole.y);
+    const candidates: RpsBattleSpawnPoint[] = [
+      { x: right, y: top },
+      { x: left, y: bottom },
+      { x: right, y: bottom }
+    ];
+    for (let i = 0; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+      const distanceSq = this.distanceSq(candidate.x, candidate.y, blackHole.x, blackHole.y);
+      if (distanceSq > bestDistanceSq) {
+        best = candidate;
+        bestDistanceSq = distanceSq;
+      }
+    }
+    return best;
+  }
+
+  private waitingForLastStandRevive(): boolean {
+    return this.modeRules.hasLastStand && this.lastStandSystem.hasPendingReviveMarks();
   }
 
   private removeEntity(entity: RpsBattleEntity): void {
@@ -475,6 +791,23 @@ export class RpsBattleEngine {
         return;
       }
     }
+  }
+
+  private findEntityById(entityId: number): RpsBattleEntity | null {
+    for (let i = 0; i < this.entities.length; i += 1) {
+      if (this.entities[i].id === entityId) {
+        return this.entities[i];
+      }
+    }
+    return null;
+  }
+
+  private consumeShield(entity: RpsBattleEntity): boolean {
+    if (entity.shield <= 0) {
+      return false;
+    }
+    entity.shield -= 1;
+    return true;
   }
 
   private nearestEntity(source: RpsBattleEntity, candidates: RpsBattleEntity[]): RpsBattleEntity | undefined {
@@ -494,6 +827,48 @@ export class RpsBattleEngine {
       }
     }
     return nearest;
+  }
+
+  private zoneIntentAccel(entity: RpsBattleEntity, predator: RpsBattleEntity | undefined,
+    zone: RpsBattleControlZone): number {
+    const roleBucket = entity.id % 20;
+    const ownsZone = zone.owner === entity.faction;
+    const capturesZone = zone.capturingFaction === entity.faction;
+    let accel = 0;
+    if (roleBucket < 9) {
+      accel = ownsZone ? RPS_BATTLE_ZONE_SUPPORT_ACCEL : RPS_BATTLE_ZONE_CONTESTER_ACCEL;
+    } else if (roleBucket < 14) {
+      accel = ownsZone || capturesZone ? RPS_BATTLE_ZONE_GUARD_ACCEL : RPS_BATTLE_ZONE_SUPPORT_ACCEL;
+    } else if (!ownsZone && roleBucket % 3 === 0) {
+      accel = RPS_BATTLE_ZONE_SUPPORT_ACCEL;
+    }
+    if (accel <= 0) {
+      return 0;
+    }
+    const dx = entity.x - zone.x;
+    const dy = entity.y - zone.y;
+    if (ownsZone && dx * dx + dy * dy <= zone.radius * zone.radius) {
+      accel *= RPS_BATTLE_ZONE_INSIDE_OWNER_SCALE;
+    }
+    if (predator !== undefined) {
+      const predatorDx = entity.x - predator.x;
+      const predatorDy = entity.y - predator.y;
+      if (predatorDx * predatorDx + predatorDy * predatorDy < ENTITY_FLEE_DISTANCE_SQ) {
+        accel *= RPS_BATTLE_ZONE_PREDATOR_PRESSURE_SCALE;
+      }
+    }
+    return accel;
+  }
+
+  private insideBlackHoleDanger(x: number, y: number, blackHole: RpsBattleBlackHoleState,
+    safeDistance: number): boolean {
+    return this.distanceSq(x, y, blackHole.x, blackHole.y) < safeDistance * safeDistance;
+  }
+
+  private distanceSq(ax: number, ay: number, bx: number, by: number): number {
+    const dx = ax - bx;
+    const dy = ay - by;
+    return dx * dx + dy * dy;
   }
 
   private entitiesOfFaction(faction: RpsBattleFaction): RpsBattleEntity[] {
@@ -623,12 +998,14 @@ export class RpsBattleEngine {
     }
   }
 
-  private clampVelocity(entity: RpsBattleEntity): void {
+  private clampVelocity(entity: RpsBattleEntity, elapsedSec: number): void {
     const speed = Math.sqrt(entity.vx * entity.vx + entity.vy * entity.vy);
-    if (speed <= ENTITY_MAX_SPEED || speed <= 0) {
+    const maxSpeed = elapsedSec < entity.speedBoostUntilSec ?
+      ENTITY_MAX_SPEED * ENTITY_SPEED_BOOST_LIMIT_MULTIPLIER : ENTITY_MAX_SPEED;
+    if (speed <= maxSpeed || speed <= 0) {
       return;
     }
-    const ratio = ENTITY_MAX_SPEED / speed;
+    const ratio = maxSpeed / speed;
     entity.vx *= ratio;
     entity.vy *= ratio;
   }

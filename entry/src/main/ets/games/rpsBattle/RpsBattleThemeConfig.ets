@@ -12,9 +12,9 @@ export const RPS_BATTLE_THEMES: RpsBattleThemePreset[] = [
     mark: '🪨✂️✋',
     subtitle: '经典三方循环克制',
     factions: [
-      { id: 'rock', label: '石头', symbol: '🪨', color: '#d95c47', softColor: '#ffe0d8', textColor: '#873328' },
-      { id: 'scissors', label: '剪刀', symbol: '✂️', color: '#2c8f7f', softColor: '#dcf5ee', textColor: '#176055' },
-      { id: 'paper', label: '布', symbol: '✋', color: '#4e6edb', softColor: '#e3e9ff', textColor: '#263f99' }
+      { id: 'rock', label: '石头', symbol: '🪨', color: '#64748b', softColor: '#e8edf3', textColor: '#334155' },
+      { id: 'scissors', label: '剪刀', symbol: '✂️', color: '#0ea5a4', softColor: '#d8f5f2', textColor: '#0f766e' },
+      { id: 'paper', label: '布', symbol: '✋', color: '#f59e0b', softColor: '#fff1d2', textColor: '#9a5a00' }
     ]
   },
   {

@@ -40,11 +40,11 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
     key: 'zones',
     name: '团队占点',
     icon: '◎',
-    subtitle: '据点 · 黑洞',
+    subtitle: '据点 · 黑洞 · 道具',
     objective: '占点到100或限时领先',
     mechanics: ['中心据点', '黑洞', '绝地求生', '能量道具', '团队道具'],
-    enabledMechanics: ['中心据点', '黑洞'],
-    upcomingMechanics: ['绝地求生', '能量道具', '团队道具'],
+    enabledMechanics: ['中心据点', '黑洞', '绝地求生', '能量道具', '团队道具'],
+    upcomingMechanics: [],
     mechanicOptions: [
       {
         key: 'controlZone',
@@ -65,26 +65,26 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
       {
         key: 'lastStand',
         label: '绝地求生',
-        summary: '弱势阵营分裂或复活',
-        state: 'upcoming',
+        summary: '弱势阵营分裂或援军',
+        state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       },
       {
         key: 'powerUps',
         label: '能量道具',
         summary: '刷新加速、护盾、分裂道具',
-        state: 'upcoming',
+        state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       },
       {
         key: 'teamPowerUps',
         label: '团队道具',
         summary: '拾取后全队共享效果',
-        state: 'upcoming',
+        state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       }
     ]
   },
@@ -167,9 +167,9 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     key: 'zones',
     hasControlZone: true,
     hasBlackHole: true,
-    hasLastStand: false,
-    hasPowerUps: false,
-    hasTeamPowerUps: false
+    hasLastStand: true,
+    hasPowerUps: true,
+    hasTeamPowerUps: true
   },
   {
     key: 'traitor',
@@ -237,8 +237,14 @@ export function rpsBattleToggleMechanicSelection(
   if (option === undefined || option.state !== 'enabled' || !option.canDisable) {
     return rpsBattleCloneMechanicSelection(selection);
   }
-  const enabled = rpsBattleResolvedMechanicEnabled(option, selection);
-  return rpsBattleSetMechanicSelectionValue(selection, mechanicKey, !enabled);
+  const enabled = rpsBattleMechanicEnabledForMode(modeKey, selection, mechanicKey);
+  let next = rpsBattleSetMechanicSelectionValue(selection, mechanicKey, !enabled);
+  if (mechanicKey === 'powerUps' && enabled) {
+    next = rpsBattleSetMechanicSelectionValue(next, 'teamPowerUps', false);
+  } else if (mechanicKey === 'teamPowerUps' && !enabled) {
+    next = rpsBattleSetMechanicSelectionValue(next, 'powerUps', true);
+  }
+  return next;
 }
 
 export function rpsBattleMechanicEnabledForMode(
@@ -249,6 +255,12 @@ export function rpsBattleMechanicEnabledForMode(
   const option = rpsBattleMechanicOptionByKey(modeKey, mechanicKey);
   if (option === undefined) {
     return false;
+  }
+  if (mechanicKey === 'teamPowerUps') {
+    const powerUpOption = rpsBattleMechanicOptionByKey(modeKey, 'powerUps');
+    if (powerUpOption === undefined || !rpsBattleResolvedMechanicEnabled(powerUpOption, selection)) {
+      return false;
+    }
   }
   return rpsBattleResolvedMechanicEnabled(option, selection);
 }
@@ -281,6 +293,9 @@ export function rpsBattleResolveModeRulesByKey(
     } else if (item.key === 'teamPowerUps') {
       result.hasTeamPowerUps = enabled;
     }
+  }
+  if (!result.hasPowerUps) {
+    result.hasTeamPowerUps = false;
   }
   return result;
 }
