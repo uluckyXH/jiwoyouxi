@@ -148,7 +148,7 @@ test('玩法方案配置包含四个原版入口', () => {
   assert.equal(R.RPS_BATTLE_MODES.length, 4);
   assert.equal(R.RPS_BATTLE_MODE_RULES.length, 4);
   assert.equal(R.rpsBattleModeByKey('classic').name, '经典乱斗');
-  assert.equal(R.rpsBattleModeByKey('zones').objective, '占点到100或限时领先');
+  assert.equal(R.rpsBattleModeByKey('zones').objective, '独立占点先到100或限时领先');
   assert.deepEqual(plain(R.rpsBattleModeByKey('zones').enabledMechanics), [
     '中心据点',
     '黑洞',
@@ -226,8 +226,8 @@ test('玩法机制默认开启和本局关闭规则正确', () => {
   assert.equal(R.rpsBattleResolveModeRulesByKey('zones', teamPowerUpsBackOn).hasPowerUps, true);
   assert.equal(R.rpsBattleResolveModeRulesByKey('zones', teamPowerUpsBackOn).hasTeamPowerUps, true);
 
-  const triedUnsupportedOn = R.rpsBattleResolveModeRulesByKey('traitor', { blackHole: true });
-  assert.equal(triedUnsupportedOn.hasBlackHole, false);
+  const traitorBlackHoleOn = R.rpsBattleResolveModeRulesByKey('traitor', { blackHole: true });
+  assert.equal(traitorBlackHoleOn.hasBlackHole, true);
 });
 
 console.log(`\n通过 ${passed} 项，失败 ${failed} 项\n`);

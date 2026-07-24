@@ -18,6 +18,10 @@ const sourceFiles = [
   'entry/src/main/ets/games/rpsBattle/RpsBattleZoneSystem.ets',
   'entry/src/main/ets/games/rpsBattle/RpsBattleLastStandSystem.ets',
   'entry/src/main/ets/games/rpsBattle/RpsBattlePowerUpSystem.ets',
+  'entry/src/main/ets/games/rpsBattle/RpsBattleShrinkSystem.ets',
+  'entry/src/main/ets/games/rpsBattle/RpsBattleTraitorSystem.ets',
+  'entry/src/main/ets/games/rpsBattle/RpsBattleSnapSystem.ets',
+  'entry/src/main/ets/games/rpsBattle/RpsBattleObstacleSystem.ets',
   'entry/src/main/ets/games/rpsBattle/RpsBattleEngine.ets'
 ];
 

@@ -81,7 +81,7 @@ test('初始化中心据点位置和半径', () => {
   assert.equal(zone.radius, 45);
   assert.equal(zone.owner, '');
   assert.equal(zone.capturingFaction, '');
-  assert.equal(zone.score, 0);
+  assert.deepEqual(plain(zone.scores), { rock: 0, scissors: 0, paper: 0 });
 });
 
 test('唯一最多阵营占点并按人数涨分', () => {
@@ -96,7 +96,9 @@ test('唯一最多阵营占点并按人数涨分', () => {
   assert.equal(inside, 3);
   assert.equal(zone.owner, 'rock');
   assert.equal(zone.capturingFaction, 'rock');
-  assertApprox(zone.score, 5.6);
+  assertApprox(zone.scores.rock, 5.6);
+  assert.equal(zone.scores.scissors, 0);
+  assert.equal(zone.scores.paper, 0);
   assert.deepEqual(plain(zone.pressure), { rock: 2, scissors: 0, paper: 1 });
 });
 
@@ -107,7 +109,7 @@ test('僵持时不切换 owner 且不涨分', () => {
     entity(1, 'rock', 200, 150),
     entity(2, 'rock', 210, 150)
   ], 1);
-  const before = system.snapshot().score;
+  const before = system.snapshot().scores.rock;
   system.update([
     entity(3, 'rock', 200, 150),
     entity(4, 'scissors', 210, 150)
@@ -115,20 +117,24 @@ test('僵持时不切换 owner 且不涨分', () => {
   const zone = system.snapshot();
   assert.equal(zone.owner, 'rock');
   assert.equal(zone.capturingFaction, '');
-  assertApprox(zone.score, before);
+  assertApprox(zone.scores.rock, before);
+  assert.equal(zone.scores.scissors, 0);
+  assert.equal(zone.scores.paper, 0);
 });
 
 test('无人进入据点时不涨分', () => {
   const system = new Z.RpsBattleZoneSystem();
   system.reset(400, 300);
   system.update([entity(1, 'paper', 200, 150)], 1);
-  const before = system.snapshot().score;
+  const before = system.snapshot().scores.paper;
   const inside = system.update([], 1);
   const zone = system.snapshot();
   assert.equal(inside, 0);
   assert.equal(zone.owner, 'paper');
   assert.equal(zone.capturingFaction, '');
-  assertApprox(zone.score, before);
+  assertApprox(zone.scores.paper, before);
+  assert.equal(zone.scores.rock, 0);
+  assert.equal(zone.scores.scissors, 0);
 });
 
 test('据点满分后返回胜者', () => {
@@ -140,7 +146,9 @@ test('据点满分后返回胜者', () => {
     entity(3, 'paper', 220, 150)
   ], 12);
   const zone = system.snapshot();
-  assert.equal(zone.score, Z.RPS_BATTLE_CONTROL_ZONE_MAX_SCORE);
+  assert.equal(zone.scores.paper, Z.RPS_BATTLE_CONTROL_ZONE_MAX_SCORE);
+  assert.equal(zone.scores.rock, 0);
+  assert.equal(zone.scores.scissors, 0);
   assert.equal(system.finishWinner(), 'paper');
 });
 
@@ -149,11 +157,11 @@ test('快照不反向修改系统状态', () => {
   system.reset(400, 300);
   system.update([entity(1, 'scissors', 200, 150)], 1);
   const snapshot = system.snapshot();
-  snapshot.score = 0;
+  snapshot.scores.scissors = 0;
   snapshot.pressure.scissors = 99;
   const next = system.snapshot();
   assert.equal(next.owner, 'scissors');
-  assertApprox(next.score, 2.8);
+  assertApprox(next.scores.scissors, 2.8);
   assert.equal(next.pressure.scissors, 1);
 });
 
