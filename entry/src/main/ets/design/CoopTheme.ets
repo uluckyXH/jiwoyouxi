@@ -1,6 +1,7 @@
 export class CoopTheme {
   static readonly bg: string = '#eef7fb';
   static readonly bgWarm: string = '#fff5df';
+  static readonly appSurface: string = '#fff4e4';
   static readonly panel: string = 'rgba(255,255,255,0.76)';
   static readonly panelSolid: string = '#fffaf0';
   static readonly panelSoft: string = 'rgba(255,250,240,0.58)';

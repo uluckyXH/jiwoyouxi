@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import image from '@ohos.multimedia.image';
 import { CoopTheme } from '../../design/CoopTheme';
+import { CoopViewport } from '../../design/CoopViewport';
 import { NativeAudioService } from '../../services/AudioService';
 import { integrateFruits, resolveSuikaCollisions } from './SuikaPhysics';
 import { getSpawnLevel, NEXT_FRUIT_DELAY_MS, resolveOverflowState } from './SuikaRules';
@@ -17,6 +18,7 @@ const SUIKA_HANGING_SIGN_ASPECT_RATIO: number = 1120 / 975;
 const SUIKA_TOP_BAR_BACKGROUND: string = '#fff0d5';
 const SUIKA_TOP_BAR_BUTTON_BACKGROUND: string = '#f9dbb2';
 const SUIKA_TOP_BAR_TEXT_COLOR: string = '#7b5137';
+const SUIKA_SCENE_FALLBACK_BACKGROUND: string = '#3d2413';
 // 可调整：顶部“大 厅 / 鸡窝水果摊 / 暂停”这一行的上下位置。数值越大越往下。
 const SUIKA_TOP_BAR_CONTENT_PADDING_TOP: number = 34;
 // 可调整：是否在 DevEco Studio 运行日志里输出性能计数。
@@ -189,8 +191,8 @@ export struct SuikaPage {
   private perfPairChecks: number = 0;
   private perfNarrowChecks: number = 0;
   private perfCollisionHits: number = 0;
-  @State pageWidth: number = 390;
-  @State pageHeight: number = 760;
+  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
+  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
   @State score: number = 0;
   @State aimX: number = 195;
   @State paused: boolean = false;
@@ -221,73 +223,84 @@ export struct SuikaPage {
   }
 
   build() {
-    Stack() {
-      this.SceneBackgroundLayer()
-      Canvas(this.context)
-        .width('100%')
-        .height('100%')
-        .backgroundColor('rgba(0,0,0,0)')
-        .zIndex(1)
-        .onReady(() => {
-          this.draw();
-        })
-        .onAreaChange((oldArea, newArea) => {
-          const width = Number.parseFloat(`${newArea.width}`);
-          const height = Number.parseFloat(`${newArea.height}`);
-          if (!Number.isNaN(width) && !Number.isNaN(height)) {
-            this.pageWidth = Math.max(280, width);
-            this.pageHeight = Math.max(420, height);
-            this.aimX = this.clampAimToCurrentFruit(this.containerLeft() + this.containerWidth() * 0.5);
+    Stack({ alignContent: Alignment.Center }) {
+      Stack() {
+        this.SceneBackgroundLayer()
+        Canvas(this.context)
+          .width('100%')
+          .height('100%')
+          .backgroundColor('rgba(0,0,0,0)')
+          .zIndex(1)
+          .onReady(() => {
             this.draw();
-          }
-        })
-        .onTouch((event: TouchEvent) => {
-          this.handleTouch(event);
-        })
+          })
+          .onTouch((event: TouchEvent) => {
+            this.handleTouch(event);
+          })
 
-      this.TopBar()
-      if (this.paused && !this.gameOver && !this.showExitConfirmOverlay) {
-        this.PauseOverlay()
+        this.TopBar()
+        if (this.paused && !this.gameOver && !this.showExitConfirmOverlay) {
+          this.PauseOverlay()
+        }
+        if (this.gameOver && this.showResultOverlay) {
+          SuikaResultOverlay({
+            success: this.isSuccessResult(),
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            currentScore: this.score,
+            bestScore: this.bestScore,
+            successScore: SUIKA_SUCCESS_SCORE_THRESHOLD,
+            restartGame: () => {
+              this.restart();
+            },
+            exitToHub: () => {
+              this.exitToHub();
+            },
+            closeOverlay: () => {
+              this.showResultOverlay = false;
+            }
+          })
+          .zIndex(30)
+        }
+        if (this.showExitConfirmOverlay) {
+          SuikaExitConfirmOverlay({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            currentScore: this.score,
+            droppedCount: this.spawnIndex,
+            cancelExit: () => {
+              this.cancelExitConfirm();
+            },
+            confirmExit: () => {
+              this.confirmExitToHub();
+            }
+          })
+          .zIndex(30)
+        }
       }
-      if (this.gameOver && this.showResultOverlay) {
-        SuikaResultOverlay({
-          success: this.isSuccessResult(),
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          currentScore: this.score,
-          bestScore: this.bestScore,
-          successScore: SUIKA_SUCCESS_SCORE_THRESHOLD,
-          restartGame: () => {
-            this.restart();
-          },
-          exitToHub: () => {
-            this.exitToHub();
-          },
-          closeOverlay: () => {
-            this.showResultOverlay = false;
-          }
-        })
-        .zIndex(30)
-      }
-      if (this.showExitConfirmOverlay) {
-        SuikaExitConfirmOverlay({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          currentScore: this.score,
-          droppedCount: this.spawnIndex,
-          cancelExit: () => {
-            this.cancelExitConfirm();
-          },
-          confirmExit: () => {
-            this.confirmExitToHub();
-          }
-        })
-        .zIndex(30)
-      }
+      .width(this.pageWidth)
+      .height(this.pageHeight)
+      .clip(true)
+      .backgroundColor(SUIKA_SCENE_FALLBACK_BACKGROUND)
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(CoopTheme.bg)
+    .backgroundColor(CoopTheme.appSurface)
+    .onAreaChange((oldArea, newArea) => {
+      this.handlePageAreaChange(newArea);
+    })
+  }
+
+  private handlePageAreaChange(newArea: Area): void {
+    const width = Number.parseFloat(`${newArea.width}`);
+    const height = Number.parseFloat(`${newArea.height}`);
+    if (!Number.isNaN(width) && !Number.isNaN(height)) {
+      const frame = CoopViewport.frame(width, height);
+      this.pageWidth = frame.width;
+      this.pageHeight = frame.height;
+      this.aimX = this.clampAimToCurrentFruit(this.containerLeft() + this.containerWidth() * 0.5);
+      this.draw();
+    }
   }
 
   @Builder

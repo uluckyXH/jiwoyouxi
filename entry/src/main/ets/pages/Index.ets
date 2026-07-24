@@ -6,6 +6,7 @@ import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
 import { HubPage } from './HubPage';
 import { RpsPage } from '../games/rps/RpsPage';
+import { RpsBattlePage } from '../games/rpsBattle/RpsBattlePage';
 import { FreecellPage } from '../games/freecell/FreecellPage';
 import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
@@ -24,7 +25,7 @@ struct Index {
   @State tetrisSession: number = 0;
   @State sceneDirection: string = 'push';
   @State sceneTransitioning: boolean = false;
-  @State entryBadgeGameId: string = 'rps';
+  @State entryBadgeGameId: string = 'rpsBattle';
   @State entryBadgeMounted: boolean = false;
   @State entryBadgeVisible: boolean = false;
   @State minesweeperExitRequestId: number = 0;
@@ -86,6 +87,18 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('rps', score);
+            }
+          })
+        }
+      } else if (this.activeGame === 'rpsBattle') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          RpsBattlePage({
+            bestScore: this.recordFor('rpsBattle').highScore,
+            exitToHub: () => {
+              this.closeGameAnimated();
+            },
+            recordScore: (score: number) => {
+              this.recordGameResult('rpsBattle', score);
             }
           })
         }
@@ -156,7 +169,8 @@ struct Index {
       if (this.entryBadgeMounted) {
         GameEntryBadge({
           gameId: this.entryBadgeGameId,
-          badgeVisible: this.entryBadgeVisible
+          badgeVisible: this.entryBadgeVisible,
+          isDarkMode: this.snapshot.appearanceMode === APPEARANCE_DARK
         })
       }
     }

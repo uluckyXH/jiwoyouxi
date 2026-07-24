@@ -1,5 +1,6 @@
 import { CoopModalTransition } from '../../components/CoopModalTransition';
 import { CoopTheme } from '../../design/CoopTheme';
+import { CoopViewport } from '../../design/CoopViewport';
 import { Chicken2048ExitConfirmOverlay } from './Chicken2048ExitConfirmOverlay';
 import { Chicken2048ResultOverlay } from './Chicken2048ResultOverlay';
 import {
@@ -283,8 +284,8 @@ export struct Chicken2048Page {
   private devTapCount: number = 0;
   private devLastTapAt: number = 0;
   @State inputLocked: boolean = false;
-  @State pageWidth: number = 390;
-  @State pageHeight: number = 760;
+  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
+  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
   @State boardTiles: Chicken2048Tile[] = [];
   @State displayTiles: Chicken2048Tile[] = [];
   @State mergePulses: Chicken2048MergePulse[] = [];
@@ -310,88 +311,99 @@ export struct Chicken2048Page {
   }
 
   build() {
-    Stack() {
-      Image($rawfile(CHICKEN_2048_BACKGROUND_IMAGE))
-        .width('100%')
-        .height('100%')
-        .objectFit(ImageFit.Fill)
-        .zIndex(0)
+    Stack({ alignContent: Alignment.Center }) {
+      Stack() {
+        Image($rawfile(CHICKEN_2048_BACKGROUND_IMAGE))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Fill)
+          .zIndex(0)
 
-      this.TopBar()
-      this.ScoreRow()
-      this.BoardArea()
-      this.HintLine()
-      this.ControlPad()
+        this.TopBar()
+        this.ScoreRow()
+        this.BoardArea()
+        this.HintLine()
+        this.ControlPad()
 
-      if (this.paused && !this.gameOver && !this.showWinOverlay && !this.showExitConfirmOverlay) {
-        this.PauseOverlay()
+        if (this.paused && !this.gameOver && !this.showWinOverlay && !this.showExitConfirmOverlay) {
+          this.PauseOverlay()
+        }
+        if (this.showWinOverlay) {
+          Chicken2048ResultOverlay({
+            success: true,
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            currentScore: this.score,
+            maxTileValue: Math.max(this.maxTile, maxChicken2048Tile(this.boardTiles)),
+            continueGame: () => {
+              this.showWinOverlay = false;
+            },
+            restartGame: () => {
+              this.restart();
+            },
+            exitToHub: () => {
+              this.leaveToHub();
+            }
+          })
+          .zIndex(30)
+        }
+        if (this.gameOver) {
+          Chicken2048ResultOverlay({
+            success: false,
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            currentScore: this.score,
+            maxTileValue: Math.max(this.maxTile, maxChicken2048Tile(this.boardTiles)),
+            continueGame: () => {},
+            restartGame: () => {
+              this.restart();
+            },
+            exitToHub: () => {
+              this.leaveToHub();
+            }
+          })
+          .zIndex(30)
+        }
+        if (this.showExitConfirmOverlay) {
+          Chicken2048ExitConfirmOverlay({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            currentScore: this.score,
+            maxTileValue: Math.max(this.maxTile, maxChicken2048Tile(this.boardTiles)),
+            cancelExit: () => {
+              this.cancelExitConfirm();
+            },
+            confirmExit: () => {
+              this.confirmExitToHub();
+            }
+          })
+          .zIndex(30)
+        }
+        if (this.devToolsVisible) {
+          this.DevToolsPanel()
+        }
       }
-      if (this.showWinOverlay) {
-        Chicken2048ResultOverlay({
-          success: true,
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          currentScore: this.score,
-          maxTileValue: Math.max(this.maxTile, maxChicken2048Tile(this.boardTiles)),
-          continueGame: () => {
-            this.showWinOverlay = false;
-          },
-          restartGame: () => {
-            this.restart();
-          },
-          exitToHub: () => {
-            this.leaveToHub();
-          }
-        })
-        .zIndex(30)
-      }
-      if (this.gameOver) {
-        Chicken2048ResultOverlay({
-          success: false,
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          currentScore: this.score,
-          maxTileValue: Math.max(this.maxTile, maxChicken2048Tile(this.boardTiles)),
-          continueGame: () => {},
-          restartGame: () => {
-            this.restart();
-          },
-          exitToHub: () => {
-            this.leaveToHub();
-          }
-        })
-        .zIndex(30)
-      }
-      if (this.showExitConfirmOverlay) {
-        Chicken2048ExitConfirmOverlay({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          currentScore: this.score,
-          maxTileValue: Math.max(this.maxTile, maxChicken2048Tile(this.boardTiles)),
-          cancelExit: () => {
-            this.cancelExitConfirm();
-          },
-          confirmExit: () => {
-            this.confirmExitToHub();
-          }
-        })
-        .zIndex(30)
-      }
-      if (this.devToolsVisible) {
-        this.DevToolsPanel()
-      }
+      .width(this.pageWidth)
+      .height(this.pageHeight)
+      .clip(true)
+      .backgroundColor('#fff3dd')
     }
     .width('100%')
     .height('100%')
     .backgroundColor('#fff3dd')
     .onAreaChange((oldArea, newArea) => {
-      const width = Number.parseFloat(`${newArea.width}`);
-      const height = Number.parseFloat(`${newArea.height}`);
-      if (!Number.isNaN(width) && !Number.isNaN(height)) {
-        this.pageWidth = Math.max(280, width);
-        this.pageHeight = Math.max(420, height);
-      }
+      this.handlePageAreaChange(newArea);
     })
+  }
+
+  private handlePageAreaChange(newArea: Area): void {
+    const width = Number.parseFloat(`${newArea.width}`);
+    const height = Number.parseFloat(`${newArea.height}`);
+    if (!Number.isNaN(width) && !Number.isNaN(height)) {
+      const frame = CoopViewport.frame(width, height);
+      this.pageWidth = frame.width;
+      this.pageHeight = frame.height;
+    }
   }
 
   @Builder
@@ -636,21 +648,31 @@ export struct Chicken2048Page {
 
   @Builder
   DevToolsPanel() {
-    Row({ space: 7 }) {
-      this.DevToolButton('触发2048', () => {
-        this.triggerDevSuccess();
-      })
-      this.DevToolButton('触发失败', () => {
-        this.triggerDevFailure();
-      })
-      this.DevToolButton('隐藏', () => {
-        this.devToolsVisible = false;
-      })
+    Column({ space: 5 }) {
+      Row({ space: 7 }) {
+        this.DevToolButton('触发2048', () => {
+          this.triggerDevSuccess();
+        })
+        this.DevToolButton('超大数字', () => {
+          this.triggerDevLargeTiles();
+        })
+      }
+      .justifyContent(FlexAlign.Center)
+
+      Row({ space: 7 }) {
+        this.DevToolButton('触发失败', () => {
+          this.triggerDevFailure();
+        })
+        this.DevToolButton('隐藏', () => {
+          this.devToolsVisible = false;
+        })
+      }
+      .justifyContent(FlexAlign.Center)
     }
     .position({ x: Math.max(10, this.pageWidth - this.devPanelWidth() - 10), y: this.devPanelY() })
     .width(this.devPanelWidth())
-    .height(36)
-    .padding({ left: 8, right: 8 })
+    .height(this.devPanelHeight())
+    .padding({ left: 8, right: 8, top: 6, bottom: 6 })
     .borderRadius(18)
     .backgroundColor('rgba(61,38,24,0.78)')
     .border({ width: 1, color: 'rgba(255,244,214,0.34)' })
@@ -896,6 +918,21 @@ export struct Chicken2048Page {
     this.paused = false;
   }
 
+  private triggerDevLargeTiles(): void {
+    const values: number[] = [
+      4096, 4096, 8192, 8192,
+      16384, 16384, 32768, 32768,
+      65536, 65536, 131072, 131072,
+      262144, 262144, 524288, 1048576
+    ];
+    this.applyDevBoard(values, 987654);
+    this.won = true;
+    this.gameOver = false;
+    this.showWinOverlay = false;
+    this.showExitConfirmOverlay = false;
+    this.paused = false;
+  }
+
   private triggerDevFailure(): void {
     const values: number[] = [
       2, 4, 2, 4,
@@ -1130,6 +1167,10 @@ export struct Chicken2048Page {
 
   private devPanelWidth(): number {
     return this.pageWidth < 360 ? 236 : 258;
+  }
+
+  private devPanelHeight(): number {
+    return 67;
   }
 
   private devPanelY(): number {

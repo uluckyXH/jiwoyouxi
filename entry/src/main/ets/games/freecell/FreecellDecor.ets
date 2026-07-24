@@ -1,4 +1,5 @@
 import { computeFreecellLayout } from './FreecellLayout';
+import { FreecellMotion } from './FreecellMotion';
 import { FreecellLayout } from './FreecellTypes';
 import { FreecellTheme } from './FreecellTheme';
 
@@ -6,6 +7,7 @@ import { FreecellTheme } from './FreecellTheme';
 export struct FreecellDecor {
   @Prop pageWidth: number = 390;
   @Prop pageHeight: number = 760;
+  @Prop sceneVisible: boolean = false;
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -16,6 +18,10 @@ export struct FreecellDecor {
     }
     .width('100%')
     .height('100%')
+    .opacity(this.sceneVisible ? 1 : 0)
+    .translate({ x: 0, y: this.sceneVisible ? 0 : FreecellMotion.sceneRevealOffsetVp })
+    .animation({ duration: FreecellMotion.sceneRevealDuration, curve: Curve.EaseOut })
+    .hitTestBehavior(HitTestMode.None)
   }
 
   @Builder

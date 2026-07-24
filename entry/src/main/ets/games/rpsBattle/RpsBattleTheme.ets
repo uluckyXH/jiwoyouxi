@@ -1,0 +1,33 @@
+export class RpsBattleTheme {
+  static readonly pageBg: string = '#edf3f5';
+  static readonly pageShade: string = 'rgba(15,118,110,0.06)';
+  static readonly pageInk: string = '#203033';
+  static readonly muted: string = '#607174';
+  static readonly topBarBg: string = 'rgba(255,255,255,0.78)';
+  static readonly topButtonBg: string = 'rgba(15,118,110,0.10)';
+  static readonly topButtonText: string = '#0f766e';
+  static readonly topButtonLine: string = 'rgba(15,118,110,0.14)';
+  static readonly panelBg: string = 'rgba(255,255,255,0.88)';
+  static readonly panelLine: string = 'rgba(35,76,78,0.12)';
+  static readonly panelSoftBg: string = 'rgba(255,255,255,0.62)';
+  static readonly optionBg: string = 'rgba(255,255,255,0.72)';
+  static readonly arenaBg: string = '#f7fbf8';
+  static readonly arenaLine: string = 'rgba(32,48,51,0.13)';
+  static readonly arenaGrid: string = 'rgba(32,48,51,0.045)';
+  static readonly primaryButtonBg: string = '#0f766e';
+  static readonly primaryButtonText: string = '#ffffff';
+  static readonly brandAccent: string = '#b8752b';
+  static readonly dangerButtonBg: string = '#b4533f';
+  static readonly dangerButtonText: string = '#ffffff';
+  static readonly selectedBg: string = 'rgba(15,118,110,0.08)';
+  static readonly selectedLine: string = '#0f766e';
+  static readonly overlayBg: string = 'rgba(18,32,35,0.42)';
+  static readonly panelShadowColor: string = 'rgba(18,32,35,0.14)';
+  static readonly boardShadowColor: string = 'rgba(18,48,56,0.12)';
+  static readonly softLine: string = 'rgba(32,48,51,0.10)';
+  static readonly countdownPanelBg: string = 'rgba(255,255,255,0.86)';
+  static readonly countdownShade: string = 'rgba(15,118,110,0.10)';
+  static readonly blackHoleReachFill: string = 'rgba(47,42,69,0.055)';
+  static readonly blackHoleReachLine: string = 'rgba(47,42,69,0.22)';
+  static readonly entityShadow: string = 'rgba(18,32,35,0.16)';
+}

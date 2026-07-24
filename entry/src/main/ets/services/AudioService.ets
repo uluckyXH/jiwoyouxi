@@ -105,6 +105,7 @@ export class NativeAudioService {
     }
     this.soundPool.play(soundId, {
       loop: 0,
+      rate: audio.AudioRendererRate.RENDER_RATE_NORMAL,
       leftVolume: volume,
       rightVolume: volume,
       priority: 1

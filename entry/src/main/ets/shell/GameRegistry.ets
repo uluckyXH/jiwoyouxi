@@ -54,10 +54,23 @@ export const GAME_MODULES: GameModule[] = [
     tags: ['物理', '合成', '软弹'],
     accent: '#16a34a',
     highScoreLabel: '最高瓜分'
+  },
+  {
+    id: 'rpsBattle',
+    title: '石头剪刀布大作战',
+    subtitle: '三方自动追捕，配置阵营和机制后开始乱斗',
+    icon: '✊',
+    tags: ['观战', '策略', '乱斗'],
+    accent: '#2c8f7f',
+    highScoreLabel: '最高存活数'
   }
 ];
 
 export function moduleById(id: string): GameModule {
   const found = GAME_MODULES.find((item: GameModule) => item.id === id);
-  return found === undefined ? GAME_MODULES[0] : found;
+  if (found !== undefined) {
+    return found;
+  }
+  const fallback = GAME_MODULES.find((item: GameModule) => item.id === 'rpsBattle');
+  return fallback === undefined ? GAME_MODULES[0] : fallback;
 }

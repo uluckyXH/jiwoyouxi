@@ -1,4 +1,5 @@
 import { computeFreecellLayout } from './FreecellLayout';
+import { FreecellMotion } from './FreecellMotion';
 import { FreecellLayout } from './FreecellTypes';
 import { FreecellTheme } from './FreecellTheme';
 
@@ -20,6 +21,8 @@ export struct FreecellToolbar {
   @Prop pageWidth: number = 390;
   @Prop pageHeight: number = 760;
   @Prop autoRunning: boolean = false;
+  @Prop sceneVisible: boolean = false;
+  @Prop actionsEnabled: boolean = false;
   newGame: () => void = () => {};
   undo: () => void = () => {};
   autoMove: () => void = () => {};
@@ -47,6 +50,9 @@ export struct FreecellToolbar {
     }
     .width('100%')
     .height('100%')
+    .opacity(this.sceneVisible ? 1 : 0)
+    .translate({ x: 0, y: this.sceneVisible ? 0 : FreecellMotion.sceneRevealOffsetVp })
+    .animation({ duration: FreecellMotion.sceneRevealDuration, curve: Curve.EaseOut })
     .hitTestBehavior(HitTestMode.Transparent)
   }
 
@@ -58,6 +64,7 @@ export struct FreecellToolbar {
         .height(this.iconSize())
         .objectFit(ImageFit.Contain)
         .opacity(item.id === 'auto' && this.autoRunning ? 0.72 : 1)
+        .translate({ x: 0, y: this.iconTranslateY() })
       if (item.id === 'auto' && this.autoRunning) {
         Text('...')
           .fontSize(13)
@@ -65,7 +72,7 @@ export struct FreecellToolbar {
           .fontColor(FreecellTheme.brown)
           .textAlign(TextAlign.Center)
           .width('100%')
-          .position({ x: 0, y: this.iconSize() * 0.68 })
+          .position({ x: 0, y: this.iconSize() * 0.68 + this.iconTranslateY() })
       }
     }
     .height('100%')
@@ -80,6 +87,9 @@ export struct FreecellToolbar {
   }
 
   private handleTool(id: string): void {
+    if (!this.actionsEnabled) {
+      return;
+    }
     if (id === 'new') {
       this.newGame();
     } else if (id === 'auto') {
@@ -104,6 +114,10 @@ export struct FreecellToolbar {
       return 42;
     }
     return Math.min(72, Math.max(46, this.layout().appWidth * 0.135));
+  }
+
+  private iconTranslateY(): number {
+    return this.layout().tiny ? -3 : this.layout().compact ? -5 : -6;
   }
 
   private panelPaddingX(): number {

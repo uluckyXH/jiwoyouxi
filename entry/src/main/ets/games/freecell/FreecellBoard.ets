@@ -1,4 +1,18 @@
+import {
+  FREECELL_INTRO_ASSET_EMPTY_SLOT,
+  FREECELL_INTRO_ASSET_FOUNDATION_CLUBS,
+  FREECELL_INTRO_ASSET_FOUNDATION_DIAMONDS,
+  FREECELL_INTRO_ASSET_FOUNDATION_HEARTS,
+  FREECELL_INTRO_ASSET_FOUNDATION_SPADES
+} from './FreecellAssetWarmup';
+import { freecellIntroShouldRenderTableauCard } from './FreecellIntroRules';
+import {
+  FREECELL_INTRO_DEALING,
+  FREECELL_INTRO_READY,
+  FreecellIntroPhase
+} from './FreecellIntroTypes';
 import { computeFreecellLayout } from './FreecellLayout';
+import { FreecellMotion } from './FreecellMotion';
 import { FreecellTheme } from './FreecellTheme';
 import {
   FreecellCard,
@@ -31,6 +45,11 @@ interface FreecellTouchPoint {
   y: number;
 }
 
+interface FreecellDealOffset {
+  x: number;
+  y: number;
+}
+
 interface FreecellSourceHit {
   source: FreecellLocation;
   cardId: string;
@@ -48,6 +67,9 @@ export struct FreecellBoard {
   };
   @Prop selectedLocation: FreecellLocation | null = null;
   @Prop hintMarks: FreecellLocation[] = [];
+  @Prop introPhase: FreecellIntroPhase = FREECELL_INTRO_READY;
+  @Prop introDealRound: number = 0;
+  @Prop interactionEnabled: boolean = true;
   @State touchActive: boolean = false;
   @State touchSource: FreecellLocation | null = null;
   @State touchCardId: string = '';
@@ -58,6 +80,9 @@ export struct FreecellBoard {
   tapSource: (source: FreecellLocation, cardId: string) => void = () => {};
   tapTarget: (target: FreecellLocation) => void = () => {};
   dropSource: (source: FreecellLocation, target: FreecellLocation) => void = () => {};
+  skipIntro: () => void = () => {};
+  assetReady: (assetId: string) => void = () => {};
+  assetFailed: (assetId: string) => void = () => {};
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
@@ -98,7 +123,8 @@ export struct FreecellBoard {
         suitLabel(suit),
         this.slotX(FREECELL_SUITS.indexOf(suit)),
         this.layout().slotsTop,
-        { area: 'foundation', suit: suit }
+        { area: 'foundation', suit: suit },
+        this.foundationAssetId(suit)
       )
     }, (suit: FreecellSuit) => suit)
   }
@@ -111,7 +137,8 @@ export struct FreecellBoard {
         '',
         this.slotX(index + 4),
         this.layout().slotsTop,
-        { area: 'freecell', index: index }
+        { area: 'freecell', index: index },
+        FREECELL_INTRO_ASSET_EMPTY_SLOT
       )
     }, (index: number) => `${index}`)
   }
@@ -134,7 +161,8 @@ export struct FreecellBoard {
           '',
           this.slotX(index),
           this.layout().tableTop,
-          { area: 'tableau', index: index }
+          { area: 'tableau', index: index },
+          FREECELL_INTRO_ASSET_EMPTY_SLOT
         )
       }
     }, (index: number) => `${index}`)
@@ -207,8 +235,9 @@ export struct FreecellBoard {
       .width(this.layout().cardWidth)
       .height(this.layout().cardHeight)
       .backgroundColor('rgba(255,255,255,0.001)')
-      .hitTestBehavior(HitTestMode.None)
-      .position({ x: item.x, y: item.y })
+    .hitTestBehavior(HitTestMode.None)
+    .position({ x: item.x, y: item.y })
+    .transition(this.cardTransition(item))
   }
 
   @Builder
@@ -229,56 +258,11 @@ export struct FreecellBoard {
         .borderRadius({ bottomLeft: this.cardRadius(), bottomRight: this.cardRadius() })
         .backgroundColor(FreecellTheme.cardBottomTint)
         .position({ x: 1, y: this.layout().cardHeight * 0.62 })
-      Text(rankLabel(card.rank))
-        .fontSize(this.cornerFontSize())
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.cardFontColor(card))
-        .textAlign(TextAlign.Center)
-        .width(this.cornerBoxWidth())
-        .height(this.cornerFontSize() + 2)
-        .position({ x: this.cornerInset() - this.cornerBoxWidth() * 0.5, y: this.cornerInset() - 1 })
-      Text(suitLabel(card.suit))
-        .fontSize(this.smallSuitFontSize())
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.cardFontColor(card))
-        .textAlign(TextAlign.Center)
-        .width(this.cornerBoxWidth())
-        .height(this.smallSuitFontSize() + 2)
-        .position({
-          x: this.cornerInset() - this.cornerBoxWidth() * 0.5,
-          y: this.cornerInset() + this.smallSuitFontSize()
-        })
-      if (!covered) {
-        if (card.rank >= 11) {
-          Column({ space: 1 }) {
-            Text(rankLabel(card.rank))
-              .fontSize(this.bigSuitFontSize())
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.cardFontColor(card))
-              .textAlign(TextAlign.Center)
-              .width('100%')
-              .height(this.bigSuitFontSize() + 3)
-            Text(suitLabel(card.suit))
-              .fontSize(Math.max(7, this.layout().cardWidth * 0.2))
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.cardFontColor(card))
-              .textAlign(TextAlign.Center)
-              .width('100%')
-          }
-          .width(this.layout().cardWidth)
-          .height(this.layout().cardHeight * 0.48)
-          .justifyContent(FlexAlign.Center)
-          .position({ x: 0, y: this.layout().cardHeight * 0.46 })
-        } else {
-          Text(suitLabel(card.suit))
-            .fontSize(this.bigSuitFontSize())
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.cardFontColor(card))
-            .textAlign(TextAlign.Center)
-            .width(this.layout().cardWidth)
-            .height(this.bigSuitFontSize() + 6)
-            .position({ x: 0, y: this.layout().cardHeight * 0.61 })
-        }
+      if (covered) {
+        this.CoveredCardLabel(card)
+      } else {
+        this.CornerLabels(card)
+        this.CenterMark(card)
       }
     }
     .opacity(dimmed ? 0.34 : 1)
@@ -292,12 +276,79 @@ export struct FreecellBoard {
   }
 
   @Builder
-  SlotView(path: string, markText: string, x: number, y: number, target: FreecellLocation) {
+  CornerLabels(card: FreecellCard) {
+    Text(rankLabel(card.rank))
+      .fontSize(this.cornerFontSize())
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.cardFontColor(card))
+      .textAlign(TextAlign.Center)
+      .width(this.cornerBoxWidth())
+      .height(this.cornerFontSize() + 2)
+      .position({ x: this.cornerInset() - this.cornerBoxWidth() * 0.5, y: this.cornerInset() - 1 })
+    Text(suitLabel(card.suit))
+      .fontSize(this.smallSuitFontSize())
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.cardFontColor(card))
+      .textAlign(TextAlign.Center)
+      .width(this.cornerBoxWidth())
+      .height(this.smallSuitFontSize() + 2)
+      .position({
+        x: this.cornerInset() - this.cornerBoxWidth() * 0.5,
+        y: this.cornerInset() + this.smallSuitFontSize()
+      })
+  }
+
+  @Builder
+  CenterMark(card: FreecellCard) {
+    Text(suitLabel(card.suit))
+      .fontSize(this.bigSuitFontSize())
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.cardFontColor(card))
+      .textAlign(TextAlign.Center)
+      .width(this.layout().cardWidth)
+      .height(this.centerSuitHeight())
+      .position({ x: 0, y: this.centerSuitY() })
+  }
+
+  @Builder
+  CoveredCardLabel(card: FreecellCard) {
+    Column({ space: 0 }) {
+      Text(rankLabel(card.rank))
+        .fontSize(this.coveredRankFontSize())
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.cardFontColor(card))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+        .height(this.coveredRankLineHeight())
+        .maxLines(1)
+      Text(suitLabel(card.suit))
+        .fontSize(this.coveredSuitFontSize())
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.cardFontColor(card))
+        .textAlign(TextAlign.Center)
+        .width('100%')
+        .height(this.coveredSuitLineHeight())
+        .maxLines(1)
+    }
+    .width(this.layout().cardWidth)
+    .height(this.coveredLabelHeight())
+    .justifyContent(FlexAlign.Center)
+    .position({ x: 0, y: this.coveredLabelY() })
+  }
+
+  @Builder
+  SlotView(path: string, markText: string, x: number, y: number, target: FreecellLocation, assetId: string) {
     Stack({ alignContent: Alignment.Center }) {
       Image($rawfile(path))
         .width('100%')
         .height('100%')
         .objectFit(ImageFit.Fill)
+        .onComplete(() => {
+          this.assetReady(assetId);
+        })
+        .onError(() => {
+          this.assetFailed(assetId);
+        })
       if (this.isMarked(target)) {
         Column()
           .width('100%')
@@ -374,6 +425,19 @@ export struct FreecellBoard {
     return 'games/freecell/foundation_slot_clubs_cut.png';
   }
 
+  private foundationAssetId(suit: FreecellSuit): string {
+    if (suit === 'S') {
+      return FREECELL_INTRO_ASSET_FOUNDATION_SPADES;
+    }
+    if (suit === 'H') {
+      return FREECELL_INTRO_ASSET_FOUNDATION_HEARTS;
+    }
+    if (suit === 'D') {
+      return FREECELL_INTRO_ASSET_FOUNDATION_DIAMONDS;
+    }
+    return FREECELL_INTRO_ASSET_FOUNDATION_CLUBS;
+  }
+
   private foundationTop(suit: FreecellSuit): FreecellCard | null {
     const stack = this.foundationStack(suit);
     return stack.length > 0 ? stack[stack.length - 1] : null;
@@ -397,15 +461,19 @@ export struct FreecellBoard {
     for (let columnIndex = 0; columnIndex < this.state.tableau.length; columnIndex += 1) {
       const column = this.state.tableau[columnIndex];
       for (let cardIndex = 0; cardIndex < column.length; cardIndex += 1) {
+        if (!freecellIntroShouldRenderTableauCard(this.introPhase, this.introDealRound, cardIndex)) {
+          continue;
+        }
         const source: FreecellLocation = { area: 'tableau', index: columnIndex, cardIndex: cardIndex };
         const card = column[cardIndex];
+        const covered = cardIndex < column.length - 1;
         items.push({
-          key: `tableau-${card.id}-${columnIndex}-${cardIndex}`,
+          key: `tableau-${card.id}-${columnIndex}-${cardIndex}-${covered ? 'covered' : 'open'}`,
           card: card,
           source: source,
           x: this.slotX(columnIndex),
           y: this.layout().tableTop + cardIndex * this.layout().fan,
-          covered: cardIndex < column.length - 1,
+          covered: covered,
           dimmed: this.isDimmed(source)
         });
       }
@@ -422,7 +490,56 @@ export struct FreecellBoard {
     return this.layout().cardWidth * 0.92;
   }
 
+  private cardTransition(item: FreecellCardRenderItem): TransitionEffect {
+    if (!this.shouldAnimateInitialCard(item)) {
+      return TransitionEffect.IDENTITY;
+    }
+    const offset = this.dealOffset(item);
+    return TransitionEffect.OPACITY
+      .combine(TransitionEffect.translate({ x: offset.x, y: offset.y }))
+      .combine(TransitionEffect.scale({ x: FreecellMotion.dealCardStartScale, y: FreecellMotion.dealCardStartScale }))
+      .animation({
+        duration: FreecellMotion.dealCardDuration,
+        curve: Curve.EaseOut,
+        delay: this.dealColumnDelay(item)
+      });
+  }
+
+  private shouldAnimateInitialCard(item: FreecellCardRenderItem): boolean {
+    return item.source.area === 'tableau' && this.introPhase === FREECELL_INTRO_DEALING;
+  }
+
+  private dealOffset(item: FreecellCardRenderItem): FreecellDealOffset {
+    const dx = this.dealSourceX() - item.x;
+    const dy = this.dealSourceY() - item.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    if (distance <= FreecellMotion.dealCardTravelLimit || distance <= 0.001) {
+      return { x: dx, y: dy };
+    }
+    const ratio = FreecellMotion.dealCardTravelLimit / distance;
+    return { x: dx * ratio, y: dy * ratio };
+  }
+
+  private dealSourceX(): number {
+    return this.layout().offsetX + this.layout().appWidth - this.cardBackWidth() - 1;
+  }
+
+  private dealSourceY(): number {
+    return this.layout().slotsTop + this.layout().cardHeight + 2;
+  }
+
+  private dealColumnDelay(item: FreecellCardRenderItem): number {
+    return (item.source.index ?? 0) * FreecellMotion.dealColumnDelay;
+  }
+
   private handleBoardTouch(event: TouchEvent): void {
+    if (!this.interactionEnabled) {
+      if (event.type === TouchType.Down) {
+        this.skipIntro();
+      }
+      this.clearTouchState();
+      return;
+    }
     const point = this.touchPoint(event);
     if (event.type === TouchType.Down) {
       this.touchActive = true;
@@ -599,6 +716,38 @@ export struct FreecellBoard {
       return Math.max(7, Math.min(8, this.layout().cardWidth * 0.2));
     }
     return Math.max(8, this.layout().cardWidth * 0.24);
+  }
+
+  private coveredRankFontSize(): number {
+    return Math.max(6, Math.min(this.layout().compact ? 10 : 12, this.layout().fan * 0.42));
+  }
+
+  private coveredSuitFontSize(): number {
+    return Math.max(6, Math.min(this.layout().compact ? 9 : 10, this.layout().fan * 0.34));
+  }
+
+  private coveredRankLineHeight(): number {
+    return this.coveredRankFontSize() + 1;
+  }
+
+  private coveredSuitLineHeight(): number {
+    return this.coveredSuitFontSize() + 1;
+  }
+
+  private coveredLabelHeight(): number {
+    return this.coveredRankLineHeight() + this.coveredSuitLineHeight();
+  }
+
+  private coveredLabelY(): number {
+    return Math.max(0, (this.layout().fan - this.coveredLabelHeight()) * 0.5);
+  }
+
+  private centerSuitHeight(): number {
+    return this.bigSuitFontSize() + 6;
+  }
+
+  private centerSuitY(): number {
+    return Math.max(this.layout().cardHeight * 0.32, (this.layout().cardHeight - this.centerSuitHeight()) * 0.68);
   }
 
   private bigSuitFontSize(): number {
