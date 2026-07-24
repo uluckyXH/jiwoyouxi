@@ -1,4 +1,4 @@
-import { RpsBattleBlackHoleState, RpsBattleEntity } from './RpsBattleTypes';
+import { RpsBattleBlackHoleState, RpsBattleEntity, RpsBattleShrinkBounds } from './RpsBattleTypes';
 
 export const RPS_BATTLE_BLACK_HOLE_INITIAL_RADIUS: number = 24;
 export const RPS_BATTLE_BLACK_HOLE_INITIAL_REACH: number = 82;
@@ -7,8 +7,10 @@ export const RPS_BATTLE_BLACK_HOLE_MAX_REACH: number = 310;
 export const RPS_BATTLE_BLACK_HOLE_MAX_RADIUS_RATIO: number = 0.16;
 export const RPS_BATTLE_BLACK_HOLE_MAX_REACH_RATIO: number = 0.42;
 
-const RPS_BATTLE_BLACK_HOLE_MIN_DELAY_SEC: number = 9;
-const RPS_BATTLE_BLACK_HOLE_MAX_DELAY_SEC: number = 16;
+export const RPS_BATTLE_BLACK_HOLE_MIN_DELAY_SEC: number = 9;
+export const RPS_BATTLE_BLACK_HOLE_MAX_DELAY_SEC: number = 16;
+export const RPS_BATTLE_BLACK_HOLE_TRAITOR_MIN_DELAY_SEC: number = 6;
+export const RPS_BATTLE_BLACK_HOLE_TRAITOR_MAX_DELAY_SEC: number = 10;
 const RPS_BATTLE_BLACK_HOLE_FORCE: number = 280;
 const RPS_BATTLE_BLACK_HOLE_GROWTH: number = 1.3;
 const RPS_BATTLE_BLACK_HOLE_EDGE_MARGIN: number = 70;
@@ -34,14 +36,16 @@ export function rpsBattleBlackHoleMaxReachForBoard(boardWidth: number, boardHeig
 export class RpsBattleBlackHoleSystem {
   private state: RpsBattleBlackHoleState | null = null;
 
-  reset(boardWidth: number, boardHeight: number, random: () => number): void {
+  reset(boardWidth: number, boardHeight: number, random: () => number,
+    minDelaySec: number = RPS_BATTLE_BLACK_HOLE_MIN_DELAY_SEC,
+    maxDelaySec: number = RPS_BATTLE_BLACK_HOLE_MAX_DELAY_SEC): void {
     this.state = {
       active: false,
       x: boardWidth * 0.5,
       y: boardHeight * 0.5,
       radius: RPS_BATTLE_BLACK_HOLE_INITIAL_RADIUS,
       reach: RPS_BATTLE_BLACK_HOLE_INITIAL_REACH,
-      nextAtSec: this.randomBetween(random, RPS_BATTLE_BLACK_HOLE_MIN_DELAY_SEC, RPS_BATTLE_BLACK_HOLE_MAX_DELAY_SEC),
+      nextAtSec: this.randomBetween(random, minDelaySec, maxDelaySec),
       swallowed: 0
     };
   }
@@ -62,12 +66,13 @@ export class RpsBattleBlackHoleSystem {
   }
 
   update(entities: RpsBattleEntity[], elapsedSec: number, dtSec: number, boardWidth: number, boardHeight: number,
-    random: () => number, avoidX: number = -1, avoidY: number = -1, avoidRadius: number = 0): RpsBattleEntity[] {
+    random: () => number, avoidX: number = -1, avoidY: number = -1, avoidRadius: number = 0,
+    safeBounds: RpsBattleShrinkBounds | null = null): RpsBattleEntity[] {
     if (this.state === null) {
       return [];
     }
     if (!this.state.active && elapsedSec >= this.state.nextAtSec) {
-      this.activate(boardWidth, boardHeight, random, avoidX, avoidY, avoidRadius);
+      this.activate(boardWidth, boardHeight, random, avoidX, avoidY, avoidRadius, safeBounds);
     }
     if (!this.state.active) {
       return [];
@@ -114,17 +119,27 @@ export class RpsBattleBlackHoleSystem {
   }
 
   private activate(boardWidth: number, boardHeight: number, random: () => number,
-    avoidX: number, avoidY: number, avoidRadius: number): void {
+    avoidX: number, avoidY: number, avoidRadius: number, safeBounds: RpsBattleShrinkBounds | null): void {
     if (this.state === null) {
       return;
     }
-    const marginX = this.edgeMargin(boardWidth);
-    const marginY = this.edgeMargin(boardHeight);
+    const safeLeft = safeBounds === null ? 0 : safeBounds.left;
+    const safeTop = safeBounds === null ? 0 : safeBounds.top;
+    const safeRight = safeBounds === null ? boardWidth : safeBounds.right;
+    const safeBottom = safeBounds === null ? boardHeight : safeBounds.bottom;
+    const safeWidth = Math.max(1, safeRight - safeLeft);
+    const safeHeight = Math.max(1, safeBottom - safeTop);
+    const marginX = Math.min(this.edgeMargin(boardWidth), Math.max(12, safeWidth * 0.32));
+    const marginY = Math.min(this.edgeMargin(boardHeight), Math.max(12, safeHeight * 0.32));
+    const minX = safeLeft + marginX;
+    const maxX = safeRight - marginX;
+    const minY = safeTop + marginY;
+    const maxY = safeBottom - marginY;
     let x = boardWidth * 0.5;
     let y = boardHeight * 0.5;
     for (let i = 0; i < RPS_BATTLE_BLACK_HOLE_ACTIVATE_ATTEMPTS; i += 1) {
-      x = this.randomBetween(random, marginX, boardWidth - marginX);
-      y = this.randomBetween(random, marginY, boardHeight - marginY);
+      x = this.randomBetween(random, minX, maxX);
+      y = this.randomBetween(random, minY, maxY);
       if (!this.insideAvoidCircle(x, y, avoidX, avoidY, avoidRadius)) {
         break;
       }

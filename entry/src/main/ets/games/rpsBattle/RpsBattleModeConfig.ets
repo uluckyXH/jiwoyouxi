@@ -92,35 +92,35 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
     key: 'traitor',
     name: '小心叛徒',
     icon: '!',
-    subtitle: '缩圈 · 叛徒',
+    subtitle: '缩圈 · 黑洞 · 叛徒',
     objective: '死斗清场',
     mechanics: ['缩圈', '叛徒', '黑洞'],
-    enabledMechanics: [],
-    upcomingMechanics: ['缩圈', '叛徒', '黑洞'],
+    enabledMechanics: ['缩圈', '叛徒', '黑洞'],
+    upcomingMechanics: [],
     mechanicOptions: [
-      {
-        key: 'shrink',
-        label: '缩圈',
-        summary: '边界持续向内压缩',
-        state: 'upcoming',
-        defaultEnabled: true,
-        canDisable: false
-      },
       {
         key: 'traitor',
         label: '叛徒',
         summary: '标记单位倒计时叛变',
-        state: 'upcoming',
+        state: 'core',
         defaultEnabled: true,
         canDisable: false
+      },
+      {
+        key: 'shrink',
+        label: '缩圈',
+        summary: '边界持续向内压缩',
+        state: 'enabled',
+        defaultEnabled: true,
+        canDisable: true
       },
       {
         key: 'blackHole',
         label: '黑洞',
         summary: '随机危险点吸入单位',
-        state: 'upcoming',
+        state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       }
     ]
   },
@@ -161,7 +161,10 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasBlackHole: false,
     hasLastStand: false,
     hasPowerUps: false,
-    hasTeamPowerUps: false
+    hasTeamPowerUps: false,
+    hasShrink: false,
+    hasTraitor: false,
+    hasDeathmatch: false
   },
   {
     key: 'zones',
@@ -169,15 +172,21 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasBlackHole: true,
     hasLastStand: true,
     hasPowerUps: true,
-    hasTeamPowerUps: true
+    hasTeamPowerUps: true,
+    hasShrink: false,
+    hasTraitor: false,
+    hasDeathmatch: false
   },
   {
     key: 'traitor',
     hasControlZone: false,
-    hasBlackHole: false,
+    hasBlackHole: true,
     hasLastStand: false,
     hasPowerUps: false,
-    hasTeamPowerUps: false
+    hasTeamPowerUps: false,
+    hasShrink: true,
+    hasTraitor: true,
+    hasDeathmatch: true
   },
   {
     key: 'equality',
@@ -185,7 +194,10 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasBlackHole: false,
     hasLastStand: false,
     hasPowerUps: false,
-    hasTeamPowerUps: false
+    hasTeamPowerUps: false,
+    hasShrink: false,
+    hasTraitor: false,
+    hasDeathmatch: true
   }
 ];
 
@@ -276,7 +288,10 @@ export function rpsBattleResolveModeRulesByKey(
     hasBlackHole: base.hasBlackHole,
     hasLastStand: base.hasLastStand,
     hasPowerUps: base.hasPowerUps,
-    hasTeamPowerUps: base.hasTeamPowerUps
+    hasTeamPowerUps: base.hasTeamPowerUps,
+    hasShrink: base.hasShrink,
+    hasTraitor: base.hasTraitor,
+    hasDeathmatch: base.hasDeathmatch
   };
   const options = rpsBattleModeByKey(key).mechanicOptions;
   for (let i = 0; i < options.length; i += 1) {
@@ -292,6 +307,10 @@ export function rpsBattleResolveModeRulesByKey(
       result.hasPowerUps = enabled;
     } else if (item.key === 'teamPowerUps') {
       result.hasTeamPowerUps = enabled;
+    } else if (item.key === 'shrink') {
+      result.hasShrink = enabled;
+    } else if (item.key === 'traitor') {
+      result.hasTraitor = enabled;
     }
   }
   if (!result.hasPowerUps) {

@@ -70,6 +70,9 @@ export interface RpsBattleModeRules {
   hasLastStand: boolean;
   hasPowerUps: boolean;
   hasTeamPowerUps: boolean;
+  hasShrink: boolean;
+  hasTraitor: boolean;
+  hasDeathmatch: boolean;
 }
 
 export interface RpsBattleFactionCounts {
@@ -96,6 +99,7 @@ export interface RpsBattleEntity {
   radius: number;
   shield: number;
   speedBoostUntilSec: number;
+  traitorRageUntilSec: number;
   convertedAt: number;
 }
 
@@ -106,6 +110,8 @@ export interface RpsBattleSnapshot {
   blackHole: RpsBattleBlackHoleState | null;
   lastStand: RpsBattleLastStandState | null;
   powerUps: RpsBattlePowerUpState | null;
+  shrink: RpsBattleShrinkState | null;
+  traitor: RpsBattleTraitorState | null;
   elapsedSec: number;
   timeLeftSec: number;
   conversions: number;
@@ -165,6 +171,52 @@ export interface RpsBattlePowerUpState {
   spawnedCount: number;
   pickedCount: number;
   teamEffectCount: number;
+}
+
+export interface RpsBattleShrinkBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface RpsBattleShrinkState {
+  active: boolean;
+  padding: number;
+  maxPadding: number;
+  progress: number;
+  bounds: RpsBattleShrinkBounds;
+}
+
+export interface RpsBattleTraitorMark {
+  entityId: number;
+  fromFaction: RpsBattleFaction;
+  toFaction: RpsBattleFaction;
+  startAtSec: number;
+  triggerAtSec: number;
+}
+
+export interface RpsBattleTraitorConversion {
+  entityId: number;
+  fromFaction: RpsBattleFaction;
+  toFaction: RpsBattleFaction;
+  x: number;
+  y: number;
+}
+
+export interface RpsBattleTraitorPulse {
+  entityId: number;
+  faction: RpsBattleFaction;
+  x: number;
+  y: number;
+  startedAtSec: number;
+}
+
+export interface RpsBattleTraitorState {
+  marks: RpsBattleTraitorMark[];
+  pulses: RpsBattleTraitorPulse[];
+  markedCount: number;
+  convertedCount: number;
 }
 
 export interface RpsBattleReviveMark {

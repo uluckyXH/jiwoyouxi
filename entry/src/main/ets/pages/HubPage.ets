@@ -32,8 +32,10 @@ const HOME_GAME_CARD_SLOT_HEIGHT: number = 122;
 const HOME_GAME_GRID_GAP: number = 10;
 const HOME_GAME_LOGO_TILE_SIZE: number = 62;
 const HOME_GAME_LOGO_IMAGE_SIZE: number = 56;
-const HOME_WIDE_GAME_LOGO_TILE_SIZE: number = 54;
-const HOME_WIDE_GAME_LOGO_IMAGE_SIZE: number = 48;
+const HOME_FAVORITE_CARD_HEIGHT: number = 138;
+const HOME_FAVORITE_CARD_SLOT_HEIGHT: number = 152;
+const HOME_FAVORITE_LOGO_TILE_SIZE: number = 58;
+const HOME_FAVORITE_LOGO_IMAGE_SIZE: number = 52;
 
 @Component
 export struct HubPage {
@@ -386,7 +388,7 @@ export struct HubPage {
       Stack({ alignContent: Alignment.Center }) {
         SymbolGlyph(icon)
           .fontSize(HOME_TAB_SYMBOL_SIZE)
-          .fontColor([this.activeTab === index ? this.activeColor() : this.tabMutedColor()])
+          .fontColor([this.activeTab === index ? this.activeTabIconColor() : this.tabMutedColor()])
       }
       .width(HOME_TAB_ICON_SIZE)
       .height(HOME_TAB_ICON_SIZE)
@@ -394,14 +396,14 @@ export struct HubPage {
         .height(HOME_TAB_LABEL_HEIGHT)
         .fontSize(11)
         .fontWeight(FontWeight.Bold)
-        .fontColor(this.activeTab === index ? this.activeColor() : this.tabMutedColor())
+        .fontColor(this.activeTab === index ? this.activeTabLabelColor() : this.tabMutedColor())
         .textAlign(TextAlign.Center)
     }
     .layoutWeight(1)
     .height('100%')
     .justifyContent(FlexAlign.Center)
     .borderRadius(HOME_TAB_ITEM_RADIUS)
-    .backgroundColor(this.activeTab === index ? this.activeTabBgColor() : 'rgba(255,255,255,0.00)')
+    .backgroundColor('rgba(255,255,255,0.00)')
     .scale({
       x: this.pressedTab === index ? CoopMotion.pressScale : 1,
       y: this.pressedTab === index ? CoopMotion.pressScale : 1
@@ -421,55 +423,141 @@ export struct HubPage {
 
   @Builder
   FavoriteList() {
-    Column({ space: 10 }) {
-      this.SectionTitleRow('收藏', '♡', false)
+    Column({ space: 12 }) {
+      this.SectionTitleRow('我的收藏', '♡', false)
       if (this.visibleFavoriteIds().length === 0) {
-        this.EmptyPanel('在游戏卡片右上角点星标收藏。')
+        this.FavoriteEmptyPanel()
       } else {
-        ForEach(this.visibleFavoriteIds(), (gameId: string) => {
-          this.WideGameRow(moduleById(gameId))
-        }, (gameId: string) => gameId)
+        this.FavoriteGrid()
       }
     }
     .width('100%')
   }
 
   @Builder
-  WideGameRow(module: GameModule) {
+  FavoriteGrid() {
+    Grid() {
+      ForEach(this.visibleFavoriteIds(), (gameId: string) => {
+        GridItem() {
+          this.FavoriteGameCard(moduleById(gameId))
+        }
+        .padding({ top: 2, bottom: 10 })
+      }, (gameId: string) => gameId)
+    }
+    .columnsTemplate('1fr 1fr')
+    .rowsGap(HOME_GAME_GRID_GAP)
+    .columnsGap(HOME_GAME_GRID_GAP)
+    .width('100%')
+    .height(this.favoriteGridHeight())
+  }
+
+  @Builder
+  FavoriteGameCard(module: GameModule) {
     MotionPressable({
       action: () => {
         this.openGame(module.id);
       }
     }) {
-      Row({ space: 12 }) {
-        this.GameLogoTile(module, HOME_WIDE_GAME_LOGO_TILE_SIZE, HOME_WIDE_GAME_LOGO_IMAGE_SIZE, false)
-        Column({ space: 3 }) {
-          Text(module.title)
-            .fontSize(15)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.inkColor())
-          Text(`${module.highScoreLabel} ${this.recordFor(module.id).highScore} · ${this.recordFor(module.id).playCount} 局`)
-            .fontSize(12)
-            .fontColor(this.mutedColor())
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        Text('开始')
-          .height(36)
-          .width(78)
-          .borderRadius(18)
-          .fontColor('#ffffff')
-          .fontWeight(FontWeight.Bold)
-          .textAlign(TextAlign.Center)
+      Stack({ alignContent: Alignment.TopStart }) {
+        Row()
+          .width(34)
+          .height(4)
+          .borderRadius(2)
           .backgroundColor(module.accent)
+          .opacity(this.isDarkMode() ? 0.70 : 0.52)
+          .position({ x: 12, y: 10 })
+
+        Column({ space: 8 }) {
+          Row() {
+            this.GameLogoTile(module, HOME_FAVORITE_LOGO_TILE_SIZE, HOME_FAVORITE_LOGO_IMAGE_SIZE, false)
+            Blank()
+            Text('★')
+              .width(28)
+              .height(28)
+              .fontSize(18)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.favoriteActiveColor())
+              .textAlign(TextAlign.Center)
+          }
+          .width('100%')
+          .alignItems(VerticalAlign.Top)
+
+          Column({ space: 4 }) {
+            Text(module.title)
+              .fontSize(15)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.inkColor())
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+            Text(this.favoriteRecordText(module))
+              .fontSize(11)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.mutedColor())
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .width('100%')
+          .alignItems(HorizontalAlign.Start)
+        }
+        .width('100%')
+        .height('100%')
+        .alignItems(HorizontalAlign.Start)
       }
       .width('100%')
-      .padding(12)
+      .height(HOME_FAVORITE_CARD_HEIGHT)
+      .padding({ left: 12, right: 12, top: 16, bottom: 12 })
       .borderRadius(20)
       .backgroundColor(this.gameCardBgColor())
       .border({ width: 1, color: this.gameCardLineColor() })
       .shadow(this.cardShadow())
     }
+  }
+
+  @Builder
+  FavoriteEmptyPanel() {
+    Column({ space: 10 }) {
+      Text('♡')
+        .width(52)
+        .height(52)
+        .fontSize(28)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.favoriteActiveColor())
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.panelSoftColor())
+        .borderRadius(18)
+        .border({ width: 1, color: this.lineColor() })
+      Text('还没有收藏')
+        .fontSize(17)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.inkColor())
+      Text('去首页挑几个常玩的游戏。')
+        .fontSize(12)
+        .fontColor(this.mutedColor())
+        .textAlign(TextAlign.Center)
+      MotionPressable({
+        pressScale: 0.97,
+        action: () => {
+          this.switchTab(0);
+        }
+      }) {
+        Text('去首页看看')
+          .width(132)
+          .height(38)
+          .borderRadius(19)
+          .fontSize(13)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.favoriteActionTextColor())
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.favoriteActionBgColor())
+      }
+    }
+    .width('100%')
+    .padding({ left: 18, right: 18, top: 28, bottom: 24 })
+    .alignItems(HorizontalAlign.Center)
+    .borderRadius(22)
+    .backgroundColor(this.panelColor())
+    .border({ width: 1, color: this.lineColor() })
+    .shadow(this.softShadow())
   }
 
   @Builder
@@ -574,19 +662,6 @@ export struct HubPage {
     }
   }
 
-  @Builder
-  EmptyPanel(text: string) {
-    Text(text)
-      .width('100%')
-      .padding(16)
-      .fontSize(13)
-      .fontColor(this.mutedColor())
-      .borderRadius(20)
-      .backgroundColor(this.panelColor())
-      .border({ width: 1, color: this.lineColor() })
-      .shadow(this.softShadow())
-  }
-
   private homeModules(): GameModule[] {
     const modules: GameModule[] = [];
     HOME_GAME_ORDER.forEach((id: string) => {
@@ -598,6 +673,11 @@ export struct HubPage {
   private homeGridHeight(): number {
     const rows = Math.ceil(this.homeModules().length / 2);
     return rows * HOME_GAME_CARD_SLOT_HEIGHT + Math.max(0, rows - 1) * HOME_GAME_GRID_GAP;
+  }
+
+  private favoriteGridHeight(): number {
+    const rows = Math.ceil(this.visibleFavoriteIds().length / 2);
+    return rows * HOME_FAVORITE_CARD_SLOT_HEIGHT + Math.max(0, rows - 1) * HOME_GAME_GRID_GAP;
   }
 
   private heroGameId(): string {
@@ -628,6 +708,11 @@ export struct HubPage {
     if (gameId === 'chicken2048') return 'app/game_logos/game_icon_chicken2048.png';
     if (gameId === 'freecell') return 'app/game_logos/game_icon_freecell.png';
     return 'app/game_logos/game_icon_rps.png';
+  }
+
+  private favoriteRecordText(module: GameModule): string {
+    const record = this.recordFor(module.id);
+    return `${module.highScoreLabel} ${record.highScore} · ${record.playCount} 局`;
   }
 
   private greetingTitle(): string {
@@ -695,6 +780,26 @@ export struct HubPage {
     return this.isDarkMode() ? '#a99a88' : CoopTheme.muted;
   }
 
+  private activeTabIconColor(): string {
+    return this.isDarkMode() ? '#ffd083' : '#f4a51f';
+  }
+
+  private activeTabLabelColor(): string {
+    return this.isDarkMode() ? '#f7dfbd' : '#5b3d25';
+  }
+
+  private favoriteActiveColor(): string {
+    return this.isDarkMode() ? '#ffd083' : CoopTheme.brand;
+  }
+
+  private favoriteActionBgColor(): string {
+    return this.isDarkMode() ? '#d99632' : CoopTheme.brand;
+  }
+
+  private favoriteActionTextColor(): string {
+    return this.isDarkMode() ? '#21160a' : '#ffffff';
+  }
+
   private panelColor(): string {
     return this.isDarkMode() ? '#211f1b' : '#fffaf2';
   }
@@ -749,10 +854,6 @@ export struct HubPage {
 
   private tabBarLineColor(): string {
     return this.isDarkMode() ? 'rgba(255,236,205,0.16)' : 'rgba(132,91,45,0.14)';
-  }
-
-  private activeTabBgColor(): string {
-    return this.isDarkMode() ? 'rgba(255,128,112,0.20)' : 'rgba(255,127,123,0.16)';
   }
 
   private heroBannerBgColor(): string {

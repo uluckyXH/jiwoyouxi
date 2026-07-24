@@ -36,6 +36,7 @@ function createEntity(id: number, faction: RpsBattleFaction, x: number, y: numbe
     radius: 14,
     shield: 0,
     speedBoostUntilSec: 0,
+    traitorRageUntilSec: 0,
     convertedAt: 0
   };
 }

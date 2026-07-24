@@ -508,6 +508,8 @@ export struct RpsBattlePage {
         this.engine.lastStepBlackHoleMs(),
         this.engine.lastStepLastStandMs(),
         this.engine.lastStepPowerUpMs(),
+        this.engine.lastStepShrinkMs(),
+        this.engine.lastStepTraitorMs(),
         audioMs,
         hudMs,
         sfxCalls,
@@ -520,6 +522,9 @@ export struct RpsBattlePage {
         this.engine.lastStepPowerUpPickupCount(),
         this.engine.lastStepPowerUpTeamEffectCount(),
         this.engine.lastStepPowerUpActiveCount(),
+        this.engine.lastStepShrinkPadding(),
+        this.engine.lastStepTraitorMarkCount(),
+        this.engine.lastStepTraitorConversionCount(),
         this.engine.entityCount(),
         currentConversions - previousConversions,
         currentConversions
@@ -542,6 +547,8 @@ export struct RpsBattlePage {
       this.engine.lastStepBlackHoleMs(),
       this.engine.lastStepLastStandMs(),
       this.engine.lastStepPowerUpMs(),
+      this.engine.lastStepShrinkMs(),
+      this.engine.lastStepTraitorMs(),
       audioMs,
       hudMs,
       sfxCalls,
@@ -554,6 +561,9 @@ export struct RpsBattlePage {
       this.engine.lastStepPowerUpPickupCount(),
       this.engine.lastStepPowerUpTeamEffectCount(),
       this.engine.lastStepPowerUpActiveCount(),
+      this.engine.lastStepShrinkPadding(),
+      this.engine.lastStepTraitorMarkCount(),
+      this.engine.lastStepTraitorConversionCount(),
       this.engine.entityCount(),
       currentConversions - previousConversions,
       currentConversions
@@ -681,7 +691,7 @@ export struct RpsBattlePage {
   private drawFrame(): void {
     if (this.engine === null) {
       this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec,
-        this.selectedThemeKey, null, null, null, null);
+        this.selectedThemeKey, null, null, null, null, null, null);
       return;
     }
     this.renderer.draw(
@@ -694,7 +704,9 @@ export struct RpsBattlePage {
       this.engine.controlZoneForRender(),
       this.engine.blackHoleForRender(),
       this.engine.powerUpsForRender(),
-      this.engine.lastStandForRender()
+      this.engine.lastStandForRender(),
+      this.engine.shrinkForRender(),
+      this.engine.traitorForRender()
     );
   }
 

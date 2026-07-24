@@ -12,8 +12,12 @@ import {
   RpsBattlePowerUpPickup,
   RpsBattlePowerUpState,
   RpsBattleResult,
+  RpsBattleShrinkBounds,
+  RpsBattleShrinkState,
   RpsBattleSpawnRequest,
-  RpsBattleSnapshot
+  RpsBattleSnapshot,
+  RpsBattleTraitorConversion,
+  RpsBattleTraitorState
 } from './RpsBattleTypes';
 import { rpsBattleResolveModeRulesByKey } from './RpsBattleModeConfig';
 import {
@@ -25,9 +29,18 @@ import {
   rpsBattlePredatorOf,
   rpsBattlePreyOf
 } from './RpsBattleRules';
-import { RpsBattleBlackHoleSystem } from './RpsBattleBlackHoleSystem';
+import {
+  RPS_BATTLE_BLACK_HOLE_TRAITOR_MAX_DELAY_SEC,
+  RPS_BATTLE_BLACK_HOLE_TRAITOR_MIN_DELAY_SEC,
+  RpsBattleBlackHoleSystem
+} from './RpsBattleBlackHoleSystem';
 import { RpsBattleLastStandSystem } from './RpsBattleLastStandSystem';
 import { RpsBattlePowerUpSystem } from './RpsBattlePowerUpSystem';
+import { RpsBattleShrinkSystem } from './RpsBattleShrinkSystem';
+import {
+  RPS_BATTLE_TRAITOR_RAGE_DURATION_SEC,
+  RpsBattleTraitorSystem
+} from './RpsBattleTraitorSystem';
 import { RpsBattleZoneSystem } from './RpsBattleZoneSystem';
 
 const ENTITY_RADIUS: number = 14;
@@ -42,6 +55,8 @@ const COLLISION_GRID_CELL_SIZE: number = ENTITY_RADIUS * 3;
 const ENTITY_SPEED_BOOST_DURATION_SEC: number = 6;
 const ENTITY_SPEED_BOOST_NUDGE: number = 1.22;
 const ENTITY_SPEED_BOOST_LIMIT_MULTIPLIER: number = 1.25;
+const ENTITY_TRAITOR_RAGE_NUDGE: number = 1.18;
+const ENTITY_TRAITOR_RAGE_LIMIT_MULTIPLIER: number = 1.22;
 const ENTITY_SPLIT_OFFSET: number = 18;
 const ENTITY_SPLIT_RADIUS_SCALE: number = 0.86;
 const RPS_BATTLE_TEAM_SPLIT_MAX_PER_PICKUP: number = 8;
@@ -52,6 +67,8 @@ const RPS_BATTLE_ZONE_GUARD_ACCEL: number = 42;
 const RPS_BATTLE_ZONE_SUPPORT_ACCEL: number = 24;
 const RPS_BATTLE_ZONE_PREDATOR_PRESSURE_SCALE: number = 0.32;
 const RPS_BATTLE_ZONE_INSIDE_OWNER_SCALE: number = 0.35;
+const RPS_BATTLE_ZONE_OPENING_RUSH_SEC: number = 4;
+const RPS_BATTLE_ZONE_OPENING_ACCEL_SCALE: number = 1.32;
 
 interface RpsBattleSpawnPoint {
   x: number;
@@ -69,6 +86,8 @@ export class RpsBattleEngine {
   private blackHoleSystem: RpsBattleBlackHoleSystem = new RpsBattleBlackHoleSystem();
   private lastStandSystem: RpsBattleLastStandSystem = new RpsBattleLastStandSystem();
   private powerUpSystem: RpsBattlePowerUpSystem = new RpsBattlePowerUpSystem();
+  private shrinkSystem: RpsBattleShrinkSystem = new RpsBattleShrinkSystem();
+  private traitorSystem: RpsBattleTraitorSystem = new RpsBattleTraitorSystem();
   private rockEntities: RpsBattleEntity[] = [];
   private scissorsEntities: RpsBattleEntity[] = [];
   private paperEntities: RpsBattleEntity[] = [];
@@ -98,6 +117,11 @@ export class RpsBattleEngine {
   private lastPowerUpPickupCount: number = 0;
   private lastPowerUpTeamEffectCount: number = 0;
   private lastPowerUpActiveCount: number = 0;
+  private lastShrinkMs: number = 0;
+  private lastShrinkPadding: number = 0;
+  private lastTraitorMs: number = 0;
+  private lastTraitorMarkCount: number = 0;
+  private lastTraitorConversionCount: number = 0;
 
   constructor(boardWidth: number, boardHeight: number, options: RpsBattleOptions,
     random: () => number = () => Math.random()) {
@@ -124,7 +148,12 @@ export class RpsBattleEngine {
       this.zoneSystem.clear();
     }
     if (this.modeRules.hasBlackHole) {
-      this.blackHoleSystem.reset(this.boardWidth, this.boardHeight, this.random);
+      if (this.modeRules.hasTraitor) {
+        this.blackHoleSystem.reset(this.boardWidth, this.boardHeight, this.random,
+          RPS_BATTLE_BLACK_HOLE_TRAITOR_MIN_DELAY_SEC, RPS_BATTLE_BLACK_HOLE_TRAITOR_MAX_DELAY_SEC);
+      } else {
+        this.blackHoleSystem.reset(this.boardWidth, this.boardHeight, this.random);
+      }
     } else {
       this.blackHoleSystem.clear();
     }
@@ -132,6 +161,16 @@ export class RpsBattleEngine {
       this.powerUpSystem.reset(0);
     } else {
       this.powerUpSystem.clear();
+    }
+    if (this.modeRules.hasShrink) {
+      this.shrinkSystem.reset(this.boardWidth, this.boardHeight);
+    } else {
+      this.shrinkSystem.clear();
+    }
+    if (this.modeRules.hasTraitor) {
+      this.traitorSystem.reset();
+    } else {
+      this.traitorSystem.clear();
     }
     this.spawnFaction('rock', this.options.initialCounts.rock, this.boardWidth * 0.24, this.boardHeight * 0.28);
     this.spawnFaction('scissors', this.options.initialCounts.scissors, this.boardWidth * 0.76, this.boardHeight * 0.30);
@@ -167,6 +206,15 @@ export class RpsBattleEngine {
     if (this.modeRules.hasPowerUps) {
       this.powerUpSystem.resize(ratioX, ratioY, this.boardWidth, this.boardHeight);
     }
+    if (this.modeRules.hasShrink) {
+      this.shrinkSystem.resize(this.boardWidth, this.boardHeight);
+    }
+    if (this.modeRules.hasTraitor) {
+      this.traitorSystem.resize(ratioX, ratioY);
+    }
+    for (let i = 0; i < this.entities.length; i += 1) {
+      this.resolveBounds(this.entities[i]);
+    }
   }
 
   update(dtSec: number, elapsedSec: number): RpsBattleResult {
@@ -188,11 +236,31 @@ export class RpsBattleEngine {
     this.lastPowerUpPickupCount = 0;
     this.lastPowerUpTeamEffectCount = 0;
     this.lastPowerUpActiveCount = 0;
+    this.lastShrinkMs = 0;
+    this.lastShrinkPadding = 0;
+    this.lastTraitorMs = 0;
+    this.lastTraitorMarkCount = 0;
+    this.lastTraitorConversionCount = 0;
     const dt = this.clamp(dtSec, 0, 0.05);
     if (this.modeRules.hasPowerUps) {
       const powerUpStartedAt = Date.now();
       this.powerUpSystem.updateSpawnAndExpire(true, elapsedSec, this.boardWidth, this.boardHeight, this.random);
       this.lastPowerUpMs += Date.now() - powerUpStartedAt;
+    }
+    if (this.modeRules.hasShrink) {
+      const shrinkStartedAt = Date.now();
+      this.shrinkSystem.update(elapsedSec, dt, this.boardWidth, this.boardHeight);
+      const shrink = this.shrinkSystem.snapshot();
+      this.lastShrinkPadding = shrink === null ? 0 : shrink.padding;
+      this.lastShrinkMs = Date.now() - shrinkStartedAt;
+    }
+    if (this.modeRules.hasTraitor) {
+      const traitorStartedAt = Date.now();
+      const traitorConversions = this.traitorSystem.update(this.entities, this.copyCounts(), elapsedSec, this.random);
+      this.applyTraitorConversions(traitorConversions, elapsedSec);
+      this.lastTraitorMarkCount = this.traitorSystem.lastFrameMarkCount();
+      this.lastTraitorConversionCount = this.traitorSystem.lastFrameConversionCount();
+      this.lastTraitorMs += Date.now() - traitorStartedAt;
     }
     const movementStartedAt = Date.now();
     this.applyMovement(dt, elapsedSec);
@@ -209,8 +277,11 @@ export class RpsBattleEngine {
     if (this.modeRules.hasBlackHole) {
       const blackHoleStartedAt = Date.now();
       const zone = this.zoneSystem.currentZone();
+      const shrinkBounds = this.modeRules.hasShrink ?
+        this.shrinkSystem.currentBounds(this.boardWidth, this.boardHeight) : null;
       const swallowed = this.blackHoleSystem.update(this.entities, elapsedSec, dt, this.boardWidth, this.boardHeight,
-        this.random, zone === null ? -1 : zone.x, zone === null ? -1 : zone.y, zone === null ? 0 : zone.radius);
+        this.random, zone === null ? -1 : zone.x, zone === null ? -1 : zone.y, zone === null ? 0 : zone.radius,
+        shrinkBounds);
       this.removeSwallowedEntities(swallowed);
       this.lastBlackHoleKillCount = swallowed.length;
       this.lastBlackHoleMs = Date.now() - blackHoleStartedAt;
@@ -232,6 +303,13 @@ export class RpsBattleEngine {
       this.lastLastStandEventCount = this.lastStandSystem.lastFrameEventCount();
       this.lastLastStandReviveCount = this.lastStandSystem.lastFrameReviveCount();
       this.lastLastStandMs = Date.now() - lastStandStartedAt;
+    }
+    if (this.modeRules.hasTraitor) {
+      const traitorStartedAt = Date.now();
+      this.ensureTraitorClearProtection(elapsedSec);
+      this.lastTraitorMarkCount = this.traitorSystem.lastFrameMarkCount();
+      this.lastTraitorConversionCount = this.traitorSystem.lastFrameConversionCount();
+      this.lastTraitorMs += Date.now() - traitorStartedAt;
     }
     const resultStartedAt = Date.now();
     const result = this.resultAt(elapsedSec);
@@ -323,6 +401,26 @@ export class RpsBattleEngine {
     return this.lastPowerUpActiveCount;
   }
 
+  lastStepShrinkMs(): number {
+    return this.lastShrinkMs;
+  }
+
+  lastStepShrinkPadding(): number {
+    return this.lastShrinkPadding;
+  }
+
+  lastStepTraitorMs(): number {
+    return this.lastTraitorMs;
+  }
+
+  lastStepTraitorMarkCount(): number {
+    return this.lastTraitorMarkCount;
+  }
+
+  lastStepTraitorConversionCount(): number {
+    return this.lastTraitorConversionCount;
+  }
+
   counts(): RpsBattleFactionCounts {
     return this.copyCounts();
   }
@@ -359,6 +457,22 @@ export class RpsBattleEngine {
     return this.powerUpSystem.snapshot();
   }
 
+  shrinkForRender(): RpsBattleShrinkState | null {
+    return this.shrinkSystem.snapshot();
+  }
+
+  shrinkSnapshot(): RpsBattleShrinkState | null {
+    return this.shrinkSystem.snapshot();
+  }
+
+  traitorForRender(): RpsBattleTraitorState | null {
+    return this.traitorSystem.snapshot();
+  }
+
+  traitorSnapshot(): RpsBattleTraitorState | null {
+    return this.traitorSystem.snapshot();
+  }
+
   timeLeftSec(elapsedSec: number): number {
     return Math.max(0, this.options.durationSec - elapsedSec);
   }
@@ -374,9 +488,9 @@ export class RpsBattleEngine {
       } else if (elapsedSec >= this.options.durationSec) {
         result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
       }
-    } else if (aliveCount <= 1 && !this.waitingForLastStandRevive()) {
+    } else if (aliveCount <= 1 && !this.waitingForLastStandRevive() && !this.waitingForTraitorResolution()) {
       result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'clear');
-    } else if (elapsedSec >= this.options.durationSec) {
+    } else if (!this.modeRules.hasDeathmatch && elapsedSec >= this.options.durationSec) {
       result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
     }
     return result;
@@ -391,6 +505,8 @@ export class RpsBattleEngine {
       blackHole: this.blackHoleSystem.snapshot(),
       lastStand: this.lastStandSystem.snapshot(),
       powerUps: this.powerUpSystem.snapshot(),
+      shrink: this.shrinkSystem.snapshot(),
+      traitor: this.traitorSystem.snapshot(),
       elapsedSec: Math.min(this.options.durationSec, elapsedSec),
       timeLeftSec: Math.max(0, this.options.durationSec - elapsedSec),
       conversions: this.conversions,
@@ -428,6 +544,7 @@ export class RpsBattleEngine {
       radius: ENTITY_RADIUS * radiusScale,
       shield: 0,
       speedBoostUntilSec: 0,
+      traitorRageUntilSec: 0,
       convertedAt: convertedAtSec
     };
     this.entities.push(entity);
@@ -479,7 +596,7 @@ export class RpsBattleEngine {
         }
       }
       if (zone !== null) {
-        const zoneAccel = this.zoneIntentAccel(entity, predator, zone);
+        const zoneAccel = this.zoneIntentAccel(entity, predator, zone, elapsedSec);
         if (zoneAccel > 0) {
           const dx = zone.x - entity.x;
           const dy = zone.y - entity.y;
@@ -628,6 +745,31 @@ export class RpsBattleEngine {
     for (let i = 0; i < swallowed.length; i += 1) {
       this.removeEntity(swallowed[i]);
     }
+  }
+
+  private applyTraitorConversions(conversions: RpsBattleTraitorConversion[], elapsedSec: number): void {
+    for (let i = 0; i < conversions.length; i += 1) {
+      const conversion = conversions[i];
+      const entity = this.findEntityById(conversion.entityId);
+      if (entity === null) {
+        continue;
+      }
+      this.convertEntity(entity, conversion.toFaction, elapsedSec);
+      entity.traitorRageUntilSec = Math.max(entity.traitorRageUntilSec,
+        elapsedSec + RPS_BATTLE_TRAITOR_RAGE_DURATION_SEC);
+      entity.vx *= ENTITY_TRAITOR_RAGE_NUDGE;
+      entity.vy *= ENTITY_TRAITOR_RAGE_NUDGE;
+      this.clampVelocity(entity, elapsedSec);
+    }
+  }
+
+  private ensureTraitorClearProtection(elapsedSec: number): void {
+    const counts = this.copyCounts();
+    const aliveCount = (counts.rock > 0 ? 1 : 0) + (counts.scissors > 0 ? 1 : 0) + (counts.paper > 0 ? 1 : 0);
+    if (aliveCount !== 1) {
+      return;
+    }
+    this.traitorSystem.tryQueueClearRescue(this.entities, counts, elapsedSec, this.random);
   }
 
   private applyPowerUpPickups(pickups: RpsBattlePowerUpPickup[], elapsedSec: number): void {
@@ -779,6 +921,10 @@ export class RpsBattleEngine {
     return this.modeRules.hasLastStand && this.lastStandSystem.hasPendingReviveMarks();
   }
 
+  private waitingForTraitorResolution(): boolean {
+    return this.modeRules.hasTraitor && this.traitorSystem.hasPendingMarks();
+  }
+
   private removeEntity(entity: RpsBattleEntity): void {
     for (let i = 0; i < this.entities.length; i += 1) {
       if (this.entities[i].id === entity.id) {
@@ -830,15 +976,18 @@ export class RpsBattleEngine {
   }
 
   private zoneIntentAccel(entity: RpsBattleEntity, predator: RpsBattleEntity | undefined,
-    zone: RpsBattleControlZone): number {
+    zone: RpsBattleControlZone, elapsedSec: number): number {
     const roleBucket = entity.id % 20;
     const ownsZone = zone.owner === entity.faction;
     const capturesZone = zone.capturingFaction === entity.faction;
+    const isOpeningRush = elapsedSec < RPS_BATTLE_ZONE_OPENING_RUSH_SEC;
     let accel = 0;
     if (roleBucket < 9) {
       accel = ownsZone ? RPS_BATTLE_ZONE_SUPPORT_ACCEL : RPS_BATTLE_ZONE_CONTESTER_ACCEL;
     } else if (roleBucket < 14) {
       accel = ownsZone || capturesZone ? RPS_BATTLE_ZONE_GUARD_ACCEL : RPS_BATTLE_ZONE_SUPPORT_ACCEL;
+    } else if (isOpeningRush && roleBucket < 17) {
+      accel = ownsZone ? RPS_BATTLE_ZONE_SUPPORT_ACCEL : RPS_BATTLE_ZONE_GUARD_ACCEL;
     } else if (!ownsZone && roleBucket % 3 === 0) {
       accel = RPS_BATTLE_ZONE_SUPPORT_ACCEL;
     }
@@ -849,6 +998,9 @@ export class RpsBattleEngine {
     const dy = entity.y - zone.y;
     if (ownsZone && dx * dx + dy * dy <= zone.radius * zone.radius) {
       accel *= RPS_BATTLE_ZONE_INSIDE_OWNER_SCALE;
+    }
+    if (isOpeningRush && !ownsZone) {
+      accel *= RPS_BATTLE_ZONE_OPENING_ACCEL_SCALE;
     }
     if (predator !== undefined) {
       const predatorDx = entity.x - predator.x;
@@ -982,26 +1134,38 @@ export class RpsBattleEngine {
   }
 
   private resolveBounds(entity: RpsBattleEntity): void {
-    if (entity.x < entity.radius) {
-      entity.x = entity.radius;
+    const bounds: RpsBattleShrinkBounds = this.modeRules.hasShrink ?
+      this.shrinkSystem.currentBounds(this.boardWidth, this.boardHeight) : {
+        left: 0,
+        top: 0,
+        right: this.boardWidth,
+        bottom: this.boardHeight
+      };
+    if (entity.x < bounds.left + entity.radius) {
+      entity.x = bounds.left + entity.radius;
       entity.vx = Math.abs(entity.vx) * 0.86;
-    } else if (entity.x > this.boardWidth - entity.radius) {
-      entity.x = this.boardWidth - entity.radius;
+    } else if (entity.x > bounds.right - entity.radius) {
+      entity.x = bounds.right - entity.radius;
       entity.vx = -Math.abs(entity.vx) * 0.86;
     }
-    if (entity.y < entity.radius) {
-      entity.y = entity.radius;
+    if (entity.y < bounds.top + entity.radius) {
+      entity.y = bounds.top + entity.radius;
       entity.vy = Math.abs(entity.vy) * 0.86;
-    } else if (entity.y > this.boardHeight - entity.radius) {
-      entity.y = this.boardHeight - entity.radius;
+    } else if (entity.y > bounds.bottom - entity.radius) {
+      entity.y = bounds.bottom - entity.radius;
       entity.vy = -Math.abs(entity.vy) * 0.86;
     }
   }
 
   private clampVelocity(entity: RpsBattleEntity, elapsedSec: number): void {
     const speed = Math.sqrt(entity.vx * entity.vx + entity.vy * entity.vy);
-    const maxSpeed = elapsedSec < entity.speedBoostUntilSec ?
-      ENTITY_MAX_SPEED * ENTITY_SPEED_BOOST_LIMIT_MULTIPLIER : ENTITY_MAX_SPEED;
+    let maxSpeed = ENTITY_MAX_SPEED;
+    if (elapsedSec < entity.speedBoostUntilSec) {
+      maxSpeed = Math.max(maxSpeed, ENTITY_MAX_SPEED * ENTITY_SPEED_BOOST_LIMIT_MULTIPLIER);
+    }
+    if (elapsedSec < entity.traitorRageUntilSec) {
+      maxSpeed = Math.max(maxSpeed, ENTITY_MAX_SPEED * ENTITY_TRAITOR_RAGE_LIMIT_MULTIPLIER);
+    }
     if (speed <= maxSpeed || speed <= 0) {
       return;
     }
