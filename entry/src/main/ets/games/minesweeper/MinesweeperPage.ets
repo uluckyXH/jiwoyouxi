@@ -1,5 +1,6 @@
 import { CoopModalTransition } from '../../components/CoopModalTransition';
 import { CoopTheme } from '../../design/CoopTheme';
+import { CoopViewport } from '../../design/CoopViewport';
 import { MinesweeperBoard } from './MinesweeperBoard';
 import { MinesweeperExitConfirmOverlay } from './MinesweeperExitConfirmOverlay';
 import { MinesweeperHud } from './MinesweeperHud';
@@ -33,8 +34,8 @@ export struct MinesweeperPage {
   private devUnlockPauseTapCount: number = 0;
   private devUnlockModeTapCount: number = 0;
   private pausedBeforeExitConfirm: boolean = false;
-  @State pageWidth: number = 390;
-  @State pageHeight: number = 760;
+  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
+  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
   @State difficultyKey: string = 'easy';
   @State cells: MineCell[] = [];
   @State elapsed: number = 0;
@@ -57,119 +58,130 @@ export struct MinesweeperPage {
   }
 
   build() {
-    Stack() {
-      Image($rawfile('games/minesweeper/bg.png'))
+    Stack({ alignContent: Alignment.Center }) {
+      Stack() {
+        Image($rawfile('games/minesweeper/bg.png'))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Fill)
+        Column({ space: 8 }) {
+          MinesweeperHud({
+            pageWidth: this.pageWidth,
+            bestScore: this.bestScore,
+            currentScore: this.currentScore(),
+            remainingMines: this.remainingMines(),
+            elapsedText: this.timeText(),
+            paused: this.paused,
+            flagMode: this.flagMode,
+            flagLimitReached: this.remainingMines() <= 0,
+            devRevealMines: this.devRevealMines,
+            showDevControls: this.devControlsVisible,
+            difficultyKey: this.difficultyKey,
+            exitToHub: () => {
+              this.requestExitToHub();
+            },
+            togglePause: () => {
+              this.handlePauseToggle();
+            },
+            selectDifficulty: (key: string) => {
+              this.difficultyKey = key;
+              this.restart();
+            },
+            toggleFlagMode: () => {
+              this.handleModeToggle();
+            },
+            toggleDevRevealMines: () => {
+              this.toggleDevRevealMines();
+            },
+            restartGame: () => {
+              this.restart();
+            }
+          })
+
+          Stack({ alignContent: Alignment.Top }) {
+            MinesweeperBoard({
+              cells: this.cells,
+              cellPx: this.cellSize(),
+              frameWidthPx: this.boardFrameWidth(),
+              frameHeightPx: this.boardFrameHeight(),
+              boardWidthPx: this.boardWidth(),
+              boardHeightPx: this.boardHeight(),
+              columnsTemplateValue: this.columnsTemplate(),
+              rowsTemplateValue: this.rowsTemplate(),
+              revealMines: this.devRevealMines,
+              tapCell: (index: number) => {
+                this.tapCell(index);
+              }
+            })
+          }
+          .width('100%')
+          .height(this.boardContainerHeight())
+          .clip(true)
+        }
         .width('100%')
         .height('100%')
-        .objectFit(ImageFit.Fill)
-      Column({ space: 8 }) {
-        MinesweeperHud({
-          pageWidth: this.pageWidth,
-          bestScore: this.bestScore,
-          currentScore: this.currentScore(),
-          remainingMines: this.remainingMines(),
-          elapsedText: this.timeText(),
-          paused: this.paused,
-          flagMode: this.flagMode,
-          flagLimitReached: this.remainingMines() <= 0,
-          devRevealMines: this.devRevealMines,
-          showDevControls: this.devControlsVisible,
-          difficultyKey: this.difficultyKey,
-          exitToHub: () => {
-            this.requestExitToHub();
-          },
-          togglePause: () => {
-            this.handlePauseToggle();
-          },
-          selectDifficulty: (key: string) => {
-            this.difficultyKey = key;
-            this.restart();
-          },
-          toggleFlagMode: () => {
-            this.handleModeToggle();
-          },
-          toggleDevRevealMines: () => {
-            this.toggleDevRevealMines();
-          },
-          restartGame: () => {
-            this.restart();
-          }
-        })
+        .backgroundColor(MinesweeperTheme.pageTint)
 
-        Stack({ alignContent: Alignment.Top }) {
-          MinesweeperBoard({
-            cells: this.cells,
-            cellPx: this.cellSize(),
-            frameWidthPx: this.boardFrameWidth(),
-            frameHeightPx: this.boardFrameHeight(),
-            boardWidthPx: this.boardWidth(),
-            boardHeightPx: this.boardHeight(),
-            columnsTemplateValue: this.columnsTemplate(),
-            rowsTemplateValue: this.rowsTemplate(),
-            revealMines: this.devRevealMines,
-            tapCell: (index: number) => {
-              this.tapCell(index);
+        if (this.paused && !this.gameOver && !this.showExitConfirmOverlay) {
+          this.PauseOverlay()
+        }
+        if (this.gameOver && this.showResultOverlay) {
+          MinesweeperResultOverlay({
+            win: this.win,
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            elapsedText: this.timeText(),
+            currentScore: this.currentScore(),
+            bestScore: this.bestScore,
+            openedSafeCells: this.openedSafeCells(),
+            safeCellTotal: this.safeCellTotal(),
+            restartGame: () => {
+              this.restart();
+            },
+            exitToHub: () => {
+              this.exitToHub();
+            },
+            closeOverlay: () => {
+              this.showResultOverlay = false;
             }
           })
         }
-        .width('100%')
-        .height(this.boardContainerHeight())
-        .clip(true)
+        if (this.showExitConfirmOverlay) {
+          MinesweeperExitConfirmOverlay({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            elapsedText: this.timeText(),
+            openedSafeCells: this.openedSafeCells(),
+            safeCellTotal: this.safeCellTotal(),
+            cancelExit: () => {
+              this.cancelExitConfirm();
+            },
+            confirmExit: () => {
+              this.confirmExitToHub();
+            }
+          })
+        }
       }
-      .width('100%')
-      .height('100%')
-      .backgroundColor(MinesweeperTheme.pageTint)
-
-      if (this.paused && !this.gameOver && !this.showExitConfirmOverlay) {
-        this.PauseOverlay()
-      }
-      if (this.gameOver && this.showResultOverlay) {
-        MinesweeperResultOverlay({
-          win: this.win,
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          elapsedText: this.timeText(),
-          currentScore: this.currentScore(),
-          bestScore: this.bestScore,
-          openedSafeCells: this.openedSafeCells(),
-          safeCellTotal: this.safeCellTotal(),
-          restartGame: () => {
-            this.restart();
-          },
-          exitToHub: () => {
-            this.exitToHub();
-          },
-          closeOverlay: () => {
-            this.showResultOverlay = false;
-          }
-        })
-      }
-      if (this.showExitConfirmOverlay) {
-        MinesweeperExitConfirmOverlay({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          elapsedText: this.timeText(),
-          openedSafeCells: this.openedSafeCells(),
-          safeCellTotal: this.safeCellTotal(),
-          cancelExit: () => {
-            this.cancelExitConfirm();
-          },
-          confirmExit: () => {
-            this.confirmExitToHub();
-          }
-        })
-      }
+      .width(this.pageWidth)
+      .height(this.pageHeight)
+      .clip(true)
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(CoopTheme.bgWarm)
     .onAreaChange((oldArea, newArea) => {
-      const width = Number.parseFloat(`${newArea.width}`);
-      const height = Number.parseFloat(`${newArea.height}`);
-      if (!Number.isNaN(width) && !Number.isNaN(height)) {
-        this.pageWidth = Math.max(280, width);
-        this.pageHeight = Math.max(420, height);
-      }
+      this.handlePageAreaChange(newArea);
     })
+  }
+
+  private handlePageAreaChange(newArea: Area): void {
+    const width = Number.parseFloat(`${newArea.width}`);
+    const height = Number.parseFloat(`${newArea.height}`);
+    if (!Number.isNaN(width) && !Number.isNaN(height)) {
+      const frame = CoopViewport.frame(width, height);
+      this.pageWidth = frame.width;
+      this.pageHeight = frame.height;
+    }
   }
 
   @Builder

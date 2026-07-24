@@ -7,12 +7,14 @@ import {
   RpsBattleFactionInfo,
   RpsBattleLastStandPulse,
   RpsBattleLastStandState,
+  RpsBattleObstacleState,
   RpsBattlePowerUp,
   RpsBattlePowerUpKind,
   RpsBattlePowerUpPulse,
   RpsBattlePowerUpState,
   RpsBattleReviveMark,
   RpsBattleShrinkState,
+  RpsBattleSnapState,
   RpsBattleTraitorMark,
   RpsBattleTraitorPulse,
   RpsBattleTraitorState,
@@ -29,12 +31,15 @@ export class RpsBattleRenderer {
     powerUps: RpsBattlePowerUpState | null = null,
     lastStand: RpsBattleLastStandState | null = null,
     shrink: RpsBattleShrinkState | null = null,
-    traitor: RpsBattleTraitorState | null = null): void {
+    traitor: RpsBattleTraitorState | null = null,
+    snap: RpsBattleSnapState | null = null,
+    obstacles: RpsBattleObstacleState | null = null): void {
     const canvasWidth = Math.max(1, width);
     const canvasHeight = Math.max(1, height);
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
     this.drawArena(ctx, canvasWidth, canvasHeight);
     this.drawShrink(ctx, shrink, canvasWidth, canvasHeight);
+    this.drawObstacles(ctx, obstacles);
     this.drawControlZone(ctx, controlZone, themeKey, elapsedSec);
     this.drawPowerUps(ctx, powerUps, elapsedSec, themeKey);
     this.drawLastStand(ctx, lastStand, elapsedSec, themeKey);
@@ -42,6 +47,126 @@ export class RpsBattleRenderer {
     this.drawTraitorPulses(ctx, traitor, elapsedSec, themeKey);
     this.drawEntities(ctx, entities, elapsedSec, themeKey);
     this.drawTraitorMarks(ctx, traitor, entities, elapsedSec, themeKey);
+    this.drawSnap(ctx, snap, elapsedSec, canvasWidth, canvasHeight, themeKey);
+  }
+
+  private drawObstacles(ctx: CanvasRenderingContext2D, state: RpsBattleObstacleState | null): void {
+    if (state === null) {
+      return;
+    }
+    for (let i = 0; i < state.obstacles.length; i += 1) {
+      const obstacle = state.obstacles[i];
+      const gradient = ctx.createRadialGradient(
+        obstacle.x - obstacle.radius * 0.28,
+        obstacle.y - obstacle.radius * 0.30,
+        Math.max(1, obstacle.radius * 0.10),
+        obstacle.x,
+        obstacle.y,
+        obstacle.radius
+      );
+      gradient.addColorStop(0, 'rgba(236,241,246,0.94)');
+      gradient.addColorStop(0.46, 'rgba(130,145,161,0.90)');
+      gradient.addColorStop(1, 'rgba(71,84,105,0.96)');
+      ctx.beginPath();
+      ctx.fillStyle = gradient;
+      ctx.strokeStyle = 'rgba(60,72,94,0.92)';
+      ctx.lineWidth = 2;
+      ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(255,255,255,0.38)';
+      ctx.lineWidth = 1.5;
+      ctx.arc(obstacle.x - obstacle.radius * 0.18, obstacle.y - obstacle.radius * 0.16,
+        obstacle.radius * 0.34, Math.PI * 0.72, Math.PI * 1.46);
+      ctx.stroke();
+    }
+  }
+
+  private drawSnap(ctx: CanvasRenderingContext2D, state: RpsBattleSnapState | null, elapsedSec: number,
+    width: number, height: number, themeKey: RpsBattleThemeKey): void {
+    if (state === null) {
+      return;
+    }
+    if (state.phase === 'warning') {
+      this.drawSnapWarning(ctx, state, elapsedSec, width, height);
+      return;
+    }
+    if (state.phase === 'resolved') {
+      this.drawSnapResolution(ctx, state, elapsedSec, width, height, themeKey);
+    }
+  }
+
+  private drawSnapWarning(ctx: CanvasRenderingContext2D, state: RpsBattleSnapState, elapsedSec: number,
+    width: number, height: number): void {
+    const remaining = Math.max(0, state.resolveAtSec - elapsedSec);
+    const progress = Math.max(0, Math.min(1, (elapsedSec - state.warningAtSec) /
+      Math.max(0.1, state.resolveAtSec - state.warningAtSec)));
+    const bannerWidth = Math.min(172, Math.max(132, width * 0.46));
+    const bannerHeight = 30;
+    const x = (width - bannerWidth) * 0.5;
+    const y = 14;
+    ctx.fillStyle = 'rgba(54,43,79,0.88)';
+    ctx.strokeStyle = 'rgba(139,92,246,0.88)';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(x, y, bannerWidth, bannerHeight);
+    ctx.strokeRect(x, y, bannerWidth, bannerHeight);
+    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.font = '700 12vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('均衡清算 ' + remaining.toFixed(1) + 's', width * 0.5, y + 12);
+    ctx.fillStyle = 'rgba(196,181,253,0.90)';
+    ctx.fillRect(x + 8, y + 23, (bannerWidth - 16) * progress, 3);
+
+    const radius = Math.min(width, height) * (0.11 + progress * 0.04);
+    ctx.beginPath();
+    ctx.globalAlpha = 0.16 + progress * 0.16;
+    ctx.strokeStyle = 'rgba(139,92,246,0.82)';
+    ctx.lineWidth = 3;
+    ctx.arc(width * 0.5, height * 0.5, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  private drawSnapResolution(ctx: CanvasRenderingContext2D, state: RpsBattleSnapState, elapsedSec: number,
+    width: number, height: number, themeKey: RpsBattleThemeKey): void {
+    const age = Math.max(0, elapsedSec - state.resolvedAtSec);
+    const progress = Math.max(0, Math.min(1, age / 0.8));
+    if (progress >= 1) {
+      return;
+    }
+    const radius = Math.min(width, height) * (0.15 + progress * 0.30);
+    ctx.beginPath();
+    ctx.globalAlpha = 0.42 * (1 - progress);
+    ctx.strokeStyle = 'rgba(124,58,237,0.92)';
+    ctx.lineWidth = 5 - progress * 2;
+    ctx.arc(width * 0.5, height * 0.5, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    this.drawSnapRemovedCount(ctx, state.removed.rock, width * 0.24, height * 0.28, 'rock', themeKey, progress);
+    this.drawSnapRemovedCount(ctx, state.removed.scissors, width * 0.76, height * 0.30, 'scissors', themeKey,
+      progress);
+    this.drawSnapRemovedCount(ctx, state.removed.paper, width * 0.50, height * 0.74, 'paper', themeKey, progress);
+  }
+
+  private drawSnapRemovedCount(ctx: CanvasRenderingContext2D, removed: number, x: number, y: number,
+    faction: RpsBattleFaction, themeKey: RpsBattleThemeKey, progress: number): void {
+    if (removed <= 0) {
+      return;
+    }
+    const info = rpsBattleThemeFactionInfo(themeKey, faction);
+    ctx.globalAlpha = 0.92 * (1 - progress);
+    ctx.fillStyle = info.textColor;
+    ctx.strokeStyle = 'rgba(255,255,255,0.82)';
+    ctx.lineWidth = 3;
+    ctx.font = '800 18vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeText('-' + removed, x, y - 24 - progress * 16);
+    ctx.fillText('-' + removed, x, y - 24 - progress * 16);
+    ctx.globalAlpha = 1;
   }
 
   private drawArena(ctx: CanvasRenderingContext2D, width: number, height: number): void {
@@ -151,7 +276,6 @@ export class RpsBattleRenderer {
     const hasOwner = zone.owner !== '';
     const ownerColor = this.factionColor(themeKey, zone.owner, '#7f735f');
     const edgeColor = this.factionColor(themeKey, zone.capturingFaction, RpsBattleTheme.arenaLine);
-    const progress = Math.max(0, Math.min(1, zone.score / RPS_BATTLE_CONTROL_ZONE_MAX_SCORE));
     const totalPressure = zone.pressure.rock + zone.pressure.scissors + zone.pressure.paper;
     const isContested = totalPressure > 0 && zone.capturingFaction === '';
     const openingPulse = Math.max(0, 1 - elapsedSec / 4);
@@ -179,15 +303,7 @@ export class RpsBattleRenderer {
     ctx.arc(zone.x, zone.y, zone.radius + 5, 0, Math.PI * 2);
     ctx.stroke();
 
-    if (progress > 0) {
-      ctx.beginPath();
-      ctx.strokeStyle = ownerColor;
-      ctx.lineWidth = 7;
-      ctx.lineCap = 'round';
-      ctx.arc(zone.x, zone.y, zone.radius + 5, -Math.PI * 0.5, -Math.PI * 0.5 + Math.PI * 2 * progress);
-      ctx.stroke();
-      ctx.lineCap = 'butt';
-    }
+    this.drawZoneScoreSegments(ctx, zone, themeKey);
 
     this.drawZonePressureTicks(ctx, zone, themeKey);
 
@@ -199,11 +315,65 @@ export class RpsBattleRenderer {
       ctx.stroke();
     }
 
-    ctx.fillStyle = ownerColor;
+    ctx.fillStyle = isContested ? RpsBattleTheme.pageInk : ownerColor;
     ctx.font = '700 18vp sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(`${Math.floor(zone.score)}`, zone.x, zone.y);
+    ctx.fillText(this.zoneCenterText(zone), zone.x, zone.y);
+  }
+
+  private drawZoneScoreSegments(ctx: CanvasRenderingContext2D, zone: RpsBattleControlZone,
+    themeKey: RpsBattleThemeKey): void {
+    const segmentGap = 0.16;
+    const segmentSpan = (Math.PI * 2 - segmentGap * 3) / 3;
+    const startAngle = -Math.PI * 0.5;
+    this.drawZoneScoreSegment(ctx, zone, themeKey, 'rock', startAngle, segmentSpan);
+    this.drawZoneScoreSegment(ctx, zone, themeKey, 'scissors', startAngle + segmentSpan + segmentGap, segmentSpan);
+    this.drawZoneScoreSegment(ctx, zone, themeKey, 'paper', startAngle + (segmentSpan + segmentGap) * 2, segmentSpan);
+  }
+
+  private drawZoneScoreSegment(ctx: CanvasRenderingContext2D, zone: RpsBattleControlZone,
+    themeKey: RpsBattleThemeKey, faction: RpsBattleFaction, startAngle: number, segmentSpan: number): void {
+    const factionInfo = rpsBattleThemeFactionInfo(themeKey, faction);
+    const progress = Math.max(0, Math.min(1,
+      this.zoneScoreValue(zone, faction) / RPS_BATTLE_CONTROL_ZONE_MAX_SCORE));
+    const radius = zone.radius + 5;
+    ctx.beginPath();
+    ctx.strokeStyle = this.softZoneFill(factionInfo.color);
+    ctx.lineWidth = 7;
+    ctx.lineCap = 'round';
+    ctx.arc(zone.x, zone.y, radius, startAngle, startAngle + segmentSpan);
+    ctx.stroke();
+    if (progress > 0) {
+      ctx.beginPath();
+      ctx.strokeStyle = factionInfo.color;
+      ctx.arc(zone.x, zone.y, radius, startAngle, startAngle + segmentSpan * progress);
+      ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+  }
+
+  private zoneCenterText(zone: RpsBattleControlZone): string {
+    if (zone.capturingFaction !== '') {
+      return `${Math.floor(this.zoneScoreValue(zone, zone.capturingFaction))}`;
+    }
+    if (zone.pressure.rock + zone.pressure.scissors + zone.pressure.paper > 0) {
+      return '争夺';
+    }
+    if (zone.owner !== '') {
+      return `${Math.floor(this.zoneScoreValue(zone, zone.owner))}`;
+    }
+    return '据点';
+  }
+
+  private zoneScoreValue(zone: RpsBattleControlZone, faction: RpsBattleFaction): number {
+    if (faction === 'rock') {
+      return zone.scores.rock;
+    }
+    if (faction === 'scissors') {
+      return zone.scores.scissors;
+    }
+    return zone.scores.paper;
   }
 
   private drawZonePressureTicks(ctx: CanvasRenderingContext2D, zone: RpsBattleControlZone,

@@ -1,5 +1,5 @@
 import { RpsBattleTheme } from './RpsBattleTheme';
-import { RpsBattleFactionInfo, RpsBattleResult, RpsBattleThemeKey } from './RpsBattleTypes';
+import { RpsBattleFactionInfo, RpsBattleModeKey, RpsBattleResult, RpsBattleThemeKey } from './RpsBattleTypes';
 import { rpsBattleCountValue, rpsBattleInitialResult } from './RpsBattleRules';
 import { rpsBattleThemeFactionInfo, rpsBattleThemeFactions } from './RpsBattleThemeConfig';
 
@@ -127,6 +127,7 @@ export struct RpsBattlePauseOverlay {
 export struct RpsBattleResultOverlay {
   @Prop result: RpsBattleResult = rpsBattleInitialResult('rock');
   @Prop themeKey: RpsBattleThemeKey = 'rps';
+  @Prop modeKey: RpsBattleModeKey = 'classic';
   restartGame: () => void = () => {};
   backToSetup: () => void = () => {};
   exitToHub: () => void = () => {};
@@ -152,6 +153,7 @@ export struct RpsBattleResultOverlay {
         }
         .width('100%')
         Row({ space: 8 }) {
+          this.MetaPill('胜因', this.resultReasonText())
           this.MetaPill('转阵', `${this.result.conversions}`)
           this.MetaPill('用时', `${Math.ceil(this.result.elapsedSec)}s`)
         }
@@ -278,5 +280,26 @@ export struct RpsBattleResultOverlay {
       return `支持 ${support.label} · 本局未分胜负`;
     }
     return this.result.supportWon ? `支持 ${support.label} · 猜中了` : `支持 ${support.label} · 下局再战`;
+  }
+
+  private resultReasonText(): string {
+    if (this.modeKey === 'zones') {
+      if (this.result.finishReason === 'zone') {
+        return '据点满分';
+      }
+      if (this.result.finishReason === 'time') {
+        return '据点领先';
+      }
+      if (this.result.finishReason === 'draw') {
+        return '据点平分';
+      }
+    }
+    if (this.result.finishReason === 'clear') {
+      return '清场';
+    }
+    if (this.result.finishReason === 'time') {
+      return '限时领先';
+    }
+    return '平局';
   }
 }

@@ -1,3 +1,4 @@
+import { CoopViewport } from '../../design/CoopViewport';
 import { TetrisBoard } from './TetrisBoard';
 import { TetrisControlPanel } from './TetrisControl';
 import { TetrisStatsPanel, TetrisStatusPanel } from './TetrisHud';
@@ -50,8 +51,8 @@ export struct TetrisPage {
   private previousPhase: number = TETRIS_PHASE_FALLING;
   private exitConfirmPhase: number = TETRIS_PHASE_FALLING;
 
-  @State pageWidth: number = 390;
-  @State pageHeight: number = 760;
+  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
+  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
   @State phase: number = TETRIS_PHASE_SPAWNING;
   @State board: number[] = createEmptyBoard();
   @State current: ActivePiece = spawnPiece(0);
@@ -82,97 +83,108 @@ export struct TetrisPage {
   }
 
   build() {
-    Stack() {
-      Image($rawfile('games/tetris/backgrounds/bg.png'))
+    Stack({ alignContent: Alignment.Center }) {
+      Stack() {
+        Image($rawfile('games/tetris/backgrounds/bg.png'))
+          .width('100%')
+          .height('100%')
+          .objectFit(ImageFit.Cover)
+        Column({ space: 12 }) {
+          this.TopBar()
+          Column() {
+            this.GameMainArea()
+          }
+          .margin({ top: this.gameAreaTopMargin() })
+          TetrisControlPanel({
+            disabled: !this.canAcceptInput(),
+            panelWidth: this.controlPanelWidth(),
+            panelHeight: this.controlPanelHeight(),
+            buttonWidth: this.controlButtonWidth(),
+            buttonHeight: this.controlButtonHeight(),
+            buttonGap: this.controlButtonGap(),
+            rotateButtonSize: this.rotateButtonSize(),
+            moveLeft: () => {
+              this.moveHorizontal(-1);
+            },
+            moveRight: () => {
+              this.moveHorizontal(1);
+            },
+            softDrop: () => {
+              this.softDrop();
+            },
+            hardDrop: () => {
+              this.hardDrop();
+            },
+            rotatePiece: () => {
+              this.rotatePiece();
+            }
+          })
+          .margin({ top: this.controlPanelTopMargin() })
+          Blank()
+        }
         .width('100%')
         .height('100%')
-        .objectFit(ImageFit.Cover)
-      Column({ space: 12 }) {
-        this.TopBar()
-        Column() {
-          this.GameMainArea()
+
+        if (this.phase === TETRIS_PHASE_PAUSED) {
+          TetrisPauseOverlay({
+            pageWidth: this.pageWidth,
+            resumeGame: () => {
+              this.resumeGame();
+            },
+            restartGame: () => {
+              this.restart();
+            }
+          })
         }
-        .margin({ top: this.gameAreaTopMargin() })
-        TetrisControlPanel({
-          disabled: !this.canAcceptInput(),
-          panelWidth: this.controlPanelWidth(),
-          panelHeight: this.controlPanelHeight(),
-          buttonWidth: this.controlButtonWidth(),
-          buttonHeight: this.controlButtonHeight(),
-          buttonGap: this.controlButtonGap(),
-          rotateButtonSize: this.rotateButtonSize(),
-          moveLeft: () => {
-            this.moveHorizontal(-1);
-          },
-          moveRight: () => {
-            this.moveHorizontal(1);
-          },
-          softDrop: () => {
-            this.softDrop();
-          },
-          hardDrop: () => {
-            this.hardDrop();
-          },
-          rotatePiece: () => {
-            this.rotatePiece();
-          }
-        })
-        .margin({ top: this.controlPanelTopMargin() })
-        Blank()
-      }
-      .width('100%')
-      .height('100%')
 
-      if (this.phase === TETRIS_PHASE_PAUSED) {
-        TetrisPauseOverlay({
-          pageWidth: this.pageWidth,
-          resumeGame: () => {
-            this.resumeGame();
-          },
-          restartGame: () => {
-            this.restart();
-          }
-        })
-      }
+        if (this.phase === TETRIS_PHASE_GAME_OVER) {
+          TetrisResultOverlay({
+            pageWidth: this.pageWidth,
+            score: this.score,
+            bestScore: this.bestScore,
+            lines: this.lines,
+            level: this.level,
+            restartGame: () => {
+              this.restart();
+            },
+            exitToHub: () => {
+              this.leaveToHub();
+            }
+          })
+        }
 
-      if (this.phase === TETRIS_PHASE_GAME_OVER) {
-        TetrisResultOverlay({
-          pageWidth: this.pageWidth,
-          score: this.score,
-          bestScore: this.bestScore,
-          lines: this.lines,
-          level: this.level,
-          restartGame: () => {
-            this.restart();
-          },
-          exitToHub: () => {
-            this.leaveToHub();
-          }
-        })
+        if (this.exitConfirmVisible) {
+          TetrisExitConfirmOverlay({
+            pageWidth: this.pageWidth,
+            cancelExit: () => {
+              this.cancelExitConfirm();
+            },
+            confirmExit: () => {
+              this.leaveToHub();
+            }
+          })
+        }
       }
-
-      if (this.exitConfirmVisible) {
-        TetrisExitConfirmOverlay({
-          pageWidth: this.pageWidth,
-          cancelExit: () => {
-            this.cancelExitConfirm();
-          },
-          confirmExit: () => {
-            this.leaveToHub();
-          }
-        })
-      }
+      .width(this.pageWidth)
+      .height(this.pageHeight)
+      .clip(true)
     }
     .width('100%')
     .height('100%')
+    .backgroundColor('#fff8ea')
     .onAreaChange((oldArea, newArea) => {
-      const width = Number.parseFloat(`${newArea.width}`);
-      const height = Number.parseFloat(`${newArea.height}`);
-      if (!Number.isNaN(width) && !Number.isNaN(height)) {
-        this.pageWidth = Math.max(280, width);
-        this.pageHeight = Math.max(420, height);
-      }
+      this.handlePageAreaChange(newArea);
     })
+  }
+
+  private handlePageAreaChange(newArea: Area): void {
+    const width = Number.parseFloat(`${newArea.width}`);
+    const height = Number.parseFloat(`${newArea.height}`);
+    if (!Number.isNaN(width) && !Number.isNaN(height)) {
+      const frame = CoopViewport.frame(width, height);
+      this.pageWidth = frame.width;
+      this.pageHeight = frame.height;
+    }
   }
 
   @Builder

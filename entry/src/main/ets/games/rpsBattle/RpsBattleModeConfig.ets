@@ -41,7 +41,7 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
     name: '团队占点',
     icon: '◎',
     subtitle: '据点 · 黑洞 · 道具',
-    objective: '占点到100或限时领先',
+    objective: '独立占点先到100或限时领先',
     mechanics: ['中心据点', '黑洞', '绝地求生', '能量道具', '团队道具'],
     enabledMechanics: ['中心据点', '黑洞', '绝地求生', '能量道具', '团队道具'],
     upcomingMechanics: [],
@@ -49,7 +49,7 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
       {
         key: 'controlZone',
         label: '中心据点',
-        summary: '中央据点涨到100获胜',
+        summary: '三方独立累积据点分，先到100获胜',
         state: 'core',
         defaultEnabled: true,
         canDisable: false
@@ -131,24 +131,24 @@ export const RPS_BATTLE_MODES: RpsBattleModePreset[] = [
     subtitle: '响指 · 障碍',
     objective: '死斗清场',
     mechanics: ['响指减员', '障碍'],
-    enabledMechanics: [],
-    upcomingMechanics: ['响指减员', '障碍'],
+    enabledMechanics: ['响指减员', '战场障碍'],
+    upcomingMechanics: [],
     mechanicOptions: [
       {
         key: 'snap',
         label: '响指减员',
         summary: '各阵营随机减少一半',
-        state: 'upcoming',
+        state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       },
       {
         key: 'obstacles',
-        label: '障碍',
+        label: '战场障碍',
         summary: '地图障碍改变路线',
-        state: 'upcoming',
+        state: 'enabled',
         defaultEnabled: true,
-        canDisable: false
+        canDisable: true
       }
     ]
   }
@@ -164,6 +164,8 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasTeamPowerUps: false,
     hasShrink: false,
     hasTraitor: false,
+    hasSnap: false,
+    hasObstacles: false,
     hasDeathmatch: false
   },
   {
@@ -175,6 +177,8 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasTeamPowerUps: true,
     hasShrink: false,
     hasTraitor: false,
+    hasSnap: false,
+    hasObstacles: false,
     hasDeathmatch: false
   },
   {
@@ -186,6 +190,8 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasTeamPowerUps: false,
     hasShrink: true,
     hasTraitor: true,
+    hasSnap: false,
+    hasObstacles: false,
     hasDeathmatch: true
   },
   {
@@ -197,6 +203,8 @@ export const RPS_BATTLE_MODE_RULES: RpsBattleModeRules[] = [
     hasTeamPowerUps: false,
     hasShrink: false,
     hasTraitor: false,
+    hasSnap: true,
+    hasObstacles: true,
     hasDeathmatch: true
   }
 ];
@@ -291,6 +299,8 @@ export function rpsBattleResolveModeRulesByKey(
     hasTeamPowerUps: base.hasTeamPowerUps,
     hasShrink: base.hasShrink,
     hasTraitor: base.hasTraitor,
+    hasSnap: base.hasSnap,
+    hasObstacles: base.hasObstacles,
     hasDeathmatch: base.hasDeathmatch
   };
   const options = rpsBattleModeByKey(key).mechanicOptions;
@@ -311,6 +321,10 @@ export function rpsBattleResolveModeRulesByKey(
       result.hasShrink = enabled;
     } else if (item.key === 'traitor') {
       result.hasTraitor = enabled;
+    } else if (item.key === 'snap') {
+      result.hasSnap = enabled;
+    } else if (item.key === 'obstacles') {
+      result.hasObstacles = enabled;
     }
   }
   if (!result.hasPowerUps) {

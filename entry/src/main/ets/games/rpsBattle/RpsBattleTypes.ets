@@ -10,6 +10,7 @@ export type RpsBattlePhase = 'setup' | 'countdown' | 'playing' | 'paused' | 'res
 export type RpsBattleFinishReason = 'none' | 'clear' | 'time' | 'draw' | 'zone';
 export type RpsBattleLastStandEventKind = 'split' | 'reviveMark' | 'revive';
 export type RpsBattlePowerUpKind = 'speed' | 'shield' | 'split';
+export type RpsBattleSnapPhase = 'waiting' | 'warning' | 'resolved' | 'completed';
 
 export interface RpsBattleFactionInfo {
   id: RpsBattleFaction;
@@ -72,6 +73,8 @@ export interface RpsBattleModeRules {
   hasTeamPowerUps: boolean;
   hasShrink: boolean;
   hasTraitor: boolean;
+  hasSnap: boolean;
+  hasObstacles: boolean;
   hasDeathmatch: boolean;
 }
 
@@ -112,6 +115,8 @@ export interface RpsBattleSnapshot {
   powerUps: RpsBattlePowerUpState | null;
   shrink: RpsBattleShrinkState | null;
   traitor: RpsBattleTraitorState | null;
+  snap: RpsBattleSnapState | null;
+  obstacles: RpsBattleObstacleState | null;
   elapsedSec: number;
   timeLeftSec: number;
   conversions: number;
@@ -124,7 +129,7 @@ export interface RpsBattleControlZone {
   radius: number;
   owner: RpsBattleFaction | '';
   capturingFaction: RpsBattleFaction | '';
-  score: number;
+  scores: RpsBattleFactionCounts;
   pressure: RpsBattleFactionCounts;
 }
 
@@ -136,6 +141,25 @@ export interface RpsBattleBlackHoleState {
   reach: number;
   nextAtSec: number;
   swallowed: number;
+}
+
+export interface RpsBattleSnapState {
+  phase: RpsBattleSnapPhase;
+  warningAtSec: number;
+  resolveAtSec: number;
+  resolvedAtSec: number;
+  removed: RpsBattleFactionCounts;
+  totalRemoved: number;
+}
+
+export interface RpsBattleObstacle {
+  x: number;
+  y: number;
+  radius: number;
+}
+
+export interface RpsBattleObstacleState {
+  obstacles: RpsBattleObstacle[];
 }
 
 export interface RpsBattlePowerUp {

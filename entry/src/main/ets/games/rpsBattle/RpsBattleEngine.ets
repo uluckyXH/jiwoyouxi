@@ -7,6 +7,7 @@ import {
   RpsBattleFactionCounts,
   RpsBattleLastStandState,
   RpsBattleModeRules,
+  RpsBattleObstacleState,
   RpsBattleOptions,
   RpsBattlePowerUpKind,
   RpsBattlePowerUpPickup,
@@ -15,6 +16,7 @@ import {
   RpsBattleShrinkBounds,
   RpsBattleShrinkState,
   RpsBattleSpawnRequest,
+  RpsBattleSnapState,
   RpsBattleSnapshot,
   RpsBattleTraitorConversion,
   RpsBattleTraitorState
@@ -35,8 +37,10 @@ import {
   RpsBattleBlackHoleSystem
 } from './RpsBattleBlackHoleSystem';
 import { RpsBattleLastStandSystem } from './RpsBattleLastStandSystem';
+import { RpsBattleObstacleSystem } from './RpsBattleObstacleSystem';
 import { RpsBattlePowerUpSystem } from './RpsBattlePowerUpSystem';
 import { RpsBattleShrinkSystem } from './RpsBattleShrinkSystem';
+import { RpsBattleSnapSystem } from './RpsBattleSnapSystem';
 import {
   RPS_BATTLE_TRAITOR_RAGE_DURATION_SEC,
   RpsBattleTraitorSystem
@@ -88,6 +92,8 @@ export class RpsBattleEngine {
   private powerUpSystem: RpsBattlePowerUpSystem = new RpsBattlePowerUpSystem();
   private shrinkSystem: RpsBattleShrinkSystem = new RpsBattleShrinkSystem();
   private traitorSystem: RpsBattleTraitorSystem = new RpsBattleTraitorSystem();
+  private snapSystem: RpsBattleSnapSystem = new RpsBattleSnapSystem();
+  private obstacleSystem: RpsBattleObstacleSystem = new RpsBattleObstacleSystem();
   private rockEntities: RpsBattleEntity[] = [];
   private scissorsEntities: RpsBattleEntity[] = [];
   private paperEntities: RpsBattleEntity[] = [];
@@ -122,6 +128,10 @@ export class RpsBattleEngine {
   private lastTraitorMs: number = 0;
   private lastTraitorMarkCount: number = 0;
   private lastTraitorConversionCount: number = 0;
+  private lastSnapMs: number = 0;
+  private lastSnapRemovedCount: number = 0;
+  private lastObstacleMs: number = 0;
+  private lastObstacleHitCount: number = 0;
 
   constructor(boardWidth: number, boardHeight: number, options: RpsBattleOptions,
     random: () => number = () => Math.random()) {
@@ -172,6 +182,16 @@ export class RpsBattleEngine {
     } else {
       this.traitorSystem.clear();
     }
+    if (this.modeRules.hasSnap) {
+      this.snapSystem.reset(this.random);
+    } else {
+      this.snapSystem.clear();
+    }
+    if (this.modeRules.hasObstacles) {
+      this.obstacleSystem.reset(this.boardWidth, this.boardHeight, this.random);
+    } else {
+      this.obstacleSystem.clear();
+    }
     this.spawnFaction('rock', this.options.initialCounts.rock, this.boardWidth * 0.24, this.boardHeight * 0.28);
     this.spawnFaction('scissors', this.options.initialCounts.scissors, this.boardWidth * 0.76, this.boardHeight * 0.30);
     this.spawnFaction('paper', this.options.initialCounts.paper, this.boardWidth * 0.50, this.boardHeight * 0.74);
@@ -212,6 +232,9 @@ export class RpsBattleEngine {
     if (this.modeRules.hasTraitor) {
       this.traitorSystem.resize(ratioX, ratioY);
     }
+    if (this.modeRules.hasObstacles) {
+      this.obstacleSystem.resize(ratioX, ratioY, this.boardWidth, this.boardHeight);
+    }
     for (let i = 0; i < this.entities.length; i += 1) {
       this.resolveBounds(this.entities[i]);
     }
@@ -241,6 +264,10 @@ export class RpsBattleEngine {
     this.lastTraitorMs = 0;
     this.lastTraitorMarkCount = 0;
     this.lastTraitorConversionCount = 0;
+    this.lastSnapMs = 0;
+    this.lastSnapRemovedCount = 0;
+    this.lastObstacleMs = 0;
+    this.lastObstacleHitCount = 0;
     const dt = this.clamp(dtSec, 0, 0.05);
     if (this.modeRules.hasPowerUps) {
       const powerUpStartedAt = Date.now();
@@ -262,9 +289,26 @@ export class RpsBattleEngine {
       this.lastTraitorConversionCount = this.traitorSystem.lastFrameConversionCount();
       this.lastTraitorMs += Date.now() - traitorStartedAt;
     }
+    if (this.modeRules.hasSnap && this.aliveFactionCount() > 1) {
+      const snapStartedAt = Date.now();
+      const removedIds = this.snapSystem.update(this.rockEntities, this.scissorsEntities, this.paperEntities,
+        elapsedSec, this.random);
+      this.removeEntitiesById(removedIds);
+      this.lastSnapRemovedCount = removedIds.length;
+      this.lastSnapMs = Date.now() - snapStartedAt;
+    }
     const movementStartedAt = Date.now();
     this.applyMovement(dt, elapsedSec);
     this.lastMovementMs = Date.now() - movementStartedAt;
+    if (this.modeRules.hasObstacles) {
+      const obstacleStartedAt = Date.now();
+      for (let i = 0; i < this.entities.length; i += 1) {
+        const entity = this.entities[i];
+        this.lastObstacleHitCount += this.obstacleSystem.resolveEntity(entity);
+        this.resolveBounds(entity);
+      }
+      this.lastObstacleMs = Date.now() - obstacleStartedAt;
+    }
     if (this.modeRules.hasPowerUps) {
       const powerUpStartedAt = Date.now();
       const pickups = this.powerUpSystem.collect(this.entities, elapsedSec, this.modeRules.hasTeamPowerUps);
@@ -421,6 +465,22 @@ export class RpsBattleEngine {
     return this.lastTraitorConversionCount;
   }
 
+  lastStepSnapMs(): number {
+    return this.lastSnapMs;
+  }
+
+  lastStepSnapRemovedCount(): number {
+    return this.lastSnapRemovedCount;
+  }
+
+  lastStepObstacleMs(): number {
+    return this.lastObstacleMs;
+  }
+
+  lastStepObstacleHitCount(): number {
+    return this.lastObstacleHitCount;
+  }
+
   counts(): RpsBattleFactionCounts {
     return this.copyCounts();
   }
@@ -473,6 +533,26 @@ export class RpsBattleEngine {
     return this.traitorSystem.snapshot();
   }
 
+  snapForRender(): RpsBattleSnapState | null {
+    return this.snapSystem.currentState();
+  }
+
+  snapSnapshot(): RpsBattleSnapState | null {
+    return this.snapSystem.snapshot();
+  }
+
+  obstaclesForRender(): RpsBattleObstacleState | null {
+    return this.obstacleSystem.currentState();
+  }
+
+  obstaclesSnapshot(): RpsBattleObstacleState | null {
+    return this.obstacleSystem.snapshot();
+  }
+
+  isDeathmatch(): boolean {
+    return this.modeRules.hasDeathmatch;
+  }
+
   timeLeftSec(elapsedSec: number): number {
     return Math.max(0, this.options.durationSec - elapsedSec);
   }
@@ -486,7 +566,15 @@ export class RpsBattleEngine {
       if (zoneWinner !== '') {
         result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'zone', zoneWinner);
       } else if (elapsedSec >= this.options.durationSec) {
-        result = rpsBattleBuildResult(this.options, counts, this.options.durationSec, this.conversions, 'time');
+        result = rpsBattleBuildResult(
+          this.options,
+          counts,
+          this.options.durationSec,
+          this.conversions,
+          'time',
+          this.zoneSystem.timeWinner(),
+          true
+        );
       }
     } else if (aliveCount <= 1 && !this.waitingForLastStandRevive() && !this.waitingForTraitorResolution()) {
       result = rpsBattleBuildResult(this.options, counts, elapsedSec, this.conversions, 'clear');
@@ -507,6 +595,8 @@ export class RpsBattleEngine {
       powerUps: this.powerUpSystem.snapshot(),
       shrink: this.shrinkSystem.snapshot(),
       traitor: this.traitorSystem.snapshot(),
+      snap: this.snapSystem.snapshot(),
+      obstacles: this.obstacleSystem.snapshot(),
       elapsedSec: Math.min(this.options.durationSec, elapsedSec),
       timeLeftSec: Math.max(0, this.options.durationSec - elapsedSec),
       conversions: this.conversions,
@@ -747,6 +837,15 @@ export class RpsBattleEngine {
     }
   }
 
+  private removeEntitiesById(entityIds: number[]): void {
+    for (let i = 0; i < entityIds.length; i += 1) {
+      const entity = this.findEntityById(entityIds[i]);
+      if (entity !== null) {
+        this.removeEntity(entity);
+      }
+    }
+  }
+
   private applyTraitorConversions(conversions: RpsBattleTraitorConversion[], elapsedSec: number): void {
     for (let i = 0; i < conversions.length; i += 1) {
       const conversion = conversions[i];
@@ -919,6 +1018,20 @@ export class RpsBattleEngine {
 
   private waitingForLastStandRevive(): boolean {
     return this.modeRules.hasLastStand && this.lastStandSystem.hasPendingReviveMarks();
+  }
+
+  private aliveFactionCount(): number {
+    let count = 0;
+    if (this.countsCache.rock > 0) {
+      count += 1;
+    }
+    if (this.countsCache.scissors > 0) {
+      count += 1;
+    }
+    if (this.countsCache.paper > 0) {
+      count += 1;
+    }
+    return count;
   }
 
   private waitingForTraitorResolution(): boolean {

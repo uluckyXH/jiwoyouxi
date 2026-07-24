@@ -1,4 +1,5 @@
 import { common } from '@kit.AbilityKit';
+import { CoopViewport } from '../../design/CoopViewport';
 import { NativeAudioService } from '../../services/AudioService';
 import {
   FREECELL_INTRO_ASSET_BACKGROUND,
@@ -70,8 +71,8 @@ export struct FreecellPage {
   private audioService: NativeAudioService = new NativeAudioService();
   private introController: FreecellIntroController = new FreecellIntroController();
   private introAssets: FreecellAssetWarmup = new FreecellAssetWarmup();
-  @State pageWidth: number = 390;
-  @State pageHeight: number = 760;
+  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
+  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
   @State gameState: FreecellState = createSolvableGame(randomSeed());
   @State history: FreecellSnapshot[] = [];
   @State recentMoves: FreecellMove[] = [];
@@ -110,161 +111,173 @@ export struct FreecellPage {
   }
 
   build() {
-    Stack({ alignContent: Alignment.TopStart }) {
-      Column()
-        .width('100%')
-        .height('100%')
-        .backgroundColor(FreecellTheme.pageFallback)
-      if (this.layoutReady) {
-        FreecellIntroLayer({
-          sceneVisible: this.introSceneVisible,
-          backgroundReady: () => {
-            this.handleIntroAssetReady(FREECELL_INTRO_ASSET_BACKGROUND);
-          },
-          backgroundFailed: () => {
-            this.handleIntroAssetFailed(FREECELL_INTRO_ASSET_BACKGROUND);
-          }
-        })
+    Stack({ alignContent: Alignment.Center }) {
+      Stack({ alignContent: Alignment.TopStart }) {
+        Column()
+          .width('100%')
+          .height('100%')
+          .backgroundColor(FreecellTheme.pageFallback)
+        if (this.layoutReady) {
+          FreecellIntroLayer({
+            sceneVisible: this.introSceneVisible,
+            backgroundReady: () => {
+              this.handleIntroAssetReady(FREECELL_INTRO_ASSET_BACKGROUND);
+            },
+            backgroundFailed: () => {
+              this.handleIntroAssetFailed(FREECELL_INTRO_ASSET_BACKGROUND);
+            }
+          })
 
-        FreecellDecor({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          sceneVisible: this.introSceneVisible
-        })
+          FreecellDecor({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            sceneVisible: this.introSceneVisible
+          })
 
-        FreecellBoard({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          state: this.gameState,
-          selectedLocation: this.selectedLocation,
-          hintMarks: this.hintMarks,
-          introPhase: this.introPhase,
-          introDealRound: this.introDealRound,
-          interactionEnabled: this.canInteractWithGame(),
-          tapSource: (source: FreecellLocation, cardId: string) => {
-            this.handleSourceTap(source, cardId);
-          },
-          tapTarget: (target: FreecellLocation) => {
-            this.handleTargetTap(target);
-          },
-          dropSource: (source: FreecellLocation, target: FreecellLocation) => {
-            this.handleDrop(source, target);
-          },
-          skipIntro: () => {
-            this.skipIntroDeal();
-          },
-          assetReady: (assetId: string) => {
-            this.handleIntroAssetReady(assetId);
-          },
-          assetFailed: (assetId: string) => {
-            this.handleIntroAssetFailed(assetId);
-          }
-        })
+          FreecellBoard({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            state: this.gameState,
+            selectedLocation: this.selectedLocation,
+            hintMarks: this.hintMarks,
+            introPhase: this.introPhase,
+            introDealRound: this.introDealRound,
+            interactionEnabled: this.canInteractWithGame(),
+            tapSource: (source: FreecellLocation, cardId: string) => {
+              this.handleSourceTap(source, cardId);
+            },
+            tapTarget: (target: FreecellLocation) => {
+              this.handleTargetTap(target);
+            },
+            dropSource: (source: FreecellLocation, target: FreecellLocation) => {
+              this.handleDrop(source, target);
+            },
+            skipIntro: () => {
+              this.skipIntroDeal();
+            },
+            assetReady: (assetId: string) => {
+              this.handleIntroAssetReady(assetId);
+            },
+            assetFailed: (assetId: string) => {
+              this.handleIntroAssetFailed(assetId);
+            }
+          })
 
-        FreecellHud({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          bestScore: this.bestScore,
-          score: this.score,
-          elapsed: this.elapsed,
-          moves: this.moves,
-          introSceneVisible: this.introSceneVisible,
-          actionsEnabled: this.canInteractWithGame(),
-          requestExit: () => {
-            this.requestExitToHub();
-          },
-          undo: () => {
-            this.undo();
-          },
-          hint: () => {
-            this.showHint();
-          },
-          openGuide: () => {
-            this.openGuide();
-          },
-          titleReady: () => {
-            this.handleIntroAssetReady(FREECELL_INTRO_ASSET_TITLE);
-          },
-          titleFailed: () => {
-            this.handleIntroAssetFailed(FREECELL_INTRO_ASSET_TITLE);
-          }
-        })
+          FreecellHud({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            bestScore: this.bestScore,
+            score: this.score,
+            elapsed: this.elapsed,
+            moves: this.moves,
+            introSceneVisible: this.introSceneVisible,
+            actionsEnabled: this.canInteractWithGame(),
+            requestExit: () => {
+              this.requestExitToHub();
+            },
+            undo: () => {
+              this.undo();
+            },
+            hint: () => {
+              this.showHint();
+            },
+            openGuide: () => {
+              this.openGuide();
+            },
+            titleReady: () => {
+              this.handleIntroAssetReady(FREECELL_INTRO_ASSET_TITLE);
+            },
+            titleFailed: () => {
+              this.handleIntroAssetFailed(FREECELL_INTRO_ASSET_TITLE);
+            }
+          })
 
-        FreecellToolbar({
-          pageWidth: this.pageWidth,
-          pageHeight: this.pageHeight,
-          autoRunning: this.autoRunning,
-          sceneVisible: this.introSceneVisible,
-          actionsEnabled: this.canInteractWithGame(),
-          newGame: () => {
-            this.newGame();
-          },
-          undo: () => {
-            this.undo();
-          },
-          autoMove: () => {
-            this.toggleAutoComplete();
-          },
-          hint: () => {
-            this.showHint();
-          }
-        })
-
-        if (this.toastVisible) {
-          this.ToastView()
-        }
-
-        if (this.won && this.showResultOverlay) {
-          FreecellResultOverlay({
-            score: this.currentScore(),
-            moves: this.currentMoves(),
-            elapsedText: this.timeText(),
-            restartGame: () => {
+          FreecellToolbar({
+            pageWidth: this.pageWidth,
+            pageHeight: this.pageHeight,
+            autoRunning: this.autoRunning,
+            sceneVisible: this.introSceneVisible,
+            actionsEnabled: this.canInteractWithGame(),
+            newGame: () => {
               this.newGame();
             },
-            exitToHub: () => {
-              this.exitToHub();
+            undo: () => {
+              this.undo();
             },
-            closeOverlay: () => {
-              this.showResultOverlay = false;
-            }
-          })
-        }
-
-        if (this.showGuideOverlay) {
-          FreecellGuideOverlay({
-            pageWidth: this.pageWidth,
-            closeGuide: () => {
-              this.closeGuide();
-            }
-          })
-        }
-
-        if (this.showExitConfirmOverlay) {
-          FreecellExitConfirmOverlay({
-            pageWidth: this.pageWidth,
-            cancelExit: () => {
-              this.cancelExitConfirm();
+            autoMove: () => {
+              this.toggleAutoComplete();
             },
-            confirmExit: () => {
-              this.confirmExitToHub();
+            hint: () => {
+              this.showHint();
             }
           })
+
+          if (this.toastVisible) {
+            this.ToastView()
+          }
+
+          if (this.won && this.showResultOverlay) {
+            FreecellResultOverlay({
+              score: this.currentScore(),
+              moves: this.currentMoves(),
+              elapsedText: this.timeText(),
+              restartGame: () => {
+                this.newGame();
+              },
+              exitToHub: () => {
+                this.exitToHub();
+              },
+              closeOverlay: () => {
+                this.showResultOverlay = false;
+              }
+            })
+          }
+
+          if (this.showGuideOverlay) {
+            FreecellGuideOverlay({
+              pageWidth: this.pageWidth,
+              closeGuide: () => {
+                this.closeGuide();
+              }
+            })
+          }
+
+          if (this.showExitConfirmOverlay) {
+            FreecellExitConfirmOverlay({
+              pageWidth: this.pageWidth,
+              cancelExit: () => {
+                this.cancelExitConfirm();
+              },
+              confirmExit: () => {
+                this.confirmExitToHub();
+              }
+            })
+          }
         }
       }
+      .width(this.pageWidth)
+      .height(this.pageHeight)
+      .clip(true)
+      .backgroundColor(FreecellTheme.pageFallback)
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(FreecellTheme.pageFallback)
     .onAreaChange((oldArea, newArea) => {
-      const width = Number.parseFloat(`${newArea.width}`);
-      const height = Number.parseFloat(`${newArea.height}`);
-      if (!Number.isNaN(width) && !Number.isNaN(height)) {
-        this.pageWidth = Math.max(280, width);
-        this.pageHeight = Math.max(520, height);
-        this.layoutReady = true;
-        this.beginIntroIfNeeded();
-      }
+      this.handlePageAreaChange(newArea);
     })
+  }
+
+  private handlePageAreaChange(newArea: Area): void {
+    const width = Number.parseFloat(`${newArea.width}`);
+    const height = Number.parseFloat(`${newArea.height}`);
+    if (!Number.isNaN(width) && !Number.isNaN(height)) {
+      const frame = CoopViewport.frame(width, height);
+      this.pageWidth = frame.width;
+      this.pageHeight = frame.height;
+      this.layoutReady = true;
+      this.beginIntroIfNeeded();
+    }
   }
 
   @Builder

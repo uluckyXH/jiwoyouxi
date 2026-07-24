@@ -4,11 +4,11 @@ import {
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattleFactionInfo,
+  RpsBattleSnapState,
   RpsBattleThemeKey
 } from './RpsBattleTypes';
 import { rpsBattleCountValue } from './RpsBattleRules';
 import { rpsBattleThemeFactionInfo, rpsBattleThemeFactions } from './RpsBattleThemeConfig';
-import { RPS_BATTLE_CONTROL_ZONE_MAX_SCORE } from './RpsBattleZoneSystem';
 
 @Component
 export struct RpsBattleHud {
@@ -18,6 +18,9 @@ export struct RpsBattleHud {
   @Prop supportFaction: RpsBattleFaction = 'rock';
   @Prop conversions: number = 0;
   @Prop controlZone: RpsBattleControlZone | null = null;
+  @Prop isDeathmatch: boolean = false;
+  @Prop elapsedSec: number = 0;
+  @Prop snap: RpsBattleSnapState | null = null;
 
   build() {
     Column({ space: 8 }) {
@@ -31,8 +34,9 @@ export struct RpsBattleHud {
         this.TimePill()
         if (this.controlZone !== null) {
           this.ZonePill()
+        } else {
+          this.SupportPill()
         }
-        this.SupportPill()
         this.ConversionPill()
       }
       .width('100%')
@@ -42,22 +46,24 @@ export struct RpsBattleHud {
 
   @Builder
   ZonePill() {
-    Row({ space: 5 }) {
-      Text('据点')
-        .fontSize(12)
+    Row({ space: 4 }) {
+      Text('占点')
+        .fontSize(11)
         .fontColor(RpsBattleTheme.muted)
         .maxLines(1)
-      Text(this.zoneScoreText())
-        .fontSize(13)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.zoneTextColor())
-        .maxLines(1)
+      ForEach(rpsBattleThemeFactions(this.themeKey), (item: RpsBattleFactionInfo) => {
+        Text(`${item.symbol}${this.zoneScoreText(item.id)}`)
+          .fontSize(11)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.zoneScoreColor(item.id))
+          .maxLines(1)
+      }, (item: RpsBattleFactionInfo) => item.id)
     }
     .justifyContent(FlexAlign.Center)
-    .layoutWeight(1)
+    .layoutWeight(2)
     .height(32)
     .borderRadius(8)
-    .backgroundColor(this.zoneSoftColor())
+    .backgroundColor(RpsBattleTheme.panelBg)
     .border({ width: 1, color: RpsBattleTheme.panelLine })
   }
 
@@ -93,11 +99,11 @@ export struct RpsBattleHud {
   @Builder
   TimePill() {
     Row({ space: 5 }) {
-      Text('剩余')
+      Text(this.isDeathmatch ? '赛制' : '剩余')
         .fontSize(12)
         .fontColor(RpsBattleTheme.muted)
         .maxLines(1)
-      Text(`${Math.max(0, this.timeLeftSec).toFixed(1)}s`)
+      Text(this.statusText())
         .fontSize(13)
         .fontWeight(FontWeight.Bold)
         .fontColor(RpsBattleTheme.pageInk)
@@ -153,34 +159,36 @@ export struct RpsBattleHud {
     .border({ width: 1, color: RpsBattleTheme.panelLine })
   }
 
-  private zoneScoreText(): string {
+  private zoneScoreText(faction: RpsBattleFaction): string {
     if (this.controlZone === null) {
-      return `0/${RPS_BATTLE_CONTROL_ZONE_MAX_SCORE}`;
+      return '0';
     }
-    return `${Math.floor(this.controlZone.score)}/${RPS_BATTLE_CONTROL_ZONE_MAX_SCORE}`;
+    if (faction === 'rock') {
+      return `${Math.floor(this.controlZone.scores.rock)}`;
+    }
+    if (faction === 'scissors') {
+      return `${Math.floor(this.controlZone.scores.scissors)}`;
+    }
+    return `${Math.floor(this.controlZone.scores.paper)}`;
   }
 
-  private zoneTextColor(): string {
-    const zone = this.controlZone;
-    return zone === null ? RpsBattleTheme.pageInk : this.factionTextColor(zone.owner);
+  private statusText(): string {
+    if (!this.isDeathmatch) {
+      return Math.max(0, this.timeLeftSec).toFixed(1) + 's';
+    }
+    if (this.snap !== null && this.snap.phase === 'warning') {
+      return '清算 ' + Math.max(0, this.snap.resolveAtSec - this.elapsedSec).toFixed(1) + 's';
+    }
+    if (this.snap !== null && this.snap.phase === 'resolved') {
+      return '清算完成';
+    }
+    return '死斗清场';
   }
 
-  private zoneSoftColor(): string {
-    const zone = this.controlZone;
-    return zone === null ? RpsBattleTheme.panelBg : this.factionSoftColor(zone.owner);
-  }
-
-  private factionTextColor(faction: RpsBattleFaction | ''): string {
-    if (faction === '') {
-      return RpsBattleTheme.pageInk;
+  private zoneScoreColor(faction: RpsBattleFaction): string {
+    if (this.controlZone !== null && this.controlZone.capturingFaction === faction) {
+      return rpsBattleThemeFactionInfo(this.themeKey, faction).color;
     }
     return rpsBattleThemeFactionInfo(this.themeKey, faction).textColor;
-  }
-
-  private factionSoftColor(faction: RpsBattleFaction | ''): string {
-    if (faction === '') {
-      return RpsBattleTheme.panelBg;
-    }
-    return rpsBattleThemeFactionInfo(this.themeKey, faction).softColor;
   }
 }

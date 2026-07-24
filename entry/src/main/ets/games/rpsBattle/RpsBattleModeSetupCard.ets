@@ -130,6 +130,8 @@ export struct RpsBattleModeSetupCard {
       this.SummaryRow('目标', rpsBattleModeByKey(this.selectedModeKey).objective)
       if (this.hasEnabledMechanics()) {
         this.SummaryRow('已启用', this.modeMechanicsText())
+      } else if (this.hasRunnableMechanics()) {
+        this.SummaryRow('机制', '基础追捕 / 碰撞转阵')
       } else {
         this.SummaryRow('状态', '机制迁移中')
       }
@@ -247,6 +249,16 @@ export struct RpsBattleModeSetupCard {
     const options = rpsBattleModeByKey(this.selectedModeKey).mechanicOptions;
     for (let i = 0; i < options.length; i += 1) {
       if (options[i].state !== 'upcoming' && this.mechanicEnabled(options[i])) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private hasRunnableMechanics(): boolean {
+    const options = rpsBattleModeByKey(this.selectedModeKey).mechanicOptions;
+    for (let i = 0; i < options.length; i += 1) {
+      if (options[i].state !== 'upcoming') {
         return true;
       }
     }

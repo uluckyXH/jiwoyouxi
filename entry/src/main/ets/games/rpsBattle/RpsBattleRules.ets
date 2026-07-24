@@ -258,7 +258,8 @@ export function rpsBattleBuildResult(
   elapsedSec: number,
   conversions: number,
   finishReason: RpsBattleFinishReason,
-  winnerOverride: RpsBattleFaction | '' = ''
+  winnerOverride: RpsBattleFaction | '' = '',
+  shouldUseWinnerOverrideForTime: boolean = false
 ): RpsBattleResult {
   let winner: RpsBattleFaction | '' = '';
   let reason: RpsBattleFinishReason = finishReason;
@@ -268,7 +269,7 @@ export function rpsBattleBuildResult(
   } else if (finishReason === 'zone') {
     winner = winnerOverride;
   } else if (finishReason === 'time') {
-    winner = rpsBattleLeadingFaction(counts);
+    winner = shouldUseWinnerOverrideForTime ? winnerOverride : rpsBattleLeadingFaction(counts);
     if (winner === '') {
       reason = 'draw';
     }

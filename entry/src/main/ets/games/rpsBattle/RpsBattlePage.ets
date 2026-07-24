@@ -21,6 +21,8 @@ import {
   RpsBattlePhase,
   RpsBattleResult,
   RpsBattleScale,
+  RpsBattleSnapPhase,
+  RpsBattleSnapState,
   RpsBattleThemeKey
 } from './RpsBattleTypes';
 import {
@@ -47,6 +49,8 @@ const RPS_BATTLE_COUNTDOWN_INTERVAL_MS: number = 1000;
 const RPS_BATTLE_BGM_VOLUME: number = 0.38;
 const RPS_BATTLE_SFX_VOLUME: number = 0.72;
 const RPS_BATTLE_CONVERT_SOUND_INTERVAL_MS: number = 120;
+const RPS_BATTLE_SNAP_WARNING_SOUND_VOLUME: number = 0.56;
+const RPS_BATTLE_SNAP_RESOLVED_SOUND_VOLUME: number = 0.72;
 const RPS_BATTLE_ENABLE_PERF_LOG: boolean = true;
 
 @Component
@@ -72,6 +76,7 @@ export struct RpsBattlePage {
   private lastTickAt: number = 0;
   private lastFrameTimestamp: number = 0;
   private lastConvertSoundAt: number = 0;
+  private lastSnapPhase: RpsBattleSnapPhase | '' = '';
   private runtimeElapsedSec: number = 0;
   private hasRecordedResult: boolean = false;
   private audioReady: boolean = false;
@@ -95,6 +100,8 @@ export struct RpsBattlePage {
   @State timeLeftSec: number = RPS_BATTLE_DURATION_SEC;
   @State conversions: number = 0;
   @State controlZone: RpsBattleControlZone | null = null;
+  @State isDeathmatch: boolean = false;
+  @State snap: RpsBattleSnapState | null = null;
   @State countdownValue: number = RPS_BATTLE_COUNTDOWN_START;
   @State result: RpsBattleResult = rpsBattleInitialResult('rock');
   @State pausedFromPhase: RpsBattlePhase = 'playing';
@@ -174,6 +181,7 @@ export struct RpsBattlePage {
         RpsBattleResultOverlay({
           result: this.result,
           themeKey: this.selectedThemeKey,
+          modeKey: this.selectedModeKey,
           restartGame: () => {
             this.startGame();
           },
@@ -283,7 +291,10 @@ export struct RpsBattlePage {
         timeLeftSec: this.timeLeftSec,
         supportFaction: this.selectedFaction,
         conversions: this.conversions,
-        controlZone: this.controlZone
+        controlZone: this.controlZone,
+        isDeathmatch: this.isDeathmatch,
+        elapsedSec: this.elapsedSec,
+        snap: this.snap
       })
       .width(this.boardWidth())
 
@@ -348,6 +359,8 @@ export struct RpsBattlePage {
     this.timeLeftSec = options.durationSec;
     this.conversions = 0;
     this.controlZone = null;
+    this.isDeathmatch = this.engine.isDeathmatch();
+    this.snap = null;
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
     this.phase = 'countdown';
@@ -355,6 +368,7 @@ export struct RpsBattlePage {
     this.drawFrame();
     this.lastTickAt = Date.now();
     this.lastConvertSoundAt = 0;
+    this.lastSnapPhase = '';
     this.startCountdown();
   }
 
@@ -433,6 +447,7 @@ export struct RpsBattlePage {
     this.elapsedSec = 0;
     this.timeLeftSec = this.engine.timeLeftSec(0);
     this.conversions = this.engine.conversionCount();
+    this.isDeathmatch = this.engine.isDeathmatch();
     this.phase = 'playing';
     this.lastTickAt = Date.now();
     this.lastFrameTimestamp = 0;
@@ -476,13 +491,18 @@ export struct RpsBattlePage {
     const result = this.engine.update(dt, this.runtimeElapsedSec);
     const updateMs = Date.now() - updateStartedAt;
     const currentConversions = this.engine.conversionCount();
+    const audioStartedAt = Date.now();
     let audioMs = 0;
     let sfxCalls = 0;
     if (currentConversions > previousConversions) {
-      const audioStartedAt = Date.now();
       if (this.playConvertSound()) {
         sfxCalls = 1;
       }
+    }
+    if (this.playSnapSound()) {
+      sfxCalls += 1;
+    }
+    if (sfxCalls > 0) {
       audioMs = Date.now() - audioStartedAt;
     }
     const drawStartedAt = Date.now();
@@ -510,6 +530,8 @@ export struct RpsBattlePage {
         this.engine.lastStepPowerUpMs(),
         this.engine.lastStepShrinkMs(),
         this.engine.lastStepTraitorMs(),
+        this.engine.lastStepSnapMs(),
+        this.engine.lastStepObstacleMs(),
         audioMs,
         hudMs,
         sfxCalls,
@@ -525,6 +547,8 @@ export struct RpsBattlePage {
         this.engine.lastStepShrinkPadding(),
         this.engine.lastStepTraitorMarkCount(),
         this.engine.lastStepTraitorConversionCount(),
+        this.engine.lastStepSnapRemovedCount(),
+        this.engine.lastStepObstacleHitCount(),
         this.engine.entityCount(),
         currentConversions - previousConversions,
         currentConversions
@@ -549,6 +573,8 @@ export struct RpsBattlePage {
       this.engine.lastStepPowerUpMs(),
       this.engine.lastStepShrinkMs(),
       this.engine.lastStepTraitorMs(),
+      this.engine.lastStepSnapMs(),
+      this.engine.lastStepObstacleMs(),
       audioMs,
       hudMs,
       sfxCalls,
@@ -564,6 +590,8 @@ export struct RpsBattlePage {
       this.engine.lastStepShrinkPadding(),
       this.engine.lastStepTraitorMarkCount(),
       this.engine.lastStepTraitorConversionCount(),
+      this.engine.lastStepSnapRemovedCount(),
+      this.engine.lastStepObstacleHitCount(),
       this.engine.entityCount(),
       currentConversions - previousConversions,
       currentConversions
@@ -579,6 +607,8 @@ export struct RpsBattlePage {
     this.timeLeftSec = this.engine.timeLeftSec(elapsedSec);
     this.conversions = this.engine.conversionCount();
     this.controlZone = this.engine.controlZoneSnapshot();
+    this.isDeathmatch = this.engine.isDeathmatch();
+    this.snap = this.engine.snapSnapshot();
   }
 
   private finishGame(result: RpsBattleResult): void {
@@ -664,6 +694,8 @@ export struct RpsBattlePage {
     this.timeLeftSec = this.durationSec;
     this.conversions = 0;
     this.controlZone = null;
+    this.isDeathmatch = false;
+    this.snap = null;
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
     this.phase = 'setup';
@@ -691,7 +723,7 @@ export struct RpsBattlePage {
   private drawFrame(): void {
     if (this.engine === null) {
       this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec,
-        this.selectedThemeKey, null, null, null, null, null, null);
+        this.selectedThemeKey, null, null, null, null, null, null, null, null);
       return;
     }
     this.renderer.draw(
@@ -706,7 +738,9 @@ export struct RpsBattlePage {
       this.engine.powerUpsForRender(),
       this.engine.lastStandForRender(),
       this.engine.shrinkForRender(),
-      this.engine.traitorForRender()
+      this.engine.traitorForRender(),
+      this.engine.snapForRender(),
+      this.engine.obstaclesForRender()
     );
   }
 
@@ -744,6 +778,27 @@ export struct RpsBattlePage {
     this.lastConvertSoundAt = now;
     this.audioService.play('attack', 0.46);
     return true;
+  }
+
+  private playSnapSound(): boolean {
+    if (this.engine === null) {
+      return false;
+    }
+    const snap = this.engine.snapForRender();
+    const phase: RpsBattleSnapPhase | '' = snap === null ? '' : snap.phase;
+    if (phase === this.lastSnapPhase) {
+      return false;
+    }
+    this.lastSnapPhase = phase;
+    if (phase === 'warning') {
+      this.audioService.play('warning', RPS_BATTLE_SNAP_WARNING_SOUND_VOLUME);
+      return true;
+    }
+    if (phase === 'resolved') {
+      this.audioService.play('power', RPS_BATTLE_SNAP_RESOLVED_SOUND_VOLUME);
+      return true;
+    }
+    return false;
   }
 
   private panelWidth(): number {

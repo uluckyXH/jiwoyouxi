@@ -1,6 +1,7 @@
 import { MotionPressable } from '../components/MotionPressable';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
+import { CoopViewport } from '../design/CoopViewport';
 import {
   APPEARANCE_DARK,
   APPEARANCE_LIGHT,
@@ -36,6 +37,8 @@ const HOME_FAVORITE_CARD_HEIGHT: number = 138;
 const HOME_FAVORITE_CARD_SLOT_HEIGHT: number = 152;
 const HOME_FAVORITE_LOGO_TILE_SIZE: number = 58;
 const HOME_FAVORITE_LOGO_IMAGE_SIZE: number = 52;
+const SETTINGS_GROUP_RADIUS: number = 18;
+const SETTINGS_SEGMENT_HEIGHT: number = 58;
 
 @Component
 export struct HubPage {
@@ -48,27 +51,38 @@ export struct HubPage {
   @State activeTab: number = 0;
   @State pressedTab: number = -1;
   @State appearanceModeOverride: string = '';
+  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
+  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
 
   build() {
-    Stack({ alignContent: Alignment.Bottom }) {
-      Scroll() {
-        Column({ space: 14 }) {
-          this.ActiveTabContent()
-          Blank()
-            .height(HOME_CONTENT_BOTTOM_SPACE)
+    Stack({ alignContent: Alignment.Center }) {
+      Stack({ alignContent: Alignment.Bottom }) {
+        Scroll() {
+          Column({ space: 14 }) {
+            this.ActiveTabContent()
+            Blank()
+              .height(HOME_CONTENT_BOTTOM_SPACE)
+          }
+          .width('100%')
+          .constraintSize({ minHeight: '100%' })
+          .padding({ left: HOME_SIDE_PADDING, right: HOME_SIDE_PADDING, top: HOME_TOP_PADDING, bottom: 18 })
         }
         .width('100%')
-        .constraintSize({ minHeight: '100%' })
-        .padding({ left: HOME_SIDE_PADDING, right: HOME_SIDE_PADDING, top: HOME_TOP_PADDING, bottom: 18 })
-      }
-      .width('100%')
-      .height('100%')
+        .height('100%')
+        .scrollBar(BarState.Off)
 
-      this.BottomTabBar()
+        this.BottomTabBar()
+      }
+      .width(this.homeFrameWidth())
+      .height(this.homeFrameHeight())
+      .backgroundColor(this.homeBgColor())
     }
     .width('100%')
     .height('100%')
     .backgroundColor(this.homeBgColor())
+    .onAreaChange((oldArea, newArea) => {
+      this.handlePageAreaChange(newArea);
+    })
   }
 
   @Builder
@@ -610,56 +624,91 @@ export struct HubPage {
 
   @Builder
   Settings() {
-    Column({ space: 10 }) {
-      this.SectionTitleRow('设置', '⚙', false)
-      this.SettingSwitch('声音', this.snapshot.soundEnabled, () => {
-        this.updateSound(!this.snapshot.soundEnabled);
-      })
-      this.SettingSwitch('触感反馈', this.snapshot.hapticEnabled, () => {
-        this.updateHaptic(!this.snapshot.hapticEnabled);
-      })
-      this.SettingSwitch('深色模式', this.isDarkMode(), () => {
-        this.toggleAppearanceMode();
-      })
-      Text('当前阶段只维护鸿蒙原生离线版本。iOS / Android 等你口令再做。')
-        .width('100%')
-        .fontSize(12)
-        .fontColor(this.mutedColor())
-        .padding(14)
-        .borderRadius(20)
-        .backgroundColor(this.panelColor())
-        .border({ width: 1, color: this.lineColor() })
+    Column({ space: 12 }) {
+      this.SettingsTitleRow()
+      Column({ space: 8 }) {
+        this.SettingsGroupLabel('外观')
+        this.AppearanceModeSelector()
+      }
+      .width('100%')
     }
     .width('100%')
   }
 
   @Builder
-  SettingSwitch(label: string, enabled: boolean, action: () => void) {
-    MotionPressable({
-      action: action
-    }) {
-      Row() {
-        Text(label)
-          .fontSize(15)
+  SettingsTitleRow() {
+    Row() {
+      Row({ space: 8 }) {
+        Stack({ alignContent: Alignment.Center }) {
+          SymbolGlyph($r('sys.symbol.more'))
+            .fontSize(17)
+            .fontColor([this.activeTabIconColor()])
+        }
+        .width(28)
+        .height(28)
+        .backgroundColor(this.sectionIconBgColor())
+        .borderRadius(14)
+        .border({ width: 1, color: this.lineColor() })
+        Text('设置')
+          .fontSize(17)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.inkColor())
-        Blank()
-        Text(enabled ? '开' : '关')
-          .width(64)
-          .height(34)
-          .borderRadius(17)
-          .fontColor(enabled ? '#ffffff' : this.inkColor())
-          .textAlign(TextAlign.Center)
-          .backgroundColor(enabled ? CoopTheme.teal : this.panelSoftColor())
-          .border({ width: 1, color: this.lineColor() })
       }
-      .width('100%')
-      .padding(14)
-      .borderRadius(20)
-      .backgroundColor(this.panelColor())
-      .border({ width: 1, color: this.lineColor() })
-      .shadow(this.softShadow())
     }
+    .width('100%')
+    .margin({ top: 2 })
+  }
+
+  @Builder
+  SettingsGroupLabel(label: string) {
+    Text(label)
+      .width('100%')
+      .height(18)
+      .padding({ left: 4 })
+      .fontSize(12)
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.settingsSectionColor())
+  }
+
+  @Builder
+  AppearanceModeSelector() {
+    Row({ space: 6 }) {
+      this.AppearanceModeOption('☀', '浅色', false)
+      this.AppearanceModeOption('☾', '深色', true)
+    }
+    .width('100%')
+    .height(SETTINGS_SEGMENT_HEIGHT)
+    .padding(5)
+    .borderRadius(SETTINGS_GROUP_RADIUS)
+    .backgroundColor(this.panelColor())
+    .border({ width: 1, color: this.lineColor() })
+    .shadow(this.softShadow())
+  }
+
+  @Builder
+  AppearanceModeOption(symbol: string, label: string, darkMode: boolean) {
+    Stack({ alignContent: Alignment.Center }) {
+      Row({ space: 7 }) {
+        Text(symbol)
+          .fontSize(18)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.appearanceSegmentTextColor(darkMode))
+        Text(label)
+          .fontSize(14)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.appearanceSegmentTextColor(darkMode))
+      }
+      .alignItems(VerticalAlign.Center)
+      .justifyContent(FlexAlign.Center)
+    }
+    .layoutWeight(1)
+    .height('100%')
+    .borderRadius(SETTINGS_GROUP_RADIUS - 5)
+    .backgroundColor(this.appearanceSegmentBgColor(darkMode))
+    .border({ width: 1, color: this.appearanceSegmentLineColor(darkMode) })
+    .onClick(() => {
+      this.selectAppearanceMode(darkMode ? APPEARANCE_DARK : APPEARANCE_LIGHT);
+    })
   }
 
   private homeModules(): GameModule[] {
@@ -678,6 +727,24 @@ export struct HubPage {
   private favoriteGridHeight(): number {
     const rows = Math.ceil(this.visibleFavoriteIds().length / 2);
     return rows * HOME_FAVORITE_CARD_SLOT_HEIGHT + Math.max(0, rows - 1) * HOME_GAME_GRID_GAP;
+  }
+
+  private homeFrameWidth(): number {
+    return this.pageWidth;
+  }
+
+  private homeFrameHeight(): number {
+    return this.pageHeight;
+  }
+
+  private handlePageAreaChange(newArea: Area): void {
+    const width = Number.parseFloat(`${newArea.width}`);
+    const height = Number.parseFloat(`${newArea.height}`);
+    if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
+      const frame = CoopViewport.frame(width, height);
+      this.pageWidth = frame.width;
+      this.pageHeight = frame.height;
+    }
   }
 
   private heroGameId(): string {
@@ -743,12 +810,19 @@ export struct HubPage {
 
   private toggleAppearanceMode(): void {
     const nextMode = this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK;
-    this.appearanceModeOverride = nextMode;
+    this.selectAppearanceMode(nextMode);
+  }
+
+  private selectAppearanceMode(appearanceMode: string): void {
+    if ((appearanceMode === APPEARANCE_DARK) === this.isDarkMode()) {
+      return;
+    }
+    this.appearanceModeOverride = appearanceMode;
     this.getUIContext().animateTo({
       duration: CoopMotion.modalDuration,
       curve: Curve.EaseOut
     }, () => {
-      this.updateAppearanceMode(nextMode);
+      this.updateAppearanceMode(appearanceMode);
     });
   }
 
@@ -757,7 +831,7 @@ export struct HubPage {
   }
 
   private homeBgColor(): string {
-    return this.isDarkMode() ? '#101110' : '#fff4e4';
+    return this.isDarkMode() ? '#101110' : CoopTheme.appSurface;
   }
 
   private inkColor(): string {
@@ -822,6 +896,25 @@ export struct HubPage {
 
   private sectionActionBgColor(): string {
     return this.panelSoftColor();
+  }
+
+  private settingsSectionColor(): string {
+    return this.isDarkMode() ? '#c8b7a2' : '#8b6d52';
+  }
+
+  private appearanceSegmentBgColor(darkMode: boolean): string {
+    if (darkMode === this.isDarkMode()) {
+      return this.isDarkMode() ? '#d99632' : '#f7c66b';
+    }
+    return this.isDarkMode() ? '#2a2621' : '#fff8ee';
+  }
+
+  private appearanceSegmentTextColor(darkMode: boolean): string {
+    return darkMode === this.isDarkMode() ? '#2f1d14' : this.mutedColor();
+  }
+
+  private appearanceSegmentLineColor(darkMode: boolean): string {
+    return darkMode === this.isDarkMode() ? 'rgba(110,66,25,0.24)' : this.lineColor();
   }
 
   private favoriteBadgeBgColor(): string {

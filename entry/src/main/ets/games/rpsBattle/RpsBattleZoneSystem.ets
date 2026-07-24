@@ -24,7 +24,7 @@ export class RpsBattleZoneSystem {
       radius: radius,
       owner: '',
       capturingFaction: '',
-      score: 0,
+      scores: rpsBattleEmptyCounts(),
       pressure: rpsBattleEmptyCounts()
     };
   }
@@ -65,19 +65,26 @@ export class RpsBattleZoneSystem {
     if (capturingFaction !== '') {
       zone.owner = capturingFaction;
       const ownerPressure = this.pressureValue(pressure, capturingFaction);
-      zone.score = Math.min(
-        RPS_BATTLE_CONTROL_ZONE_MAX_SCORE,
-        zone.score + ownerPressure * RPS_BATTLE_CONTROL_ZONE_SCORE_PER_ENTITY_SEC * dtSec
-      );
+      const nextScore = this.scoreValue(zone.scores, capturingFaction) +
+        ownerPressure * RPS_BATTLE_CONTROL_ZONE_SCORE_PER_ENTITY_SEC * dtSec;
+      this.addScore(zone.scores, capturingFaction,
+        Math.min(RPS_BATTLE_CONTROL_ZONE_MAX_SCORE, nextScore));
     }
     return pressure.rock + pressure.scissors + pressure.paper;
   }
 
   finishWinner(): RpsBattleFaction | '' {
-    if (this.zone === null || this.zone.owner === '') {
+    if (this.zone === null) {
       return '';
     }
-    return this.zone.score >= RPS_BATTLE_CONTROL_ZONE_MAX_SCORE ? this.zone.owner : '';
+    return this.firstFactionAtScore(this.zone.scores, RPS_BATTLE_CONTROL_ZONE_MAX_SCORE);
+  }
+
+  timeWinner(): RpsBattleFaction | '' {
+    if (this.zone === null) {
+      return '';
+    }
+    return this.leadingFaction(this.zone.scores);
   }
 
   currentZone(): RpsBattleControlZone | null {
@@ -94,7 +101,11 @@ export class RpsBattleZoneSystem {
       radius: this.zone.radius,
       owner: this.zone.owner,
       capturingFaction: this.zone.capturingFaction,
-      score: this.zone.score,
+      scores: {
+        rock: this.zone.scores.rock,
+        scissors: this.zone.scores.scissors,
+        paper: this.zone.scores.paper
+      },
       pressure: {
         rock: this.zone.pressure.rock,
         scissors: this.zone.pressure.scissors,
@@ -160,6 +171,67 @@ export class RpsBattleZoneSystem {
       return pressure.scissors;
     }
     return pressure.paper;
+  }
+
+  private scoreValue(scores: RpsBattleFactionCounts, faction: RpsBattleFaction): number {
+    if (faction === 'rock') {
+      return scores.rock;
+    }
+    if (faction === 'scissors') {
+      return scores.scissors;
+    }
+    return scores.paper;
+  }
+
+  private addScore(scores: RpsBattleFactionCounts, faction: RpsBattleFaction, value: number): void {
+    if (faction === 'rock') {
+      scores.rock = value;
+    } else if (faction === 'scissors') {
+      scores.scissors = value;
+    } else {
+      scores.paper = value;
+    }
+  }
+
+  private firstFactionAtScore(scores: RpsBattleFactionCounts, score: number): RpsBattleFaction | '' {
+    if (scores.rock >= score) {
+      return 'rock';
+    }
+    if (scores.scissors >= score) {
+      return 'scissors';
+    }
+    if (scores.paper >= score) {
+      return 'paper';
+    }
+    return '';
+  }
+
+  private leadingFaction(scores: RpsBattleFactionCounts): RpsBattleFaction | '' {
+    let leader: RpsBattleFaction | '' = '';
+    let highestScore = 0;
+    let isTied = false;
+    if (scores.rock > highestScore) {
+      leader = 'rock';
+      highestScore = scores.rock;
+      isTied = false;
+    } else if (scores.rock === highestScore && highestScore > 0) {
+      isTied = true;
+    }
+    if (scores.scissors > highestScore) {
+      leader = 'scissors';
+      highestScore = scores.scissors;
+      isTied = false;
+    } else if (scores.scissors === highestScore && highestScore > 0) {
+      isTied = true;
+    }
+    if (scores.paper > highestScore) {
+      leader = 'paper';
+      highestScore = scores.paper;
+      isTied = false;
+    } else if (scores.paper === highestScore && highestScore > 0) {
+      isTied = true;
+    }
+    return isTied ? '' : leader;
   }
 
   private clamp(value: number, min: number, max: number): number {
