@@ -1,10 +1,13 @@
 import { RpsBattleTheme } from './RpsBattleTheme';
 import {
   RpsBattleBlackHoleState,
+  RpsBattleBountyRewardPulse,
+  RpsBattleBountyState,
   RpsBattleControlZone,
   RpsBattleEntity,
   RpsBattleFaction,
   RpsBattleFactionInfo,
+  RpsBattleGodHandState,
   RpsBattleLastStandPulse,
   RpsBattleLastStandState,
   RpsBattleObstacleState,
@@ -15,6 +18,7 @@ import {
   RpsBattleReviveMark,
   RpsBattleShrinkState,
   RpsBattleSnapState,
+  RpsBattleTenAgainstOneState,
   RpsBattleTraitorMark,
   RpsBattleTraitorPulse,
   RpsBattleTraitorState,
@@ -33,7 +37,10 @@ export class RpsBattleRenderer {
     shrink: RpsBattleShrinkState | null = null,
     traitor: RpsBattleTraitorState | null = null,
     snap: RpsBattleSnapState | null = null,
-    obstacles: RpsBattleObstacleState | null = null): void {
+    obstacles: RpsBattleObstacleState | null = null,
+    bounty: RpsBattleBountyState | null = null,
+    tenAgainstOne: RpsBattleTenAgainstOneState | null = null,
+    godHand: RpsBattleGodHandState | null = null): void {
     const canvasWidth = Math.max(1, width);
     const canvasHeight = Math.max(1, height);
     ctx.clearRect(0, 0, canvasWidth, canvasHeight);
@@ -45,9 +52,12 @@ export class RpsBattleRenderer {
     this.drawLastStand(ctx, lastStand, elapsedSec, themeKey);
     this.drawBlackHole(ctx, blackHole, elapsedSec);
     this.drawTraitorPulses(ctx, traitor, elapsedSec, themeKey);
-    this.drawEntities(ctx, entities, elapsedSec, themeKey);
+    this.drawEntities(ctx, entities, elapsedSec, themeKey, bounty, tenAgainstOne);
     this.drawTraitorMarks(ctx, traitor, entities, elapsedSec, themeKey);
+    this.drawBountyPulses(ctx, bounty, elapsedSec, themeKey);
     this.drawSnap(ctx, snap, elapsedSec, canvasWidth, canvasHeight, themeKey);
+    this.drawGodHand(ctx, godHand, elapsedSec);
+    this.drawTenAgainstOneOverlay(ctx, tenAgainstOne, elapsedSec, canvasWidth);
   }
 
   private drawObstacles(ctx: CanvasRenderingContext2D, state: RpsBattleObstacleState | null): void {
@@ -592,11 +602,12 @@ export class RpsBattleRenderer {
   }
 
   private drawEntities(ctx: CanvasRenderingContext2D, entities: RpsBattleEntity[], elapsedSec: number,
-    themeKey: RpsBattleThemeKey): void {
+    themeKey: RpsBattleThemeKey, bounty: RpsBattleBountyState | null,
+    tenAgainstOne: RpsBattleTenAgainstOneState | null): void {
     for (let i = 0; i < entities.length; i += 1) {
       const entity = entities[i];
       const faction = rpsBattleThemeFactionInfo(themeKey, entity.faction);
-      this.drawEntity(ctx, entity, faction, elapsedSec);
+      this.drawEntity(ctx, entity, faction, elapsedSec, bounty, tenAgainstOne);
     }
   }
 
@@ -636,9 +647,16 @@ export class RpsBattleRenderer {
   }
 
   private drawEntity(ctx: CanvasRenderingContext2D, entity: RpsBattleEntity, faction: RpsBattleFactionInfo,
-    elapsedSec: number): void {
+    elapsedSec: number, bounty: RpsBattleBountyState | null,
+    tenAgainstOne: RpsBattleTenAgainstOneState | null): void {
     const pulseAge = Math.max(0, 1 - (elapsedSec - entity.convertedAt) / 0.42);
     const radius = entity.radius + pulseAge * 3;
+    const isBountyLeader = bounty !== null && bounty.active && bounty.leader === entity.faction;
+    const isRaging = tenAgainstOne !== null && tenAgainstOne.phase === 'rage' &&
+      tenAgainstOne.underdog === entity.faction;
+    if (isRaging) {
+      this.drawTenAgainstOneTrail(ctx, entity, radius);
+    }
     if (elapsedSec < entity.speedBoostUntilSec) {
       ctx.beginPath();
       ctx.globalAlpha = 0.24;
@@ -690,6 +708,22 @@ export class RpsBattleRenderer {
       ctx.stroke();
     }
 
+    if (isBountyLeader) {
+      const pulse = 0.5 + Math.sin(elapsedSec * 5 + entity.id) * 0.5;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(217,119,6,0.86)';
+      ctx.lineWidth = 3;
+      ctx.arc(entity.x, entity.y, radius + 9 + pulse * 2, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    if (isRaging) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(139,92,246,0.94)';
+      ctx.lineWidth = 3;
+      ctx.arc(entity.x, entity.y, radius + 8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
     ctx.beginPath();
     ctx.fillStyle = 'rgba(255,255,255,0.24)';
     ctx.arc(entity.x - radius * 0.28, entity.y - radius * 0.32, radius * 0.34, 0, Math.PI * 2);
@@ -700,6 +734,112 @@ export class RpsBattleRenderer {
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(faction.symbol, entity.x, entity.y + 1);
+  }
+
+  private drawTenAgainstOneTrail(ctx: CanvasRenderingContext2D, entity: RpsBattleEntity, radius: number): void {
+    const speed = Math.max(1, Math.sqrt(entity.vx * entity.vx + entity.vy * entity.vy));
+    const nx = entity.vx / speed;
+    const ny = entity.vy / speed;
+    for (let i = 1; i <= 3; i += 1) {
+      ctx.beginPath();
+      ctx.fillStyle = i === 1 ? 'rgba(139,92,246,0.42)' :
+        i === 2 ? 'rgba(139,92,246,0.27)' : 'rgba(139,92,246,0.14)';
+      ctx.arc(entity.x - nx * i * 9, entity.y - ny * i * 9,
+        Math.max(2, radius * (1.05 - i * 0.18)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  private drawBountyPulses(ctx: CanvasRenderingContext2D, bounty: RpsBattleBountyState | null,
+    elapsedSec: number, themeKey: RpsBattleThemeKey): void {
+    if (bounty === null) {
+      return;
+    }
+    for (let i = 0; i < bounty.pulses.length; i += 1) {
+      this.drawBountyPulse(ctx, bounty.pulses[i], elapsedSec, themeKey);
+    }
+  }
+
+  private drawBountyPulse(ctx: CanvasRenderingContext2D, pulse: RpsBattleBountyRewardPulse, elapsedSec: number,
+    themeKey: RpsBattleThemeKey): void {
+    const age = Math.max(0, elapsedSec - pulse.startedAtSec);
+    const progress = Math.max(0, Math.min(1, age / 0.72));
+    if (progress >= 1) {
+      return;
+    }
+    const faction = rpsBattleThemeFactionInfo(themeKey, pulse.faction);
+    const radius = 18 + progress * 25;
+    ctx.beginPath();
+    ctx.globalAlpha = 0.58 * (1 - progress);
+    ctx.strokeStyle = 'rgba(217,119,6,0.94)';
+    ctx.lineWidth = 4;
+    ctx.arc(pulse.x, pulse.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = faction.textColor;
+    ctx.font = '700 11vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('悬赏兑现', pulse.x, pulse.y - radius - 8);
+    ctx.globalAlpha = 1;
+  }
+
+  private drawGodHand(ctx: CanvasRenderingContext2D, godHand: RpsBattleGodHandState | null,
+    elapsedSec: number): void {
+    if (godHand === null || godHand.pulseStartedAtSec < 0 || elapsedSec >= godHand.pulseEndsAtSec) {
+      return;
+    }
+    const duration = Math.max(0.1, godHand.pulseEndsAtSec - godHand.pulseStartedAtSec);
+    const progress = Math.max(0, Math.min(1, (elapsedSec - godHand.pulseStartedAtSec) / duration));
+    const radius = 38 + progress * 92;
+    const color = godHand.mode === 'pull' ? 'rgba(37,99,235,0.86)' : 'rgba(14,116,144,0.86)';
+    ctx.beginPath();
+    ctx.globalAlpha = 0.44 * (1 - progress);
+    ctx.fillStyle = color;
+    ctx.arc(godHand.x, godHand.y, radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.globalAlpha = 0.88 * (1 - progress * 0.5);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 3;
+    ctx.arc(godHand.x, godHand.y, radius, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.font = '700 12vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(godHand.mode === 'pull' ? '吸' : '推', godHand.x, godHand.y);
+    ctx.globalAlpha = 1;
+  }
+
+  private drawTenAgainstOneOverlay(ctx: CanvasRenderingContext2D, state: RpsBattleTenAgainstOneState | null,
+    elapsedSec: number, width: number): void {
+    if (state === null || (state.phase !== 'intro' && state.phase !== 'rage')) {
+      return;
+    }
+    const bannerWidth = Math.min(182, Math.max(144, width * 0.52));
+    const x = (width - bannerWidth) * 0.5;
+    const y = 14;
+    ctx.fillStyle = 'rgba(56,43,82,0.90)';
+    ctx.strokeStyle = 'rgba(139,92,246,0.92)';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(x, y, bannerWidth, 34);
+    ctx.strokeRect(x, y, bannerWidth, 34);
+    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.font = '700 12vp sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (state.phase === 'intro') {
+      ctx.fillText('背水一战', width * 0.5, y + 12);
+      ctx.fillStyle = 'rgba(216,180,254,0.92)';
+      ctx.font = '700 10vp sans-serif';
+      ctx.fillText('准备反杀', width * 0.5, y + 25);
+      return;
+    }
+    const remaining = Math.max(0, state.rageEndsAtSec - elapsedSec);
+    ctx.fillText('我要打十个', width * 0.5, y + 12);
+    ctx.fillStyle = 'rgba(216,180,254,0.92)';
+    ctx.font = '700 10vp sans-serif';
+    ctx.fillText(`暴走 ${remaining.toFixed(1)}s`, width * 0.5, y + 25);
   }
 
   private softZoneFill(color: string): string {

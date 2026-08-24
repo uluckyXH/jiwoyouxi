@@ -24,7 +24,7 @@ function createEntity(id: number, faction: RpsBattleFaction, x: number, y: numbe
 }
 
 export default function rpsBattleZoneSystemTest(): void {
-  describe('RpsBattleZoneSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleZoneSystemTest', () => {
     it('counts pressure inside the center zone',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const system = new RpsBattleZoneSystem();

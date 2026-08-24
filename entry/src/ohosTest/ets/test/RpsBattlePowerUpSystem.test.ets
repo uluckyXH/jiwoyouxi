@@ -39,7 +39,7 @@ function createEntity(id: number, x: number, y: number): RpsBattleEntity {
 }
 
 export default function rpsBattlePowerUpSystemTest(): void {
-  describe('RpsBattlePowerUpSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattlePowerUpSystemTest', () => {
     it('spawns the first power up after the tuned fast delay', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const system = new RpsBattlePowerUpSystem();
       system.reset(0);

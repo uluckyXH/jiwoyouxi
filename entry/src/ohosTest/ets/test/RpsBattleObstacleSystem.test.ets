@@ -58,7 +58,7 @@ function overlaps(a: RpsBattleObstacle, b: RpsBattleObstacle): boolean {
 }
 
 export default function rpsBattleObstacleSystemTest(): void {
-  describe('RpsBattleObstacleSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleObstacleSystemTest', () => {
     it('uses low obstacle density for narrow phone boards', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       expect(rpsBattleObstacleCountForBoard(360, 520)).assertEqual(2);
       expect(rpsBattleObstacleCountForBoard(420, 620)).assertEqual(3);

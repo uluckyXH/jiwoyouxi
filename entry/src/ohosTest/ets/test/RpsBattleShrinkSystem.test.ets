@@ -9,7 +9,7 @@ import {
 import { RpsBattleShrinkState } from '../../../main/ets/games/rpsBattle/RpsBattleTypes';
 
 export default function rpsBattleShrinkSystemTest(): void {
-  describe('RpsBattleShrinkSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleShrinkSystemTest', () => {
     it('shows warning but does not advance before the shrink delay',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const system = new RpsBattleShrinkSystem();

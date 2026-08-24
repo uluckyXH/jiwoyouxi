@@ -6,7 +6,7 @@ import {
 } from '../../../main/ets/games/rpsBattle/RpsBattleModeConfig';
 
 export default function rpsBattleEqualityModeConfigTest(): void {
-  describe('RpsBattleEqualityModeConfigTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleEqualityModeConfigTest', () => {
     it('enables snap and obstacles by default while retaining deathmatch', TestType.FUNCTION |
       Size.SMALLTEST | Level.LEVEL0, () => {
       const selection = rpsBattleDefaultMechanicSelection('equality');

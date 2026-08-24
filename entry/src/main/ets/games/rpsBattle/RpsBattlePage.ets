@@ -12,9 +12,13 @@ import { RpsBattleSetupScreen } from './RpsBattleSetupScreen';
 import { RpsBattleTopBar } from './RpsBattleTopBar';
 import {
   RPS_BATTLE_DURATION_SEC,
+  RpsBattleComebackRuleKey,
   RpsBattleControlZone,
+  RpsBattleEnhancementSelection,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleGodHandMode,
+  RpsBattleGodHandState,
   RpsBattleMechanicKey,
   RpsBattleMechanicSelection,
   RpsBattleModeKey,
@@ -36,7 +40,10 @@ import {
   rpsBattleStepCount
 } from './RpsBattleRules';
 import {
+  rpsBattleDefaultEnhancementSelection,
   rpsBattleDefaultMechanicSelection,
+  rpsBattleSelectComebackRule,
+  rpsBattleToggleGodHandSelection,
   rpsBattleToggleMechanicSelection
 } from './RpsBattleModeConfig';
 
@@ -52,6 +59,7 @@ const RPS_BATTLE_CONVERT_SOUND_INTERVAL_MS: number = 120;
 const RPS_BATTLE_SNAP_WARNING_SOUND_VOLUME: number = 0.56;
 const RPS_BATTLE_SNAP_RESOLVED_SOUND_VOLUME: number = 0.72;
 const RPS_BATTLE_ENABLE_PERF_LOG: boolean = true;
+const RPS_BATTLE_GOD_HAND_HUD_EXTRA_HEIGHT: number = 44;
 
 @Component
 export struct RpsBattlePage {
@@ -89,6 +97,7 @@ export struct RpsBattlePage {
   @State selectedThemeKey: RpsBattleThemeKey = 'rps';
   @State selectedModeKey: RpsBattleModeKey = 'classic';
   @State selectedMechanics: RpsBattleMechanicSelection = rpsBattleDefaultMechanicSelection('classic');
+  @State selectedEnhancements: RpsBattleEnhancementSelection = rpsBattleDefaultEnhancementSelection('classic');
   @State selectedFaction: RpsBattleFaction = 'rock';
   @State selectedScale: RpsBattleScale = 'standard';
   @State lineupCounts: RpsBattleFactionCounts = rpsBattleCountsFromValue(8);
@@ -102,6 +111,8 @@ export struct RpsBattlePage {
   @State controlZone: RpsBattleControlZone | null = null;
   @State isDeathmatch: boolean = false;
   @State snap: RpsBattleSnapState | null = null;
+  @State godHand: RpsBattleGodHandState | null = null;
+  @State godHandMode: RpsBattleGodHandMode = 'push';
   @State countdownValue: number = RPS_BATTLE_COUNTDOWN_START;
   @State result: RpsBattleResult = rpsBattleInitialResult('rock');
   @State pausedFromPhase: RpsBattlePhase = 'playing';
@@ -233,6 +244,7 @@ export struct RpsBattlePage {
       selectedThemeKey: this.selectedThemeKey,
       selectedModeKey: this.selectedModeKey,
       mechanicSelection: this.selectedMechanics,
+      enhancementSelection: this.selectedEnhancements,
       selectedFaction: this.selectedFaction,
       selectedScale: this.selectedScale,
       lineupCounts: this.lineupCounts,
@@ -245,12 +257,26 @@ export struct RpsBattlePage {
       selectMode: (modeKey: RpsBattleModeKey) => {
         this.selectedModeKey = modeKey;
         this.selectedMechanics = rpsBattleDefaultMechanicSelection(modeKey);
+        this.selectedEnhancements = rpsBattleDefaultEnhancementSelection(modeKey);
       },
       toggleMechanic: (mechanicKey: RpsBattleMechanicKey) => {
         this.selectedMechanics = rpsBattleToggleMechanicSelection(
           this.selectedModeKey,
           this.selectedMechanics,
           mechanicKey
+        );
+      },
+      selectComebackRule: (rule: RpsBattleComebackRuleKey) => {
+        this.selectedEnhancements = rpsBattleSelectComebackRule(
+          this.selectedModeKey,
+          this.selectedEnhancements,
+          rule
+        );
+      },
+      toggleGodHand: () => {
+        this.selectedEnhancements = rpsBattleToggleGodHandSelection(
+          this.selectedModeKey,
+          this.selectedEnhancements
         );
       },
       selectFaction: (faction: RpsBattleFaction) => {
@@ -294,7 +320,12 @@ export struct RpsBattlePage {
         controlZone: this.controlZone,
         isDeathmatch: this.isDeathmatch,
         elapsedSec: this.elapsedSec,
-        snap: this.snap
+        snap: this.snap,
+        godHand: this.godHand,
+        godHandMode: this.godHandMode,
+        selectGodHandMode: (mode: RpsBattleGodHandMode) => {
+          this.godHandMode = mode;
+        }
       })
       .width(this.boardWidth())
 
@@ -325,6 +356,9 @@ export struct RpsBattlePage {
         .onReady(() => {
           this.drawFrame();
         })
+        .onTouch((event: TouchEvent) => {
+          this.handleArenaTouch(event);
+        })
       if (this.phase === 'countdown') {
         RpsBattleCountdownOverlay({
           boardWidth: this.boardWidth(),
@@ -350,7 +384,8 @@ export struct RpsBattlePage {
       this.durationSec,
       this.selectedFaction,
       this.selectedModeKey,
-      this.selectedMechanics
+      this.selectedMechanics,
+      this.selectedEnhancements
     );
     this.engine = new RpsBattleEngine(this.boardWidth(), this.boardHeight(), options);
     this.hasRecordedResult = false;
@@ -361,9 +396,13 @@ export struct RpsBattlePage {
     this.controlZone = null;
     this.isDeathmatch = this.engine.isDeathmatch();
     this.snap = null;
+    this.godHand = null;
+    this.godHandMode = 'push';
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
     this.phase = 'countdown';
+    this.syncHudFromEngine(0);
+    this.engine.resize(this.boardWidth(), this.boardHeight());
     this.syncHudFromEngine(0);
     this.drawFrame();
     this.lastTickAt = Date.now();
@@ -551,7 +590,14 @@ export struct RpsBattlePage {
         this.engine.lastStepObstacleHitCount(),
         this.engine.entityCount(),
         currentConversions - previousConversions,
-        currentConversions
+        currentConversions,
+        this.engine.lastStepBountyMs(),
+        this.engine.lastStepBountyActiveCount(),
+        this.engine.lastStepTenAgainstOneMs(),
+        this.engine.lastStepTenAgainstOneActiveCount(),
+        this.engine.lastStepTenAgainstOneEliminationCount(),
+        this.engine.lastStepGodHandMs(),
+        this.engine.lastStepGodHandHitCount()
       );
       this.finishGame(result);
       return;
@@ -594,7 +640,14 @@ export struct RpsBattlePage {
       this.engine.lastStepObstacleHitCount(),
       this.engine.entityCount(),
       currentConversions - previousConversions,
-      currentConversions
+      currentConversions,
+      this.engine.lastStepBountyMs(),
+      this.engine.lastStepBountyActiveCount(),
+      this.engine.lastStepTenAgainstOneMs(),
+      this.engine.lastStepTenAgainstOneActiveCount(),
+      this.engine.lastStepTenAgainstOneEliminationCount(),
+      this.engine.lastStepGodHandMs(),
+      this.engine.lastStepGodHandHitCount()
     );
   }
 
@@ -609,6 +662,7 @@ export struct RpsBattlePage {
     this.controlZone = this.engine.controlZoneSnapshot();
     this.isDeathmatch = this.engine.isDeathmatch();
     this.snap = this.engine.snapSnapshot();
+    this.godHand = this.engine.godHandSnapshot();
   }
 
   private finishGame(result: RpsBattleResult): void {
@@ -623,7 +677,7 @@ export struct RpsBattlePage {
     }
     this.result = result;
     this.phase = 'result';
-    if (!this.hasRecordedResult && result.score > 0) {
+    if (!this.hasRecordedResult && result.score > 0 && !result.isInterventionMatch) {
       this.recordScore(result.score);
       this.hasRecordedResult = true;
     }
@@ -657,6 +711,10 @@ export struct RpsBattlePage {
     this.stopHudLoop();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
+    if (this.engine !== null) {
+      this.engine.clearGodHandTransient();
+      this.syncHudFromEngine(this.runtimeElapsedSec);
+    }
     this.pausedFromPhase = 'playing';
     this.phase = 'paused';
   }
@@ -696,6 +754,8 @@ export struct RpsBattlePage {
     this.controlZone = null;
     this.isDeathmatch = false;
     this.snap = null;
+    this.godHand = null;
+    this.godHandMode = 'push';
     this.countdownValue = RPS_BATTLE_COUNTDOWN_START;
     this.result = rpsBattleInitialResult(this.selectedFaction);
     this.phase = 'setup';
@@ -720,10 +780,22 @@ export struct RpsBattlePage {
     this.drawFrame();
   }
 
+  private handleArenaTouch(event: TouchEvent): void {
+    if (event.type !== TouchType.Down || this.phase !== 'playing' || this.engine === null || this.godHand === null ||
+      event.touches === undefined || event.touches.length === 0) {
+      return;
+    }
+    const touch = event.touches[0];
+    if (this.engine.triggerGodHandPulse(touch.x, touch.y, this.godHandMode, this.runtimeElapsedSec)) {
+      this.syncHudFromEngine(this.runtimeElapsedSec);
+      this.drawFrame();
+    }
+  }
+
   private drawFrame(): void {
     if (this.engine === null) {
       this.renderer.draw(this.context, this.boardWidth(), this.boardHeight(), [], this.runtimeElapsedSec,
-        this.selectedThemeKey, null, null, null, null, null, null, null, null);
+        this.selectedThemeKey, null, null, null, null, null, null, null, null, null, null, null);
       return;
     }
     this.renderer.draw(
@@ -740,7 +812,10 @@ export struct RpsBattlePage {
       this.engine.shrinkForRender(),
       this.engine.traitorForRender(),
       this.engine.snapForRender(),
-      this.engine.obstaclesForRender()
+      this.engine.obstaclesForRender(),
+      this.engine.bountyForRender(),
+      this.engine.tenAgainstOneForRender(),
+      this.engine.godHandForRender()
     );
   }
 
@@ -810,7 +885,8 @@ export struct RpsBattlePage {
   }
 
   private boardHeight(): number {
-    return Math.max(250, this.pageHeight - RPS_BATTLE_TOP_BAR_HEIGHT - 122);
+    const godHandHudHeight = this.godHand !== null ? RPS_BATTLE_GOD_HAND_HUD_EXTRA_HEIGHT : 0;
+    return Math.max(250, this.pageHeight - RPS_BATTLE_TOP_BAR_HEIGHT - 122 - godHandHudHeight);
   }
 
 }

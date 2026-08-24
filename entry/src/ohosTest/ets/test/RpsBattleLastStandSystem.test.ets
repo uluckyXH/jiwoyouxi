@@ -50,7 +50,7 @@ function counts(rock: number, scissors: number, paper: number): RpsBattleFaction
 }
 
 export default function rpsBattleLastStandSystemTest(): void {
-  describe('RpsBattleLastStandSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleLastStandSystemTest', () => {
     it('creates a revive mark when a faction drops to the tuned trigger count',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const system = new RpsBattleLastStandSystem();

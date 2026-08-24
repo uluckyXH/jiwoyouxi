@@ -1,4 +1,6 @@
 import {
+  RpsBattleComebackRuleKey,
+  RpsBattleEnhancementSelection,
   RpsBattleMechanicKey,
   RpsBattleMechanicOption,
   RpsBattleMechanicSelection,
@@ -331,6 +333,79 @@ export function rpsBattleResolveModeRulesByKey(
     result.hasTeamPowerUps = false;
   }
   return result;
+}
+
+export function rpsBattleDefaultEnhancementSelection(modeKey: RpsBattleModeKey): RpsBattleEnhancementSelection {
+  return rpsBattleNormalizeEnhancementSelection(modeKey, {
+    comebackRule: 'none',
+    godHandEnabled: false
+  });
+}
+
+export function rpsBattleCloneEnhancementSelection(
+  selection: RpsBattleEnhancementSelection
+): RpsBattleEnhancementSelection {
+  return {
+    comebackRule: selection.comebackRule,
+    godHandEnabled: selection.godHandEnabled
+  };
+}
+
+export function rpsBattleNormalizeEnhancementSelection(
+  modeKey: RpsBattleModeKey,
+  selection: RpsBattleEnhancementSelection
+): RpsBattleEnhancementSelection {
+  const rule = rpsBattleCanUseComebackRule(modeKey, selection.comebackRule) ? selection.comebackRule : 'none';
+  return {
+    comebackRule: rule,
+    godHandEnabled: selection.godHandEnabled === true
+  };
+}
+
+export function rpsBattleCanUseComebackRule(
+  modeKey: RpsBattleModeKey,
+  rule: RpsBattleComebackRuleKey
+): boolean {
+  if (rule === 'none') {
+    return true;
+  }
+  return modeKey === 'classic';
+}
+
+export function rpsBattleSelectComebackRule(
+  modeKey: RpsBattleModeKey,
+  selection: RpsBattleEnhancementSelection,
+  rule: RpsBattleComebackRuleKey
+): RpsBattleEnhancementSelection {
+  const next = rpsBattleCloneEnhancementSelection(selection);
+  next.comebackRule = rpsBattleCanUseComebackRule(modeKey, rule) ? rule : 'none';
+  return rpsBattleNormalizeEnhancementSelection(modeKey, next);
+}
+
+export function rpsBattleToggleGodHandSelection(
+  modeKey: RpsBattleModeKey,
+  selection: RpsBattleEnhancementSelection
+): RpsBattleEnhancementSelection {
+  const next = rpsBattleCloneEnhancementSelection(selection);
+  next.godHandEnabled = !next.godHandEnabled;
+  return rpsBattleNormalizeEnhancementSelection(modeKey, next);
+}
+
+export function rpsBattleEnhancementSummary(
+  modeKey: RpsBattleModeKey,
+  selection: RpsBattleEnhancementSelection
+): string {
+  const normalized = rpsBattleNormalizeEnhancementSelection(modeKey, selection);
+  const labels: string[] = [];
+  if (normalized.comebackRule === 'bounty') {
+    labels.push('悬赏头名');
+  } else if (normalized.comebackRule === 'tenAgainstOne') {
+    labels.push('我要打十个');
+  }
+  if (normalized.godHandEnabled) {
+    labels.push('上帝之手');
+  }
+  return labels.join(' / ');
 }
 
 function rpsBattleMechanicOptionByKey(

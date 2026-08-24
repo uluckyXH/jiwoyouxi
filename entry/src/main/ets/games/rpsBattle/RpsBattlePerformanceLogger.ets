@@ -24,6 +24,9 @@ export class RpsBattlePerformanceLogger {
   private traitorMs: number = 0;
   private snapMs: number = 0;
   private obstacleMs: number = 0;
+  private bountyMs: number = 0;
+  private tenAgainstOneMs: number = 0;
+  private godHandMs: number = 0;
   private audioMs: number = 0;
   private hudMs: number = 0;
   private sfxCallCount: number = 0;
@@ -41,6 +44,10 @@ export class RpsBattlePerformanceLogger {
   private traitorConversionCount: number = 0;
   private snapRemovedCount: number = 0;
   private obstacleHitCount: number = 0;
+  private bountyActiveCount: number = 0;
+  private tenAgainstOneActiveCount: number = 0;
+  private tenAgainstOneEliminationCount: number = 0;
+  private godHandHitCount: number = 0;
   private conversionCount: number = 0;
 
   constructor(targetFps: number, enabled: boolean) {
@@ -57,7 +64,9 @@ export class RpsBattlePerformanceLogger {
     lastStandEventCount: number, lastStandReviveCount: number, powerUpPickupCount: number,
     powerUpTeamEffectCount: number, powerUpActiveCount: number, shrinkPadding: number, traitorMarkCount: number,
     traitorConversionCount: number, snapRemovedCount: number, obstacleHitCount: number, entityCount: number,
-    conversionDelta: number, totalConversions: number): void {
+    conversionDelta: number, totalConversions: number, bountyMs: number, bountyActiveCount: number,
+    tenAgainstOneMs: number, tenAgainstOneActiveCount: number, tenAgainstOneEliminationCount: number,
+    godHandMs: number, godHandHitCount: number): void {
     if (!this.enabled) {
       return;
     }
@@ -83,6 +92,9 @@ export class RpsBattlePerformanceLogger {
     this.traitorMs += traitorMs;
     this.snapMs += snapMs;
     this.obstacleMs += obstacleMs;
+    this.bountyMs += bountyMs;
+    this.tenAgainstOneMs += tenAgainstOneMs;
+    this.godHandMs += godHandMs;
     this.audioMs += audioMs;
     this.hudMs += hudMs;
     this.sfxCallCount += sfxCalls;
@@ -100,6 +112,10 @@ export class RpsBattlePerformanceLogger {
     this.traitorConversionCount += traitorConversionCount;
     this.snapRemovedCount += snapRemovedCount;
     this.obstacleHitCount += obstacleHitCount;
+    this.bountyActiveCount += bountyActiveCount;
+    this.tenAgainstOneActiveCount += tenAgainstOneActiveCount;
+    this.tenAgainstOneEliminationCount += tenAgainstOneEliminationCount;
+    this.godHandHitCount += godHandHitCount;
     this.conversionCount += conversionDelta;
     const elapsed = now - this.windowStartedAt;
     if (elapsed < RPS_BATTLE_PERF_LOG_INTERVAL_MS) {
@@ -129,6 +145,9 @@ export class RpsBattlePerformanceLogger {
         `traitorMs=${(this.traitorMs / frames).toFixed(2)}ms ` +
         `snapMs=${(this.snapMs / frames).toFixed(2)}ms ` +
         `obstacleMs=${(this.obstacleMs / frames).toFixed(2)}ms ` +
+        `bountyMs=${(this.bountyMs / frames).toFixed(2)}ms ` +
+        `tenAgainstOneMs=${(this.tenAgainstOneMs / frames).toFixed(2)}ms ` +
+        `godHandMs=${(this.godHandMs / frames).toFixed(2)}ms ` +
         `audio=${(this.audioMs / frames).toFixed(2)}ms ` +
         `hud=${(this.hudMs / frames).toFixed(2)}ms ` +
         `sfx/frame=${(this.sfxCallCount / frames).toFixed(2)} ` +
@@ -146,6 +165,10 @@ export class RpsBattlePerformanceLogger {
         `traitorConversions/frame=${(this.traitorConversionCount / frames).toFixed(2)} ` +
         `snapRemoved/frame=${(this.snapRemovedCount / frames).toFixed(2)} ` +
         `obstacleHits/frame=${(this.obstacleHitCount / frames).toFixed(2)} ` +
+        `bountyActive/frame=${(this.bountyActiveCount / frames).toFixed(2)} ` +
+        `tenAgainstOneActive/frame=${(this.tenAgainstOneActiveCount / frames).toFixed(2)} ` +
+        `tenAgainstOneEliminations/frame=${(this.tenAgainstOneEliminationCount / frames).toFixed(2)} ` +
+        `godHandHits/frame=${(this.godHandHitCount / frames).toFixed(2)} ` +
         `conversions/frame=${(this.conversionCount / frames).toFixed(2)} ` +
         `totalConversions=${totalConversions}`
     );
@@ -172,6 +195,9 @@ export class RpsBattlePerformanceLogger {
     this.traitorMs = 0;
     this.snapMs = 0;
     this.obstacleMs = 0;
+    this.bountyMs = 0;
+    this.tenAgainstOneMs = 0;
+    this.godHandMs = 0;
     this.audioMs = 0;
     this.hudMs = 0;
     this.sfxCallCount = 0;
@@ -189,6 +215,10 @@ export class RpsBattlePerformanceLogger {
     this.traitorConversionCount = 0;
     this.snapRemovedCount = 0;
     this.obstacleHitCount = 0;
+    this.bountyActiveCount = 0;
+    this.tenAgainstOneActiveCount = 0;
+    this.tenAgainstOneEliminationCount = 0;
+    this.godHandHitCount = 0;
     this.conversionCount = 0;
   }
 }

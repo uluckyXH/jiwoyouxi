@@ -2,6 +2,8 @@
 .hvigor/
 build/
 entry/build/
+entry/.test/
+oh_modules/
 
 # Local IDE state
 .idea/

@@ -54,7 +54,7 @@ function counts(rock: number, scissors: number, paper: number): RpsBattleFaction
 }
 
 export default function rpsBattleTraitorSystemTest(): void {
-  describe('RpsBattleTraitorSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleTraitorSystemTest', () => {
     it('does not create marks before the opening window',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const system = new RpsBattleTraitorSystem();

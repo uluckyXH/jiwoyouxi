@@ -5,6 +5,9 @@ export type RpsBattleMechanicKey =
   'baseChase' | 'conversion' | 'controlZone' | 'blackHole' | 'lastStand' | 'powerUps' | 'teamPowerUps' |
   'shrink' | 'traitor' | 'snap' | 'obstacles';
 export type RpsBattleMechanicState = 'core' | 'enabled' | 'upcoming';
+export type RpsBattleComebackRuleKey = 'none' | 'bounty' | 'tenAgainstOne';
+export type RpsBattleGodHandMode = 'push' | 'pull';
+export type RpsBattleTenAgainstOnePhase = 'waiting' | 'intro' | 'rage' | 'completed';
 export type RpsBattleScale = 'small' | 'standard' | 'large' | 'custom';
 export type RpsBattlePhase = 'setup' | 'countdown' | 'playing' | 'paused' | 'result';
 export type RpsBattleFinishReason = 'none' | 'clear' | 'time' | 'draw' | 'zone';
@@ -64,6 +67,11 @@ export interface RpsBattleMechanicSelection {
   obstacles?: boolean;
 }
 
+export interface RpsBattleEnhancementSelection {
+  comebackRule: RpsBattleComebackRuleKey;
+  godHandEnabled: boolean;
+}
+
 export interface RpsBattleModeRules {
   key: RpsBattleModeKey;
   hasControlZone: boolean;
@@ -87,6 +95,7 @@ export interface RpsBattleFactionCounts {
 export interface RpsBattleOptions {
   modeKey: RpsBattleModeKey;
   mechanics: RpsBattleMechanicSelection;
+  enhancements: RpsBattleEnhancementSelection;
   supportFaction: RpsBattleFaction;
   initialCounts: RpsBattleFactionCounts;
   durationSec: number;
@@ -117,6 +126,9 @@ export interface RpsBattleSnapshot {
   traitor: RpsBattleTraitorState | null;
   snap: RpsBattleSnapState | null;
   obstacles: RpsBattleObstacleState | null;
+  bounty: RpsBattleBountyState | null;
+  tenAgainstOne: RpsBattleTenAgainstOneState | null;
+  godHand: RpsBattleGodHandState | null;
   elapsedSec: number;
   timeLeftSec: number;
   conversions: number;
@@ -141,6 +153,43 @@ export interface RpsBattleBlackHoleState {
   reach: number;
   nextAtSec: number;
   swallowed: number;
+}
+
+export interface RpsBattleBountyRewardPulse {
+  faction: RpsBattleFaction;
+  x: number;
+  y: number;
+  startedAtSec: number;
+}
+
+export interface RpsBattleBountyState {
+  active: boolean;
+  leader: RpsBattleFaction | '';
+  rewardCount: number;
+  pulses: RpsBattleBountyRewardPulse[];
+}
+
+export interface RpsBattleTenAgainstOneState {
+  phase: RpsBattleTenAgainstOnePhase;
+  underdog: RpsBattleFaction | '';
+  majority: RpsBattleFaction | '';
+  eligibleSinceSec: number;
+  introEndsAtSec: number;
+  rageEndsAtSec: number;
+  triggerCount: number;
+}
+
+export interface RpsBattleGodHandState {
+  enabled: boolean;
+  mode: RpsBattleGodHandMode;
+  chargesRemaining: number;
+  cooldownEndsAtSec: number;
+  pulseStartedAtSec: number;
+  pulseEndsAtSec: number;
+  x: number;
+  y: number;
+  lastHitCount: number;
+  totalUses: number;
 }
 
 export interface RpsBattleSnapState {
@@ -283,6 +332,7 @@ export interface RpsBattleResult {
   elapsedSec: number;
   conversions: number;
   score: number;
+  isInterventionMatch: boolean;
 }
 
 export interface RpsBattleScaleChoice {

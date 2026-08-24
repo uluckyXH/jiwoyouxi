@@ -44,7 +44,7 @@ function createFactionEntities(startId: number, count: number, faction: RpsBattl
 }
 
 export default function rpsBattleSnapSystemTest(): void {
-  describe('RpsBattleSnapSystemTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('RpsBattleSnapSystemTest', () => {
     it('enters the mobile warning window before resolving one random half-clear', TestType.FUNCTION |
       Size.SMALLTEST | Level.LEVEL0, () => {
       const system = new RpsBattleSnapSystem();

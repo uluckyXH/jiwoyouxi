@@ -23,7 +23,7 @@ function createColumn(cardCount: number, columnIndex: number): FreecellCard[] {
 }
 
 export default function freecellIntroRulesTest(): void {
-  describe('FreecellIntroRulesTest', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+  describe('FreecellIntroRulesTest', () => {
     it('reveals a shuffled six-seven-column deal in seven rounds', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       const tableau: FreecellCard[][] = [7, 6, 7, 6, 7, 6, 6, 7].map(createColumn);
       expect(freecellIntroLastDealRound(tableau)).assertEqual(6);

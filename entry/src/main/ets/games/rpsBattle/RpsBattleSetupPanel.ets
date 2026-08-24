@@ -1,4 +1,5 @@
 import { RpsBattleModeSetupCard } from './RpsBattleModeSetupCard';
+import { RpsBattleEnhancementSetupCard } from './RpsBattleEnhancementSetupCard';
 import { RpsBattleSetupCardHeader } from './RpsBattleSetupCardHeader';
 import { RpsBattleTheme } from './RpsBattleTheme';
 import {
@@ -8,6 +9,8 @@ import {
   RPS_BATTLE_MIN_COUNT_PER_FACTION,
   RPS_BATTLE_SCALE_CHOICES,
   RpsBattleDurationChoice,
+  RpsBattleComebackRuleKey,
+  RpsBattleEnhancementSelection,
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattleFactionInfo,
@@ -38,6 +41,7 @@ export struct RpsBattleSetupPanel {
   @Prop selectedThemeKey: RpsBattleThemeKey = 'rps';
   @Prop selectedModeKey: RpsBattleModeKey = 'classic';
   @Prop mechanicSelection: RpsBattleMechanicSelection = {};
+  @Prop enhancementSelection: RpsBattleEnhancementSelection = { comebackRule: 'none', godHandEnabled: false };
   @Prop selectedFaction: RpsBattleFaction = 'rock';
   @Prop selectedScale: RpsBattleScale = 'standard';
   @Prop lineupCounts: RpsBattleFactionCounts = { rock: 8, scissors: 8, paper: 8 };
@@ -47,6 +51,8 @@ export struct RpsBattleSetupPanel {
   selectTheme: (themeKey: RpsBattleThemeKey) => void = () => {};
   selectMode: (modeKey: RpsBattleModeKey) => void = () => {};
   toggleMechanic: (mechanicKey: RpsBattleMechanicKey) => void = () => {};
+  selectComebackRule: (rule: RpsBattleComebackRuleKey) => void = () => {};
+  toggleGodHand: () => void = () => {};
   selectFaction: (faction: RpsBattleFaction) => void = () => {};
   selectScale: (scale: RpsBattleScale) => void = () => {};
   selectDuration: (durationSec: number) => void = () => {};
@@ -66,6 +72,17 @@ export struct RpsBattleSetupPanel {
           this.toggleMechanic(mechanicKey);
         }
       })
+      RpsBattleEnhancementSetupCard({
+        order: this.enhancementOrder(),
+        selectedModeKey: this.selectedModeKey,
+        enhancementSelection: this.enhancementSelection,
+        selectComebackRule: (rule: RpsBattleComebackRuleKey) => {
+          this.selectComebackRule(rule);
+        },
+        toggleGodHand: () => {
+          this.toggleGodHand();
+        }
+      })
       this.ThemeConfigCard()
       this.SupportFactionConfigCard()
       this.LineupConfigCard()
@@ -77,7 +94,7 @@ export struct RpsBattleSetupPanel {
   @Builder
   ThemeConfigCard() {
     Column({ space: 12 }) {
-      RpsBattleSetupCardHeader({ order: this.sectionOrder(3), title: '阵营主题', subtitle: '决定名称、图标和颜色' })
+      RpsBattleSetupCardHeader({ order: this.sectionOrder(4), title: '阵营主题', subtitle: '决定名称、图标和颜色' })
       this.ThemeGrid()
     }
     .width('100%')
@@ -90,7 +107,7 @@ export struct RpsBattleSetupPanel {
   @Builder
   SupportFactionConfigCard() {
     Column({ space: 12 }) {
-      RpsBattleSetupCardHeader({ order: this.sectionOrder(4), title: '支持阵营', subtitle: '选中一方，见证它赢下乱斗' })
+      RpsBattleSetupCardHeader({ order: this.sectionOrder(5), title: '支持阵营', subtitle: '选中一方，见证它赢下乱斗' })
       Row({ space: 8 }) {
         ForEach(rpsBattleThemeFactions(this.selectedThemeKey), (item: RpsBattleFactionInfo) => {
           this.FactionOption(item)
@@ -108,7 +125,7 @@ export struct RpsBattleSetupPanel {
   @Builder
   LineupConfigCard() {
     Column({ space: 12 }) {
-      RpsBattleSetupCardHeader({ order: this.sectionOrder(5), title: '战斗规模', subtitle: this.lineupSummaryText() })
+      RpsBattleSetupCardHeader({ order: this.sectionOrder(6), title: '战斗规模', subtitle: this.lineupSummaryText() })
       Row({ space: 8 }) {
         ForEach(RPS_BATTLE_SCALE_CHOICES, (item: RpsBattleScaleChoice) => {
           this.ScaleOption(item)
@@ -130,7 +147,7 @@ export struct RpsBattleSetupPanel {
   @Builder
   DurationConfigCard() {
     Column({ space: 12 }) {
-      RpsBattleSetupCardHeader({ order: this.sectionOrder(6), title: '对局时长', subtitle: '倒计时结束后开始计时' })
+      RpsBattleSetupCardHeader({ order: this.sectionOrder(7), title: '对局时长', subtitle: '倒计时结束后开始计时' })
       Row({ space: 8 }) {
         ForEach(RPS_BATTLE_DURATION_CHOICES, (item: RpsBattleDurationChoice) => {
           this.DurationOption(item)
@@ -478,6 +495,10 @@ export struct RpsBattleSetupPanel {
   private sectionOrder(defaultOrder: number): string {
     const order = this.hasMechanicsCard() ? defaultOrder : defaultOrder - 1;
     return order < 10 ? `0${order}` : `${order}`;
+  }
+
+  private enhancementOrder(): string {
+    return this.hasMechanicsCard() ? '03' : '02';
   }
 
   private hasMechanicsCard(): boolean {

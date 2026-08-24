@@ -4,6 +4,8 @@ import {
   RPS_BATTLE_SCALE_CHOICES,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleComebackRuleKey,
+  RpsBattleEnhancementSelection,
   RpsBattleMechanicKey,
   RpsBattleMechanicOption,
   RpsBattleMechanicSelection,
@@ -11,7 +13,11 @@ import {
   RpsBattleScale,
   RpsBattleThemeKey
 } from './RpsBattleTypes';
-import { rpsBattleMechanicEnabledForMode, rpsBattleModeByKey } from './RpsBattleModeConfig';
+import {
+  rpsBattleEnhancementSummary,
+  rpsBattleMechanicEnabledForMode,
+  rpsBattleModeByKey
+} from './RpsBattleModeConfig';
 
 const RPS_BATTLE_TOP_BAR_HEIGHT: number = 88;
 const RPS_BATTLE_SETUP_BOTTOM_ACTION_HEIGHT: number = 92;
@@ -22,6 +28,7 @@ export struct RpsBattleSetupScreen {
   @Prop selectedThemeKey: RpsBattleThemeKey = 'rps';
   @Prop selectedModeKey: RpsBattleModeKey = 'classic';
   @Prop mechanicSelection: RpsBattleMechanicSelection = {};
+  @Prop enhancementSelection: RpsBattleEnhancementSelection = { comebackRule: 'none', godHandEnabled: false };
   @Prop selectedFaction: RpsBattleFaction = 'rock';
   @Prop selectedScale: RpsBattleScale = 'standard';
   @Prop lineupCounts: RpsBattleFactionCounts = { rock: 8, scissors: 8, paper: 8 };
@@ -31,6 +38,8 @@ export struct RpsBattleSetupScreen {
   selectTheme: (themeKey: RpsBattleThemeKey) => void = () => {};
   selectMode: (modeKey: RpsBattleModeKey) => void = () => {};
   toggleMechanic: (mechanicKey: RpsBattleMechanicKey) => void = () => {};
+  selectComebackRule: (rule: RpsBattleComebackRuleKey) => void = () => {};
+  toggleGodHand: () => void = () => {};
   selectFaction: (faction: RpsBattleFaction) => void = () => {};
   selectScale: (scale: RpsBattleScale) => void = () => {};
   selectDuration: (durationSec: number) => void = () => {};
@@ -49,6 +58,7 @@ export struct RpsBattleSetupScreen {
               selectedThemeKey: this.selectedThemeKey,
               selectedModeKey: this.selectedModeKey,
               mechanicSelection: this.mechanicSelection,
+              enhancementSelection: this.enhancementSelection,
               selectedFaction: this.selectedFaction,
               selectedScale: this.selectedScale,
               lineupCounts: this.lineupCounts,
@@ -63,6 +73,12 @@ export struct RpsBattleSetupScreen {
               },
               toggleMechanic: (mechanicKey: RpsBattleMechanicKey) => {
                 this.toggleMechanic(mechanicKey);
+              },
+              selectComebackRule: (rule: RpsBattleComebackRuleKey) => {
+                this.selectComebackRule(rule);
+              },
+              toggleGodHand: () => {
+                this.toggleGodHand();
               },
               selectFaction: (faction: RpsBattleFaction) => {
                 this.selectFaction(faction);
@@ -162,6 +178,10 @@ export struct RpsBattleSetupScreen {
     const mechanicText = this.optionalMechanicSummary();
     if (mechanicText !== '') {
       segments.push(mechanicText);
+    }
+    const enhancementText = rpsBattleEnhancementSummary(this.selectedModeKey, this.enhancementSelection);
+    if (enhancementText !== '') {
+      segments.push(enhancementText);
     }
     segments.push(this.scaleLabel());
     segments.push(`${this.durationSec}秒`);

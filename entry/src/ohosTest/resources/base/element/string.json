@@ -1,0 +1,16 @@
+{
+  "string": [
+    {
+      "name": "module_test_desc",
+      "value": "RPS battle native test module"
+    },
+    {
+      "name": "TestAbility_desc",
+      "value": "RPS battle test ability"
+    },
+    {
+      "name": "TestAbility_label",
+      "value": "RPS battle tests"
+    }
+  ]
+}

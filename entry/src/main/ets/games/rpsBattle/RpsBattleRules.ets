@@ -7,6 +7,7 @@ import {
   RPS_BATTLE_MIN_COUNT_PER_FACTION,
   RPS_BATTLE_SCALE_CHOICES,
   RpsBattleEntity,
+  RpsBattleEnhancementSelection,
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattleFinishReason,
@@ -16,7 +17,10 @@ import {
   RpsBattleResult,
   RpsBattleScale
 } from './RpsBattleTypes';
-import { rpsBattleCloneMechanicSelection } from './RpsBattleModeConfig';
+import {
+  rpsBattleCloneMechanicSelection,
+  rpsBattleNormalizeEnhancementSelection
+} from './RpsBattleModeConfig';
 
 export function rpsBattleBeats(attacker: RpsBattleFaction, defender: RpsBattleFaction): boolean {
   return (attacker === 'rock' && defender === 'scissors') ||
@@ -49,11 +53,13 @@ export function rpsBattleCreateOptions(
   durationSec: number,
   supportFaction: RpsBattleFaction,
   modeKey: RpsBattleModeKey = 'classic',
-  mechanics: RpsBattleMechanicSelection = {}
+  mechanics: RpsBattleMechanicSelection = {},
+  enhancements: RpsBattleEnhancementSelection = { comebackRule: 'none', godHandEnabled: false }
 ): RpsBattleOptions {
   return {
     modeKey: modeKey,
     mechanics: rpsBattleCloneMechanicSelection(mechanics),
+    enhancements: rpsBattleNormalizeEnhancementSelection(modeKey, enhancements),
     supportFaction: supportFaction,
     initialCounts: rpsBattleClampCounts(initialCounts),
     durationSec: rpsBattleClampDuration(durationSec)
@@ -248,7 +254,8 @@ export function rpsBattleInitialResult(supportFaction: RpsBattleFaction): RpsBat
     counts: rpsBattleEmptyCounts(),
     elapsedSec: 0,
     conversions: 0,
-    score: 0
+    score: 0,
+    isInterventionMatch: false
   };
 }
 
@@ -286,7 +293,8 @@ export function rpsBattleBuildResult(
     },
     elapsedSec: elapsedSec,
     conversions: conversions,
-    score: 0
+    score: 0,
+    isInterventionMatch: options.enhancements.godHandEnabled
   };
   result.score = rpsBattleResultScore(result);
   return result;

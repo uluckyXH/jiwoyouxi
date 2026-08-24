@@ -1,10 +1,13 @@
 import {
   RPS_BATTLE_MAX_TOTAL_ENTITIES,
   RpsBattleBlackHoleState,
+  RpsBattleBountyState,
   RpsBattleControlZone,
   RpsBattleEntity,
   RpsBattleFaction,
   RpsBattleFactionCounts,
+  RpsBattleGodHandMode,
+  RpsBattleGodHandState,
   RpsBattleLastStandState,
   RpsBattleModeRules,
   RpsBattleObstacleState,
@@ -18,6 +21,7 @@ import {
   RpsBattleSpawnRequest,
   RpsBattleSnapState,
   RpsBattleSnapshot,
+  RpsBattleTenAgainstOneState,
   RpsBattleTraitorConversion,
   RpsBattleTraitorState
 } from './RpsBattleTypes';
@@ -46,6 +50,9 @@ import {
   RpsBattleTraitorSystem
 } from './RpsBattleTraitorSystem';
 import { RpsBattleZoneSystem } from './RpsBattleZoneSystem';
+import { RpsBattleBountySystem } from './RpsBattleBountySystem';
+import { RpsBattleGodHandSystem } from './RpsBattleGodHandSystem';
+import { RpsBattleTenAgainstOneSystem } from './RpsBattleTenAgainstOneSystem';
 
 const ENTITY_RADIUS: number = 14;
 const ENTITY_MAX_SPEED: number = 94;
@@ -73,6 +80,9 @@ const RPS_BATTLE_ZONE_PREDATOR_PRESSURE_SCALE: number = 0.32;
 const RPS_BATTLE_ZONE_INSIDE_OWNER_SCALE: number = 0.35;
 const RPS_BATTLE_ZONE_OPENING_RUSH_SEC: number = 4;
 const RPS_BATTLE_ZONE_OPENING_ACCEL_SCALE: number = 1.32;
+const RPS_BATTLE_BOUNTY_HUNT_ACCEL: number = 46;
+const RPS_BATTLE_BOUNTY_REWARD_SPEED_DURATION_SEC: number = 4.6;
+const RPS_BATTLE_BOUNTY_REWARD_SPEED_NUDGE: number = 1.22;
 
 interface RpsBattleSpawnPoint {
   x: number;
@@ -94,6 +104,9 @@ export class RpsBattleEngine {
   private traitorSystem: RpsBattleTraitorSystem = new RpsBattleTraitorSystem();
   private snapSystem: RpsBattleSnapSystem = new RpsBattleSnapSystem();
   private obstacleSystem: RpsBattleObstacleSystem = new RpsBattleObstacleSystem();
+  private bountySystem: RpsBattleBountySystem = new RpsBattleBountySystem();
+  private tenAgainstOneSystem: RpsBattleTenAgainstOneSystem = new RpsBattleTenAgainstOneSystem();
+  private godHandSystem: RpsBattleGodHandSystem = new RpsBattleGodHandSystem();
   private rockEntities: RpsBattleEntity[] = [];
   private scissorsEntities: RpsBattleEntity[] = [];
   private paperEntities: RpsBattleEntity[] = [];
@@ -103,6 +116,7 @@ export class RpsBattleEngine {
   private collisionActiveBucketIndices: number[] = [];
   private collisionBucketMarks: number[] = [];
   private collisionBucketVersion: number = 1;
+  private tenAgainstOneEliminatedIds: number[] = [];
   private nextId: number = 1;
   private conversions: number = 0;
   private lastTargetScanCount: number = 0;
@@ -132,6 +146,13 @@ export class RpsBattleEngine {
   private lastSnapRemovedCount: number = 0;
   private lastObstacleMs: number = 0;
   private lastObstacleHitCount: number = 0;
+  private lastBountyMs: number = 0;
+  private lastBountyActiveCount: number = 0;
+  private lastTenAgainstOneMs: number = 0;
+  private lastTenAgainstOneActiveCount: number = 0;
+  private lastTenAgainstOneEliminationCount: number = 0;
+  private lastGodHandMs: number = 0;
+  private lastGodHandHitCount: number = 0;
 
   constructor(boardWidth: number, boardHeight: number, options: RpsBattleOptions,
     random: () => number = () => Math.random()) {
@@ -152,6 +173,18 @@ export class RpsBattleEngine {
     this.countsCache = rpsBattleEmptyCounts();
     this.nextId = 1;
     this.conversions = 0;
+    this.tenAgainstOneEliminatedIds.length = 0;
+    if (this.options.enhancements.comebackRule === 'bounty') {
+      this.bountySystem.reset(true);
+    } else {
+      this.bountySystem.clear();
+    }
+    if (this.options.enhancements.comebackRule === 'tenAgainstOne') {
+      this.tenAgainstOneSystem.reset(true);
+    } else {
+      this.tenAgainstOneSystem.clear();
+    }
+    this.godHandSystem.reset(this.options.enhancements.godHandEnabled);
     if (this.modeRules.hasControlZone) {
       this.zoneSystem.reset(this.boardWidth, this.boardHeight);
     } else {
@@ -235,6 +268,9 @@ export class RpsBattleEngine {
     if (this.modeRules.hasObstacles) {
       this.obstacleSystem.resize(ratioX, ratioY, this.boardWidth, this.boardHeight);
     }
+    if (this.godHandSystem.isEnabled()) {
+      this.godHandSystem.resize(ratioX, ratioY);
+    }
     for (let i = 0; i < this.entities.length; i += 1) {
       this.resolveBounds(this.entities[i]);
     }
@@ -268,7 +304,32 @@ export class RpsBattleEngine {
     this.lastSnapRemovedCount = 0;
     this.lastObstacleMs = 0;
     this.lastObstacleHitCount = 0;
+    this.lastBountyMs = 0;
+    this.lastBountyActiveCount = 0;
+    this.lastTenAgainstOneMs = 0;
+    this.lastTenAgainstOneActiveCount = 0;
+    this.lastTenAgainstOneEliminationCount = 0;
+    this.lastGodHandMs = 0;
+    this.lastGodHandHitCount = 0;
     const dt = this.clamp(dtSec, 0, 0.05);
+    if (this.options.enhancements.comebackRule === 'bounty') {
+      const bountyStartedAt = Date.now();
+      this.bountySystem.update(this.countsCache, elapsedSec);
+      this.lastBountyActiveCount = this.bountySystem.isActive() ? 1 : 0;
+      this.lastBountyMs = Date.now() - bountyStartedAt;
+    }
+    if (this.options.enhancements.comebackRule === 'tenAgainstOne') {
+      const tenAgainstOneStartedAt = Date.now();
+      this.tenAgainstOneSystem.update(this.countsCache, elapsedSec, this.options.durationSec);
+      this.lastTenAgainstOneActiveCount = this.tenAgainstOneSystem.isActive() ? 1 : 0;
+      this.lastTenAgainstOneMs = Date.now() - tenAgainstOneStartedAt;
+      if (this.tenAgainstOneSystem.isSimulationFrozen()) {
+        const resultStartedAt = Date.now();
+        const result = this.resultAt(elapsedSec);
+        this.lastResultMs = Date.now() - resultStartedAt;
+        return result;
+      }
+    }
     if (this.modeRules.hasPowerUps) {
       const powerUpStartedAt = Date.now();
       this.powerUpSystem.updateSpawnAndExpire(true, elapsedSec, this.boardWidth, this.boardHeight, this.random);
@@ -300,6 +361,18 @@ export class RpsBattleEngine {
     const movementStartedAt = Date.now();
     this.applyMovement(dt, elapsedSec);
     this.lastMovementMs = Date.now() - movementStartedAt;
+    if (this.options.enhancements.godHandEnabled) {
+      const godHandStartedAt = Date.now();
+      this.lastGodHandHitCount = this.godHandSystem.update(this.entities, elapsedSec, dt);
+      if (this.lastGodHandHitCount > 0) {
+        for (let i = 0; i < this.entities.length; i += 1) {
+          const entity = this.entities[i];
+          this.clampVelocity(entity, elapsedSec);
+          this.resolveBounds(entity);
+        }
+      }
+      this.lastGodHandMs = Date.now() - godHandStartedAt;
+    }
     if (this.modeRules.hasObstacles) {
       const obstacleStartedAt = Date.now();
       for (let i = 0; i < this.entities.length; i += 1) {
@@ -331,7 +404,9 @@ export class RpsBattleEngine {
       this.lastBlackHoleMs = Date.now() - blackHoleStartedAt;
     }
     const collisionStartedAt = Date.now();
+    this.tenAgainstOneEliminatedIds.length = 0;
     this.resolveCollisions(elapsedSec);
+    this.removeEntitiesById(this.tenAgainstOneEliminatedIds);
     this.lastCollisionMs = Date.now() - collisionStartedAt;
     if (this.modeRules.hasControlZone) {
       const zoneStartedAt = Date.now();
@@ -481,6 +556,34 @@ export class RpsBattleEngine {
     return this.lastObstacleHitCount;
   }
 
+  lastStepBountyMs(): number {
+    return this.lastBountyMs;
+  }
+
+  lastStepBountyActiveCount(): number {
+    return this.lastBountyActiveCount;
+  }
+
+  lastStepTenAgainstOneMs(): number {
+    return this.lastTenAgainstOneMs;
+  }
+
+  lastStepTenAgainstOneActiveCount(): number {
+    return this.lastTenAgainstOneActiveCount;
+  }
+
+  lastStepTenAgainstOneEliminationCount(): number {
+    return this.lastTenAgainstOneEliminationCount;
+  }
+
+  lastStepGodHandMs(): number {
+    return this.lastGodHandMs;
+  }
+
+  lastStepGodHandHitCount(): number {
+    return this.lastGodHandHitCount;
+  }
+
   counts(): RpsBattleFactionCounts {
     return this.copyCounts();
   }
@@ -549,12 +652,49 @@ export class RpsBattleEngine {
     return this.obstacleSystem.snapshot();
   }
 
+  bountyForRender(): RpsBattleBountyState | null {
+    return this.bountySystem.currentState();
+  }
+
+  bountySnapshot(): RpsBattleBountyState | null {
+    return this.bountySystem.snapshot();
+  }
+
+  tenAgainstOneForRender(): RpsBattleTenAgainstOneState | null {
+    return this.tenAgainstOneSystem.currentState();
+  }
+
+  tenAgainstOneSnapshot(): RpsBattleTenAgainstOneState | null {
+    return this.tenAgainstOneSystem.snapshot();
+  }
+
+  godHandForRender(): RpsBattleGodHandState | null {
+    return this.godHandSystem.currentState();
+  }
+
+  godHandSnapshot(): RpsBattleGodHandState | null {
+    return this.godHandSystem.snapshot();
+  }
+
   isDeathmatch(): boolean {
     return this.modeRules.hasDeathmatch;
   }
 
   timeLeftSec(elapsedSec: number): number {
     return Math.max(0, this.options.durationSec - elapsedSec);
+  }
+
+  triggerGodHandPulse(x: number, y: number, mode: RpsBattleGodHandMode, elapsedSec: number): boolean {
+    if (this.tenAgainstOneSystem.isSimulationFrozen()) {
+      return false;
+    }
+    const targetX = this.clamp(x, 0, this.boardWidth);
+    const targetY = this.clamp(y, 0, this.boardHeight);
+    return this.godHandSystem.requestPulse(targetX, targetY, mode, elapsedSec);
+  }
+
+  clearGodHandTransient(): void {
+    this.godHandSystem.clearTransient();
   }
 
   resultAt(elapsedSec: number): RpsBattleResult {
@@ -597,6 +737,9 @@ export class RpsBattleEngine {
       traitor: this.traitorSystem.snapshot(),
       snap: this.snapSystem.snapshot(),
       obstacles: this.obstacleSystem.snapshot(),
+      bounty: this.bountySystem.snapshot(),
+      tenAgainstOne: this.tenAgainstOneSystem.snapshot(),
+      godHand: this.godHandSystem.snapshot(),
       elapsedSec: Math.min(this.options.durationSec, elapsedSec),
       timeLeftSec: Math.max(0, this.options.durationSec - elapsedSec),
       conversions: this.conversions,
@@ -650,21 +793,38 @@ export class RpsBattleEngine {
       let ax = 0;
       let ay = 0;
       const targetSearchStartedAt = Date.now();
-      const prey = this.nearestEntity(entity, this.entitiesOfFaction(rpsBattlePreyOf(entity.faction)));
-      const predator = this.nearestEntity(entity, this.entitiesOfFaction(rpsBattlePredatorOf(entity.faction)));
+      let prey = this.nearestEntity(entity, this.entitiesOfFaction(rpsBattlePreyOf(entity.faction)));
+      let predator = this.nearestEntity(entity, this.entitiesOfFaction(rpsBattlePredatorOf(entity.faction)));
+      if (this.tenAgainstOneSystem.isRagingFaction(entity.faction)) {
+        const rageTargetFaction = this.tenAgainstOneSystem.rageTargetFaction();
+        if (rageTargetFaction !== '') {
+          prey = this.nearestEntity(entity, this.entitiesOfFaction(rageTargetFaction));
+          predator = undefined;
+        }
+      }
+      let bountyTarget: RpsBattleEntity | undefined = undefined;
+      if (this.bountySystem.shouldHunt(entity.faction)) {
+        const leaderFaction = this.bountySystem.leaderFaction();
+        if (leaderFaction !== '') {
+          bountyTarget = this.nearestEntity(entity, this.entitiesOfFaction(leaderFaction));
+        }
+      }
       this.lastTargetSearchMs += Date.now() - targetSearchStartedAt;
+      const tenAgainstOneSpeed = this.tenAgainstOneSystem.speedMultiplier(entity.faction);
+      const chaseAccel = ENTITY_CHASE_ACCEL * tenAgainstOneSpeed;
+      const fleeAccel = ENTITY_FLEE_ACCEL * tenAgainstOneSpeed;
       if (prey !== undefined) {
         const dx = prey.x - entity.x;
         const dy = prey.y - entity.y;
         const distanceSq = dx * dx + dy * dy;
         if (distanceSq < 0.000001) {
           const angle = this.random() * Math.PI * 2;
-          ax += Math.cos(angle) * ENTITY_CHASE_ACCEL;
-          ay += Math.sin(angle) * ENTITY_CHASE_ACCEL;
+          ax += Math.cos(angle) * chaseAccel;
+          ay += Math.sin(angle) * chaseAccel;
         } else {
           const inverseDistance = 1 / Math.sqrt(distanceSq);
-          ax += dx * inverseDistance * ENTITY_CHASE_ACCEL;
-          ay += dy * inverseDistance * ENTITY_CHASE_ACCEL;
+          ax += dx * inverseDistance * chaseAccel;
+          ay += dy * inverseDistance * chaseAccel;
         }
       }
       if (predator !== undefined) {
@@ -676,13 +836,27 @@ export class RpsBattleEngine {
           const weight = 1 - distance / ENTITY_FLEE_DISTANCE;
           if (distance < 0.001) {
             const angle = this.random() * Math.PI * 2;
-            ax += Math.cos(angle) * ENTITY_FLEE_ACCEL * weight;
-            ay += Math.sin(angle) * ENTITY_FLEE_ACCEL * weight;
+            ax += Math.cos(angle) * fleeAccel * weight;
+            ay += Math.sin(angle) * fleeAccel * weight;
           } else {
             const inverseDistance = 1 / distance;
-            ax += dx * inverseDistance * ENTITY_FLEE_ACCEL * weight;
-            ay += dy * inverseDistance * ENTITY_FLEE_ACCEL * weight;
+            ax += dx * inverseDistance * fleeAccel * weight;
+            ay += dy * inverseDistance * fleeAccel * weight;
           }
+        }
+      }
+      if (bountyTarget !== undefined) {
+        const dx = bountyTarget.x - entity.x;
+        const dy = bountyTarget.y - entity.y;
+        const distanceSq = dx * dx + dy * dy;
+        if (distanceSq < 0.000001) {
+          const angle = entity.id * 0.91;
+          ax += Math.cos(angle) * RPS_BATTLE_BOUNTY_HUNT_ACCEL;
+          ay += Math.sin(angle) * RPS_BATTLE_BOUNTY_HUNT_ACCEL;
+        } else {
+          const inverseDistance = 1 / Math.sqrt(distanceSq);
+          ax += dx * inverseDistance * RPS_BATTLE_BOUNTY_HUNT_ACCEL;
+          ay += dy * inverseDistance * RPS_BATTLE_BOUNTY_HUNT_ACCEL;
         }
       }
       if (zone !== null) {
@@ -766,6 +940,9 @@ export class RpsBattleEngine {
   }
 
   private resolveCollisionPair(a: RpsBattleEntity, b: RpsBattleEntity, elapsedSec: number): void {
+    if (this.isQueuedForTenAgainstOneElimination(a.id) || this.isQueuedForTenAgainstOneElimination(b.id)) {
+      return;
+    }
     this.lastCollisionCheckCount += 1;
     const dx = b.x - a.x;
     const dy = b.y - a.y;
@@ -791,6 +968,12 @@ export class RpsBattleEngine {
     b.vy += ny * push;
     this.clampVelocity(a, elapsedSec);
     this.clampVelocity(b, elapsedSec);
+    const eliminated = this.tenAgainstOneSystem.resolveCollision(a, b);
+    if (eliminated !== null) {
+      this.tenAgainstOneEliminatedIds.push(eliminated.id);
+      this.lastTenAgainstOneEliminationCount += 1;
+      return;
+    }
     this.resolveConversion(a, b, elapsedSec);
   }
 
@@ -823,6 +1006,13 @@ export class RpsBattleEngine {
     entity.convertedAt = elapsedSec;
     entity.vx += (this.random() - 0.5) * 54;
     entity.vy += (this.random() - 0.5) * 54;
+    if (this.bountySystem.registerReward(previousFaction, faction, entity.x, entity.y, elapsedSec)) {
+      entity.shield = Math.max(entity.shield, 1);
+      entity.speedBoostUntilSec = Math.max(entity.speedBoostUntilSec,
+        elapsedSec + RPS_BATTLE_BOUNTY_REWARD_SPEED_DURATION_SEC);
+      entity.vx *= RPS_BATTLE_BOUNTY_REWARD_SPEED_NUDGE;
+      entity.vy *= RPS_BATTLE_BOUNTY_REWARD_SPEED_NUDGE;
+    }
     this.clampVelocity(entity, elapsedSec);
     this.conversions += 1;
     this.lastConversionMs += Date.now() - startedAt;
@@ -844,6 +1034,15 @@ export class RpsBattleEngine {
         this.removeEntity(entity);
       }
     }
+  }
+
+  private isQueuedForTenAgainstOneElimination(entityId: number): boolean {
+    for (let i = 0; i < this.tenAgainstOneEliminatedIds.length; i += 1) {
+      if (this.tenAgainstOneEliminatedIds[i] === entityId) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private applyTraitorConversions(conversions: RpsBattleTraitorConversion[], elapsedSec: number): void {
@@ -1279,6 +1478,7 @@ export class RpsBattleEngine {
     if (elapsedSec < entity.traitorRageUntilSec) {
       maxSpeed = Math.max(maxSpeed, ENTITY_MAX_SPEED * ENTITY_TRAITOR_RAGE_LIMIT_MULTIPLIER);
     }
+    maxSpeed = Math.max(maxSpeed, ENTITY_MAX_SPEED * this.tenAgainstOneSystem.speedMultiplier(entity.faction));
     if (speed <= maxSpeed || speed <= 0) {
       return;
     }

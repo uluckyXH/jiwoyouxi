@@ -146,6 +146,14 @@ export struct RpsBattleResultOverlay {
           .fontColor(RpsBattleTheme.muted)
           .textAlign(TextAlign.Center)
           .maxLines(1)
+        if (this.result.isInterventionMatch) {
+          Text('干预局 · 不计入常规最高分')
+            .fontSize(11)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(RpsBattleTheme.muted)
+            .textAlign(TextAlign.Center)
+            .maxLines(1)
+        }
         Row({ space: 8 }) {
           ForEach(rpsBattleThemeFactions(this.themeKey), (item: RpsBattleFactionInfo) => {
             this.CountColumn(item)

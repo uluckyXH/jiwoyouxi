@@ -4,6 +4,8 @@ import {
   RpsBattleFaction,
   RpsBattleFactionCounts,
   RpsBattleFactionInfo,
+  RpsBattleGodHandMode,
+  RpsBattleGodHandState,
   RpsBattleSnapState,
   RpsBattleThemeKey
 } from './RpsBattleTypes';
@@ -21,6 +23,9 @@ export struct RpsBattleHud {
   @Prop isDeathmatch: boolean = false;
   @Prop elapsedSec: number = 0;
   @Prop snap: RpsBattleSnapState | null = null;
+  @Prop godHand: RpsBattleGodHandState | null = null;
+  @Prop godHandMode: RpsBattleGodHandMode = 'push';
+  selectGodHandMode: (mode: RpsBattleGodHandMode) => void = () => {};
 
   build() {
     Column({ space: 8 }) {
@@ -30,6 +35,9 @@ export struct RpsBattleHud {
         }, (item: RpsBattleFactionInfo) => item.id)
       }
       .width('100%')
+      if (this.godHand !== null) {
+        this.GodHandControl()
+      }
       Row({ space: 8 }) {
         this.TimePill()
         if (this.controlZone !== null) {
@@ -159,6 +167,56 @@ export struct RpsBattleHud {
     .border({ width: 1, color: RpsBattleTheme.panelLine })
   }
 
+  @Builder
+  GodHandControl() {
+    Row({ space: 6 }) {
+      Text('干预')
+        .width(32)
+        .fontSize(11)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(RpsBattleTheme.muted)
+        .textAlign(TextAlign.Center)
+        .maxLines(1)
+      this.GodHandModeOption('推开', 'push')
+      this.GodHandModeOption('吸引', 'pull')
+      Text(this.godHandStatusText())
+        .layoutWeight(1)
+        .fontSize(11)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(RpsBattleTheme.pageInk)
+        .textAlign(TextAlign.End)
+        .maxLines(1)
+    }
+    .width('100%')
+    .height(36)
+    .padding({ left: 8, right: 8 })
+    .borderRadius(8)
+    .backgroundColor(RpsBattleTheme.panelBg)
+    .border({ width: 1, color: RpsBattleTheme.panelLine })
+    .alignItems(VerticalAlign.Center)
+  }
+
+  @Builder
+  GodHandModeOption(label: string, mode: RpsBattleGodHandMode) {
+    Text(label)
+      .width(54)
+      .height(28)
+      .fontSize(10)
+      .fontWeight(FontWeight.Bold)
+      .fontColor(this.godHandMode === mode ? RpsBattleTheme.primaryButtonText : RpsBattleTheme.pageInk)
+      .textAlign(TextAlign.Center)
+      .maxLines(1)
+      .backgroundColor(this.godHandMode === mode ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.optionBg)
+      .borderRadius(7)
+      .border({
+        width: 1,
+        color: this.godHandMode === mode ? RpsBattleTheme.primaryButtonBg : RpsBattleTheme.panelLine
+      })
+      .onClick(() => {
+        this.selectGodHandMode(mode);
+      })
+  }
+
   private zoneScoreText(faction: RpsBattleFaction): string {
     if (this.controlZone === null) {
       return '0';
@@ -170,6 +228,20 @@ export struct RpsBattleHud {
       return `${Math.floor(this.controlZone.scores.scissors)}`;
     }
     return `${Math.floor(this.controlZone.scores.paper)}`;
+  }
+
+  private godHandStatusText(): string {
+    if (this.godHand === null) {
+      return '';
+    }
+    if (this.godHand.chargesRemaining <= 0) {
+      return '已用完';
+    }
+    const cooldown = Math.max(0, this.godHand.cooldownEndsAtSec - this.elapsedSec);
+    if (cooldown > 0) {
+      return `冷却 ${cooldown.toFixed(1)}s`;
+    }
+    return `剩余 ${this.godHand.chargesRemaining} 次`;
   }
 
   private statusText(): string {
