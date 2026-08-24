@@ -74,3 +74,12 @@ export function moduleById(id: string): GameModule {
   const fallback = GAME_MODULES.find((item: GameModule) => item.id === 'rpsBattle');
   return fallback === undefined ? GAME_MODULES[0] : fallback;
 }
+
+export function gameLogoPath(gameId: string): string {
+  if (gameId === 'suika') return 'app/game_logos/game_icon_suika.png';
+  if (gameId === 'minesweeper') return 'app/game_logos/game_icon_minesweeper.png';
+  if (gameId === 'tetris') return 'app/game_logos/game_icon_tetris.png';
+  if (gameId === 'chicken2048') return 'app/game_logos/game_icon_chicken2048.png';
+  if (gameId === 'freecell') return 'app/game_logos/game_icon_freecell.png';
+  return 'app/game_logos/game_icon_rps.png';
+}

@@ -2,6 +2,7 @@ import { MotionPressable } from '../components/MotionPressable';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 import { CoopViewport } from '../design/CoopViewport';
+import { achievementSummaryForSnapshot } from '../shell/AchievementEngine';
 import {
   APPEARANCE_DARK,
   APPEARANCE_LIGHT,
@@ -9,19 +10,16 @@ import {
   GameModule,
   GameRecord
 } from '../shell/GameModule';
-import { GAME_MODULES, moduleById } from '../shell/GameRegistry';
+import { gameLogoPath, GAME_MODULES, moduleById } from '../shell/GameRegistry';
+import { AchievementWall } from './AchievementWall';
+import { HubBottomTabBar } from './HubBottomTabBar';
+import { HubSettingsPanel } from './HubSettingsPanel';
+import { HubStatsPanel } from './HubStatsPanel';
 
 const HOME_GAME_ORDER: string[] = ['suika', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 const HOME_SIDE_PADDING: number = 20;
 const HOME_TOP_PADDING: number = 56;
 const HOME_CONTENT_BOTTOM_SPACE: number = 108;
-const HOME_TAB_BAR_HEIGHT: number = 96;
-const HOME_TAB_BAR_TOP_PADDING: number = 10;
-const HOME_TAB_BAR_BOTTOM_PADDING: number = 24;
-const HOME_TAB_ITEM_RADIUS: number = 14;
-const HOME_TAB_ICON_SIZE: number = 26;
-const HOME_TAB_SYMBOL_SIZE: number = 23;
-const HOME_TAB_LABEL_HEIGHT: number = 16;
 const HOME_HEADER_ACTION_SIZE: number = 42;
 const HOME_HEADER_SYMBOL_SIZE: number = 22;
 const HOME_BANNER_IMAGE: string = 'app/home/banner.png';
@@ -37,8 +35,6 @@ const HOME_FAVORITE_CARD_HEIGHT: number = 138;
 const HOME_FAVORITE_CARD_SLOT_HEIGHT: number = 152;
 const HOME_FAVORITE_LOGO_TILE_SIZE: number = 58;
 const HOME_FAVORITE_LOGO_IMAGE_SIZE: number = 52;
-const SETTINGS_GROUP_RADIUS: number = 18;
-const SETTINGS_SEGMENT_HEIGHT: number = 58;
 
 @Component
 export struct HubPage {
@@ -49,8 +45,6 @@ export struct HubPage {
   updateHaptic: (enabled: boolean) => void = () => {};
   updateAppearanceMode: (appearanceMode: string) => void = () => {};
   @State activeTab: number = 0;
-  @State pressedTab: number = -1;
-  @State appearanceModeOverride: string = '';
   @State pageWidth: number = CoopViewport.phoneDefaultWidth;
   @State pageHeight: number = CoopViewport.phoneDefaultHeight;
 
@@ -71,7 +65,13 @@ export struct HubPage {
         .height('100%')
         .scrollBar(BarState.Off)
 
-        this.BottomTabBar()
+        HubBottomTabBar({
+          activeTab: this.activeTab,
+          isDarkMode: this.isDarkMode(),
+          onTabSelected: (index: number) => {
+            this.switchTab(index);
+          }
+        })
       }
       .width(this.homeFrameWidth())
       .height(this.homeFrameHeight())
@@ -121,7 +121,12 @@ export struct HubPage {
       this.HeroBanner()
       this.SectionTitleRow('精选游戏', '🐔', true)
       this.HomeGameGrid()
-      this.StatsGrid()
+      HubStatsPanel({
+        playStreak: this.playStreak(),
+        unlockedBadges: this.unlockedBadges(),
+        badgeTotal: this.badgeTotal(),
+        isDarkMode: this.isDarkMode()
+      })
     }
     .width('100%')
   }
@@ -302,7 +307,7 @@ export struct HubPage {
   @Builder
   GameLogoTile(module: GameModule, tileSize: number, imageSize: number, showFavorite: boolean) {
     Stack({ alignContent: Alignment.Center }) {
-      Image($rawfile(this.gameLogoPath(module.id)))
+          Image($rawfile(gameLogoPath(module.id)))
         .width(imageSize)
         .height(imageSize)
         .objectFit(ImageFit.Contain)
@@ -329,110 +334,6 @@ export struct HubPage {
     .borderRadius(18)
     .backgroundColor(this.gameIconBgColor())
     .border({ width: 1, color: this.iconTileLineColor() })
-  }
-
-  @Builder
-  StatsGrid() {
-    Row({ space: 10 }) {
-      this.StatCard('连续游玩', `${this.playStreak()}`, '天', '🔥')
-      this.StatCard('鸡窝徽章', `${this.unlockedBadges()}`, `/ ${this.badgeTotal()}`, '⭐')
-    }
-    .width('100%')
-  }
-
-  @Builder
-  StatCard(label: string, value: string, suffix: string, icon: string) {
-    Stack({ alignContent: Alignment.TopEnd }) {
-      Column({ space: 6 }) {
-        Text(label)
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.mutedColor())
-        Row({ space: 3 }) {
-          Text(value)
-            .fontSize(24)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.inkColor())
-          Text(suffix)
-            .fontSize(13)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.brandDarkColor())
-        }
-      }
-      .alignItems(HorizontalAlign.Start)
-      .width('100%')
-      Text(icon)
-        .fontSize(24)
-        .opacity(0.72)
-        .position({ x: 100, y: 10 })
-    }
-    .layoutWeight(1)
-    .height(84)
-    .padding(14)
-    .borderRadius(22)
-    .backgroundColor(this.panelColor())
-    .border({ width: 1, color: this.lineColor() })
-    .shadow(this.cardShadow())
-  }
-
-  @Builder
-  BottomTabBar() {
-    Row() {
-      this.BottomTabItem(0, $r('sys.symbol.house'), '首页')
-      this.BottomTabItem(1, $r('sys.symbol.heart'), '收藏')
-      this.BottomTabItem(2, $r('sys.symbol.star'), '成就')
-      this.BottomTabItem(3, $r('sys.symbol.more'), '设置')
-    }
-    .width('100%')
-    .height(HOME_TAB_BAR_HEIGHT)
-    .padding({
-      left: HOME_SIDE_PADDING,
-      right: HOME_SIDE_PADDING,
-      top: HOME_TAB_BAR_TOP_PADDING,
-      bottom: HOME_TAB_BAR_BOTTOM_PADDING
-    })
-    .backgroundColor(this.tabBarBgColor())
-    .border({ width: { top: 1 }, color: this.tabBarLineColor() })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
-  }
-
-  @Builder
-  BottomTabItem(index: number, icon: Resource, label: string) {
-    Column({ space: 3 }) {
-      Stack({ alignContent: Alignment.Center }) {
-        SymbolGlyph(icon)
-          .fontSize(HOME_TAB_SYMBOL_SIZE)
-          .fontColor([this.activeTab === index ? this.activeTabIconColor() : this.tabMutedColor()])
-      }
-      .width(HOME_TAB_ICON_SIZE)
-      .height(HOME_TAB_ICON_SIZE)
-      Text(label)
-        .height(HOME_TAB_LABEL_HEIGHT)
-        .fontSize(11)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.activeTab === index ? this.activeTabLabelColor() : this.tabMutedColor())
-        .textAlign(TextAlign.Center)
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .justifyContent(FlexAlign.Center)
-    .borderRadius(HOME_TAB_ITEM_RADIUS)
-    .backgroundColor('rgba(255,255,255,0.00)')
-    .scale({
-      x: this.pressedTab === index ? CoopMotion.pressScale : 1,
-      y: this.pressedTab === index ? CoopMotion.pressScale : 1
-    })
-    .opacity(this.pressedTab === index ? 0.96 : 1)
-    .onTouch((event: TouchEvent) => {
-      if (event.type === TouchType.Down) {
-        this.setPressedTab(index);
-      } else if (event.type === TouchType.Up || event.type === TouchType.Cancel) {
-        this.setPressedTab(-1);
-      }
-    })
-    .onClick(() => {
-      this.switchTab(index);
-    })
   }
 
   @Builder
@@ -576,138 +477,19 @@ export struct HubPage {
 
   @Builder
   Achievements() {
-    Column({ space: 10 }) {
-      this.SectionTitleRow('成就墙', '♕', false)
-      this.AchievementRow('鸡窝开张', this.totalPlayCount() >= 1, '完成任意 1 局')
-      this.AchievementRow('六边形鸡仔', this.playedGameCount() >= 6, '6 个游戏都玩过')
-      this.AchievementRow('收藏家', this.snapshot.favorites.length >= 3, '收藏 3 个游戏')
-      this.AchievementRow('纸牌归位', this.recordFor('freecell').highScore >= 520, '空当接龙完成四花色归位')
-      this.AchievementRow('2048 高手', this.recordFor('chicken2048').highScore >= 2048, '2048 本局得分达到 2048')
-      this.AchievementRow('方块脑', this.recordFor('tetris').highScore >= 1000, '俄罗斯方块达到 1000 分')
-      this.AchievementRow('瓜摊老板', this.recordFor('suika').highScore >= 500, '鸡窝水果摊今日瓜分达到 500')
-    }
-    .width('100%')
-  }
-
-  @Builder
-  AchievementRow(title: string, unlocked: boolean, hint: string) {
-    Row({ space: 10 }) {
-      Text(unlocked ? '✓' : '·')
-        .width(34)
-        .height(34)
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(unlocked ? '#ffffff' : this.mutedColor())
-        .textAlign(TextAlign.Center)
-        .backgroundColor(unlocked ? CoopTheme.green : this.panelSoftColor())
-        .border({ width: 1, color: this.lineColor() })
-        .borderRadius(12)
-      Column({ space: 2 }) {
-        Text(title)
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.inkColor())
-        Text(hint)
-          .fontSize(12)
-          .fontColor(this.mutedColor())
-      }
-      .layoutWeight(1)
-      .alignItems(HorizontalAlign.Start)
-    }
-    .width('100%')
-    .padding(12)
-    .borderRadius(20)
-    .backgroundColor(this.panelColor())
-    .border({ width: 1, color: this.lineColor() })
-    .shadow(this.softShadow())
+    AchievementWall({
+      snapshot: this.snapshot,
+      isDarkMode: this.isDarkMode()
+    })
   }
 
   @Builder
   Settings() {
-    Column({ space: 12 }) {
-      this.SettingsTitleRow()
-      Column({ space: 8 }) {
-        this.SettingsGroupLabel('外观')
-        this.AppearanceModeSelector()
+    HubSettingsPanel({
+      appearanceMode: this.snapshot.appearanceMode,
+      updateAppearanceMode: (appearanceMode: string) => {
+        this.updateAppearanceMode(appearanceMode);
       }
-      .width('100%')
-    }
-    .width('100%')
-  }
-
-  @Builder
-  SettingsTitleRow() {
-    Row() {
-      Row({ space: 8 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          SymbolGlyph($r('sys.symbol.more'))
-            .fontSize(17)
-            .fontColor([this.activeTabIconColor()])
-        }
-        .width(28)
-        .height(28)
-        .backgroundColor(this.sectionIconBgColor())
-        .borderRadius(14)
-        .border({ width: 1, color: this.lineColor() })
-        Text('设置')
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.inkColor())
-      }
-    }
-    .width('100%')
-    .margin({ top: 2 })
-  }
-
-  @Builder
-  SettingsGroupLabel(label: string) {
-    Text(label)
-      .width('100%')
-      .height(18)
-      .padding({ left: 4 })
-      .fontSize(12)
-      .fontWeight(FontWeight.Bold)
-      .fontColor(this.settingsSectionColor())
-  }
-
-  @Builder
-  AppearanceModeSelector() {
-    Row({ space: 6 }) {
-      this.AppearanceModeOption('☀', '浅色', false)
-      this.AppearanceModeOption('☾', '深色', true)
-    }
-    .width('100%')
-    .height(SETTINGS_SEGMENT_HEIGHT)
-    .padding(5)
-    .borderRadius(SETTINGS_GROUP_RADIUS)
-    .backgroundColor(this.panelColor())
-    .border({ width: 1, color: this.lineColor() })
-    .shadow(this.softShadow())
-  }
-
-  @Builder
-  AppearanceModeOption(symbol: string, label: string, darkMode: boolean) {
-    Stack({ alignContent: Alignment.Center }) {
-      Row({ space: 7 }) {
-        Text(symbol)
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.appearanceSegmentTextColor(darkMode))
-        Text(label)
-          .fontSize(14)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.appearanceSegmentTextColor(darkMode))
-      }
-      .alignItems(VerticalAlign.Center)
-      .justifyContent(FlexAlign.Center)
-    }
-    .layoutWeight(1)
-    .height('100%')
-    .borderRadius(SETTINGS_GROUP_RADIUS - 5)
-    .backgroundColor(this.appearanceSegmentBgColor(darkMode))
-    .border({ width: 1, color: this.appearanceSegmentLineColor(darkMode) })
-    .onClick(() => {
-      this.selectAppearanceMode(darkMode ? APPEARANCE_DARK : APPEARANCE_LIGHT);
     })
   }
 
@@ -768,15 +550,6 @@ export struct HubPage {
     return '鸡窝乱斗';
   }
 
-  private gameLogoPath(gameId: string): string {
-    if (gameId === 'suika') return 'app/game_logos/game_icon_suika.png';
-    if (gameId === 'minesweeper') return 'app/game_logos/game_icon_minesweeper.png';
-    if (gameId === 'tetris') return 'app/game_logos/game_icon_tetris.png';
-    if (gameId === 'chicken2048') return 'app/game_logos/game_icon_chicken2048.png';
-    if (gameId === 'freecell') return 'app/game_logos/game_icon_freecell.png';
-    return 'app/game_logos/game_icon_rps.png';
-  }
-
   private favoriteRecordText(module: GameModule): string {
     const record = this.recordFor(module.id);
     return `${module.highScoreLabel} ${record.highScore} · ${record.playCount} 局`;
@@ -804,25 +577,16 @@ export struct HubPage {
   }
 
   private isDarkMode(): boolean {
-    const appearanceMode = this.appearanceModeOverride.length > 0 ? this.appearanceModeOverride : this.snapshot.appearanceMode;
-    return appearanceMode === APPEARANCE_DARK;
+    return this.snapshot.appearanceMode === APPEARANCE_DARK;
   }
 
   private toggleAppearanceMode(): void {
     const nextMode = this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK;
-    this.selectAppearanceMode(nextMode);
-  }
-
-  private selectAppearanceMode(appearanceMode: string): void {
-    if ((appearanceMode === APPEARANCE_DARK) === this.isDarkMode()) {
-      return;
-    }
-    this.appearanceModeOverride = appearanceMode;
     this.getUIContext().animateTo({
       duration: CoopMotion.modalDuration,
       curve: Curve.EaseOut
     }, () => {
-      this.updateAppearanceMode(appearanceMode);
+      this.updateAppearanceMode(nextMode);
     });
   }
 
@@ -848,18 +612,6 @@ export struct HubPage {
 
   private activeColor(): string {
     return this.isDarkMode() ? '#ffb079' : CoopTheme.coral;
-  }
-
-  private tabMutedColor(): string {
-    return this.isDarkMode() ? '#a99a88' : CoopTheme.muted;
-  }
-
-  private activeTabIconColor(): string {
-    return this.isDarkMode() ? '#ffd083' : '#f4a51f';
-  }
-
-  private activeTabLabelColor(): string {
-    return this.isDarkMode() ? '#f7dfbd' : '#5b3d25';
   }
 
   private favoriteActiveColor(): string {
@@ -898,25 +650,6 @@ export struct HubPage {
     return this.panelSoftColor();
   }
 
-  private settingsSectionColor(): string {
-    return this.isDarkMode() ? '#c8b7a2' : '#8b6d52';
-  }
-
-  private appearanceSegmentBgColor(darkMode: boolean): string {
-    if (darkMode === this.isDarkMode()) {
-      return this.isDarkMode() ? '#d99632' : '#f7c66b';
-    }
-    return this.isDarkMode() ? '#2a2621' : '#fff8ee';
-  }
-
-  private appearanceSegmentTextColor(darkMode: boolean): string {
-    return darkMode === this.isDarkMode() ? '#2f1d14' : this.mutedColor();
-  }
-
-  private appearanceSegmentLineColor(darkMode: boolean): string {
-    return darkMode === this.isDarkMode() ? 'rgba(110,66,25,0.24)' : this.lineColor();
-  }
-
   private favoriteBadgeBgColor(): string {
     return this.isDarkMode() ? '#1b1916' : '#fffaf2';
   }
@@ -939,14 +672,6 @@ export struct HubPage {
 
   private iconTileLineColor(): string {
     return this.isDarkMode() ? 'rgba(255,236,205,0.20)' : 'rgba(111,73,39,0.16)';
-  }
-
-  private tabBarBgColor(): string {
-    return this.homeBgColor();
-  }
-
-  private tabBarLineColor(): string {
-    return this.isDarkMode() ? 'rgba(255,236,205,0.16)' : 'rgba(132,91,45,0.14)';
   }
 
   private heroBannerBgColor(): string {
@@ -1022,18 +747,6 @@ export struct HubPage {
     });
   }
 
-  private setPressedTab(index: number): void {
-    if (this.pressedTab === index) {
-      return;
-    }
-    this.getUIContext().animateTo({
-      duration: CoopMotion.pressDuration,
-      curve: Curve.EaseOut
-    }, () => {
-      this.pressedTab = index;
-    });
-  }
-
   private recordFor(gameId: string): GameRecord {
     const found = this.snapshot.records.find((item: GameRecord) => item.gameId === gameId);
     if (found !== undefined) {
@@ -1042,40 +755,12 @@ export struct HubPage {
     return { gameId: gameId, highScore: 0, playCount: 0, lastPlayedAt: 0 };
   }
 
-  private totalPlayCount(): number {
-    let total = 0;
-    this.snapshot.records.forEach((item: GameRecord) => {
-      if (this.isVisibleGameId(item.gameId)) {
-        total += item.playCount;
-      }
-    });
-    return total;
-  }
-
-  private playedGameCount(): number {
-    let total = 0;
-    this.snapshot.records.forEach((item: GameRecord) => {
-      if (this.isVisibleGameId(item.gameId) && item.playCount > 0) {
-        total += 1;
-      }
-    });
-    return total;
-  }
-
   private unlockedBadges(): number {
-    let count = 0;
-    if (this.totalPlayCount() >= 1) count += 1;
-    if (this.playedGameCount() >= 6) count += 1;
-    if (this.visibleFavoriteIds().length >= 3) count += 1;
-    if (this.recordFor('freecell').highScore >= 520) count += 1;
-    if (this.recordFor('chicken2048').highScore >= 2048) count += 1;
-    if (this.recordFor('tetris').highScore >= 1000) count += 1;
-    if (this.recordFor('suika').highScore >= 500) count += 1;
-    return count;
+    return achievementSummaryForSnapshot(this.snapshot).unlocked;
   }
 
   private badgeTotal(): number {
-    return 7;
+    return achievementSummaryForSnapshot(this.snapshot).total;
   }
 
   private playStreak(): number {

@@ -7,6 +7,7 @@ import {
   emptySnapshot,
   GameRecord
 } from '../shell/GameModule';
+import { AchievementProgress } from '../shell/AchievementModule';
 
 const STORE_NAME: string = 'chicken_coop_games';
 const SNAPSHOT_KEY: string = 'snapshot';
@@ -58,7 +59,10 @@ export class CoopStorage {
       recent: CoopStorage.stringArray(snapshot.recent),
       soundEnabled: snapshot.soundEnabled !== false,
       hapticEnabled: snapshot.hapticEnabled !== false,
-      appearanceMode: CoopStorage.appearanceMode(snapshot.appearanceMode)
+      appearanceMode: CoopStorage.appearanceMode(snapshot.appearanceMode),
+      achievementSchemaVersion: CoopStorage.schemaVersion(snapshot.achievementSchemaVersion),
+      achievements: CoopStorage.achievementProgresses(snapshot.achievements),
+      recentAchievementEventIds: CoopStorage.stringArray(snapshot.recentAchievementEventIds).slice(0, 32)
     };
   }
 
@@ -75,6 +79,36 @@ export class CoopStorage {
       if (typeof item === 'string' && !result.includes(item)) {
         result.push(item);
       }
+    });
+    return result;
+  }
+
+  private static schemaVersion(value: number): number {
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.floor(value));
+  }
+
+  private static achievementProgresses(value: AchievementProgress[]): AchievementProgress[] {
+    const result: AchievementProgress[] = [];
+    if (!Array.isArray(value)) {
+      return result;
+    }
+    value.forEach((item: AchievementProgress) => {
+      if (item === undefined || typeof item.achievementId !== 'string' || item.achievementId.length === 0) {
+        return;
+      }
+      if (result.some((progress: AchievementProgress) => progress.achievementId === item.achievementId)) {
+        return;
+      }
+      result.push({
+        achievementId: item.achievementId,
+        current: Number.isFinite(item.current) ? Math.max(0, Math.floor(item.current)) : 0,
+        unlockedAt: Number.isFinite(item.unlockedAt) ? Math.max(0, Math.floor(item.unlockedAt)) : 0,
+        notifiedAt: Number.isFinite(item.notifiedAt) ? Math.max(0, Math.floor(item.notifiedAt)) : 0,
+        isLegacyMigrated: item.isLegacyMigrated === true
+      });
     });
     return result;
   }

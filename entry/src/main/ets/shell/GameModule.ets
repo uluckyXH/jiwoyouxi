@@ -1,3 +1,5 @@
+import { ACHIEVEMENT_SCHEMA_VERSION, AchievementProgress } from './AchievementModule';
+
 export interface GameModule {
   id: string;
   title: string;
@@ -22,6 +24,9 @@ export interface CoopAppSnapshot {
   soundEnabled: boolean;
   hapticEnabled: boolean;
   appearanceMode: string;
+  achievementSchemaVersion: number;
+  achievements: AchievementProgress[];
+  recentAchievementEventIds: string[];
 }
 
 export const APPEARANCE_LIGHT: string = 'light';
@@ -34,6 +39,9 @@ export function emptySnapshot(): CoopAppSnapshot {
     recent: [],
     soundEnabled: true,
     hapticEnabled: true,
-    appearanceMode: APPEARANCE_LIGHT
+    appearanceMode: APPEARANCE_LIGHT,
+    achievementSchemaVersion: ACHIEVEMENT_SCHEMA_VERSION,
+    achievements: [],
+    recentAchievementEventIds: []
   };
 }

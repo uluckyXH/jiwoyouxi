@@ -1,7 +1,7 @@
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 import { GameModule } from './GameModule';
-import { moduleById } from './GameRegistry';
+import { gameLogoPath, moduleById } from './GameRegistry';
 
 @Component
 export struct GameEntryBadge {
@@ -57,12 +57,7 @@ export struct GameEntryBadge {
   }
 
   private logoPath(): string {
-    if (this.gameId === 'suika') return 'app/game_logos/game_icon_suika.png';
-    if (this.gameId === 'minesweeper') return 'app/game_logos/game_icon_minesweeper.png';
-    if (this.gameId === 'tetris') return 'app/game_logos/game_icon_tetris.png';
-    if (this.gameId === 'chicken2048') return 'app/game_logos/game_icon_chicken2048.png';
-    if (this.gameId === 'freecell') return 'app/game_logos/game_icon_freecell.png';
-    return 'app/game_logos/game_icon_rps.png';
+    return gameLogoPath(this.gameId);
   }
 
   private titleColor(): string {

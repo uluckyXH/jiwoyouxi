@@ -1,6 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { CoopStorage } from '../app/CoopStorage';
 import { CoopMotion } from '../design/CoopMotion';
+import { synchronizeAchievementProgress } from '../shell/AchievementEngine';
 import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
 import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
@@ -35,7 +36,7 @@ struct Index {
     if (context !== undefined) {
       this.appContext = context as common.Context;
       CoopStorage.load(this.appContext).then((snapshot: CoopAppSnapshot) => {
-        this.snapshot = snapshot;
+        this.saveSnapshot(snapshot);
       });
     }
   }
@@ -239,7 +240,10 @@ struct Index {
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
       hapticEnabled: this.snapshot.hapticEnabled,
-      appearanceMode: this.snapshot.appearanceMode
+      appearanceMode: this.snapshot.appearanceMode,
+      achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
+      achievements: this.snapshot.achievements.slice(),
+      recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
     });
   }
 
@@ -250,7 +254,10 @@ struct Index {
       recent: this.snapshot.recent.slice(),
       soundEnabled: enabled,
       hapticEnabled: this.snapshot.hapticEnabled,
-      appearanceMode: this.snapshot.appearanceMode
+      appearanceMode: this.snapshot.appearanceMode,
+      achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
+      achievements: this.snapshot.achievements.slice(),
+      recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
     });
   }
 
@@ -261,7 +268,10 @@ struct Index {
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
       hapticEnabled: enabled,
-      appearanceMode: this.snapshot.appearanceMode
+      appearanceMode: this.snapshot.appearanceMode,
+      achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
+      achievements: this.snapshot.achievements.slice(),
+      recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
     });
   }
 
@@ -272,7 +282,10 @@ struct Index {
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
       hapticEnabled: this.snapshot.hapticEnabled,
-      appearanceMode: appearanceMode === APPEARANCE_DARK ? APPEARANCE_DARK : APPEARANCE_LIGHT
+      appearanceMode: appearanceMode === APPEARANCE_DARK ? APPEARANCE_DARK : APPEARANCE_LIGHT,
+      achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
+      achievements: this.snapshot.achievements.slice(),
+      recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
     });
   }
 
@@ -302,7 +315,10 @@ struct Index {
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
       hapticEnabled: this.snapshot.hapticEnabled,
-      appearanceMode: this.snapshot.appearanceMode
+      appearanceMode: this.snapshot.appearanceMode,
+      achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
+      achievements: this.snapshot.achievements.slice(),
+      recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
     }, gameId));
   }
 
@@ -315,7 +331,10 @@ struct Index {
       recent: recent.slice(0, 6),
       soundEnabled: snapshot.soundEnabled,
       hapticEnabled: snapshot.hapticEnabled,
-      appearanceMode: snapshot.appearanceMode
+      appearanceMode: snapshot.appearanceMode,
+      achievementSchemaVersion: snapshot.achievementSchemaVersion,
+      achievements: snapshot.achievements.slice(),
+      recentAchievementEventIds: snapshot.recentAchievementEventIds.slice()
     };
   }
 
@@ -377,9 +396,10 @@ struct Index {
   }
 
   private saveSnapshot(snapshot: CoopAppSnapshot): void {
-    this.snapshot = snapshot;
+    const nextSnapshot = synchronizeAchievementProgress(snapshot, Date.now());
+    this.snapshot = nextSnapshot;
     if (this.appContext !== undefined) {
-      CoopStorage.save(this.appContext, snapshot);
+      CoopStorage.save(this.appContext, nextSnapshot);
     }
   }
 }
