@@ -1,9 +1,16 @@
 import { common } from '@kit.AbilityKit';
 import { AchievementService } from '../app/AchievementService';
 import { CoopStorage } from '../app/CoopStorage';
+import { AchievementUnlockNotice } from '../components/AchievementUnlockNotice';
 import { CoopMotion } from '../design/CoopMotion';
 import { emptyAchievementState } from '../shell/AchievementEngine';
-import { AchievementState } from '../shell/AchievementModule';
+import {
+  AchievementApplyResult,
+  AchievementEvent,
+  AchievementNoticeItem,
+  AchievementState
+} from '../shell/AchievementModule';
+import { achievementNoticeItemsForUnlocks, emptyAchievementNoticeItem } from '../shell/AchievementNotice';
 import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
 import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
@@ -24,6 +31,10 @@ struct Index {
   private entryBadgeInTimer: number = -1;
   private entryBadgeOutTimer: number = -1;
   private entryBadgeUnmountTimer: number = -1;
+  private achievementNoticeQueue: AchievementNoticeItem[] = [];
+  private achievementNoticeInTimer: number = -1;
+  private achievementNoticeHoldTimer: number = -1;
+  private achievementNoticeUnmountTimer: number = -1;
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
@@ -33,6 +44,9 @@ struct Index {
   @State entryBadgeGameId: string = 'rpsBattle';
   @State entryBadgeMounted: boolean = false;
   @State entryBadgeVisible: boolean = false;
+  @State achievementNotice: AchievementNoticeItem = emptyAchievementNoticeItem();
+  @State achievementNoticeMounted: boolean = false;
+  @State achievementNoticeVisible: boolean = false;
   @State minesweeperExitRequestId: number = 0;
 
   aboutToAppear(): void {
@@ -63,6 +77,7 @@ struct Index {
 
   aboutToDisappear(): void {
     this.clearEntryBadgeTimers();
+    this.clearAchievementNotices();
   }
 
   build() {
@@ -183,6 +198,14 @@ struct Index {
           isDarkMode: this.snapshot.appearanceMode === APPEARANCE_DARK
         })
       }
+
+      if (this.achievementNoticeMounted) {
+        AchievementUnlockNotice({
+          notice: this.achievementNotice,
+          noticeVisible: this.achievementNoticeVisible,
+          isDarkMode: this.snapshot.appearanceMode === APPEARANCE_DARK
+        })
+      }
     }
     .width('100%')
     .height('100%')
@@ -192,6 +215,7 @@ struct Index {
     if (this.sceneTransitioning || this.activeGame === gameId) {
       return;
     }
+    this.clearAchievementNotices();
     if (gameId === 'tetris') {
       this.tetrisSession += 1;
     }
@@ -214,6 +238,7 @@ struct Index {
     if (this.sceneTransitioning || this.activeGame === 'hub') {
       return;
     }
+    this.clearAchievementNotices();
     this.sceneDirection = 'pop';
     this.sceneTransitioning = true;
     this.hideEntryBadge();
@@ -386,6 +411,8 @@ struct Index {
     });
     this.entryBadgeUnmountTimer = setTimeout(() => {
       this.entryBadgeMounted = false;
+      this.entryBadgeUnmountTimer = -1;
+      this.tryShowAchievementNotice();
     }, CoopMotion.entryBadgeDuration);
   }
 
@@ -401,6 +428,105 @@ struct Index {
     if (this.entryBadgeUnmountTimer !== -1) {
       clearTimeout(this.entryBadgeUnmountTimer);
       this.entryBadgeUnmountTimer = -1;
+    }
+  }
+
+  private reportAchievementEvent(event: AchievementEvent): void {
+    const context = this.appContext;
+    if (context === undefined) {
+      return;
+    }
+    this.achievementService.report(context, event).then((result: AchievementApplyResult) => {
+      this.achievementState = result.state;
+      if (this.activeGame !== event.gameId) {
+        return;
+      }
+      this.enqueueAchievementNotices(result);
+    }).catch(() => {
+      // Storage or engine errors must not surface a notification that was not persisted.
+    });
+  }
+
+  private enqueueAchievementNotices(result: AchievementApplyResult): void {
+    const notices = achievementNoticeItemsForUnlocks(result.newlyUnlocked);
+    notices.forEach((notice: AchievementNoticeItem) => {
+      this.achievementNoticeQueue.push(notice);
+    });
+    this.tryShowAchievementNotice();
+  }
+
+  private tryShowAchievementNotice(): void {
+    if (this.achievementNoticeMounted || this.achievementNoticeQueue.length === 0 ||
+      this.activeGame === 'hub' || this.sceneTransitioning || this.entryBadgeMounted) {
+      return;
+    }
+    const nextNotice = this.achievementNoticeQueue.shift();
+    if (nextNotice === undefined) {
+      return;
+    }
+    this.achievementNotice = nextNotice;
+    this.achievementNoticeVisible = false;
+    this.achievementNoticeMounted = true;
+    this.achievementNoticeInTimer = setTimeout(() => {
+      this.achievementNoticeInTimer = -1;
+      if (!this.achievementNoticeMounted) {
+        return;
+      }
+      this.getUIContext().animateTo({
+        duration: CoopMotion.achievementNoticeEnterDuration,
+        curve: Curve.EaseOut
+      }, () => {
+        this.achievementNoticeVisible = true;
+      });
+    }, 20);
+    const holdDuration = nextNotice.noticeLevel === 'highlight'
+      ? CoopMotion.achievementNoticeHighlightHoldDuration
+      : CoopMotion.achievementNoticeNormalHoldDuration;
+    this.achievementNoticeHoldTimer = setTimeout(() => {
+      this.achievementNoticeHoldTimer = -1;
+      this.hideAchievementNotice();
+    }, 20 + CoopMotion.achievementNoticeEnterDuration + holdDuration);
+  }
+
+  private hideAchievementNotice(): void {
+    if (!this.achievementNoticeMounted || this.achievementNoticeUnmountTimer !== -1) {
+      return;
+    }
+    this.clearAchievementNoticeTimers();
+    this.getUIContext().animateTo({
+      duration: CoopMotion.achievementNoticeExitDuration,
+      curve: Curve.EaseOut
+    }, () => {
+      this.achievementNoticeVisible = false;
+    });
+    this.achievementNoticeUnmountTimer = setTimeout(() => {
+      this.achievementNoticeUnmountTimer = -1;
+      this.achievementNoticeMounted = false;
+      this.achievementNotice = emptyAchievementNoticeItem();
+      this.tryShowAchievementNotice();
+    }, CoopMotion.achievementNoticeExitDuration);
+  }
+
+  private clearAchievementNotices(): void {
+    this.clearAchievementNoticeTimers();
+    this.achievementNoticeQueue = [];
+    this.achievementNoticeVisible = false;
+    this.achievementNoticeMounted = false;
+    this.achievementNotice = emptyAchievementNoticeItem();
+  }
+
+  private clearAchievementNoticeTimers(): void {
+    if (this.achievementNoticeInTimer !== -1) {
+      clearTimeout(this.achievementNoticeInTimer);
+      this.achievementNoticeInTimer = -1;
+    }
+    if (this.achievementNoticeHoldTimer !== -1) {
+      clearTimeout(this.achievementNoticeHoldTimer);
+      this.achievementNoticeHoldTimer = -1;
+    }
+    if (this.achievementNoticeUnmountTimer !== -1) {
+      clearTimeout(this.achievementNoticeUnmountTimer);
+      this.achievementNoticeUnmountTimer = -1;
     }
   }
 

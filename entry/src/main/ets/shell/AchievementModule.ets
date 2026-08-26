@@ -102,6 +102,20 @@ export interface AchievementUnlock {
   unlockedAt: number;
 }
 
+export type AchievementNoticeKind = 'achievement' | 'summary';
+
+export interface AchievementNoticeItem {
+  noticeId: string;
+  kind: AchievementNoticeKind;
+  achievementIds: string[];
+  gameId: string;
+  title: string;
+  summary: string;
+  placeholderSymbol: string;
+  noticeLevel: AchievementNoticeLevel;
+  achievementCount: number;
+}
+
 export interface AchievementApplyResult {
   state: AchievementState;
   disposition: AchievementEventDisposition;

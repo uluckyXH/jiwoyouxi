@@ -15,5 +15,11 @@ export class CoopMotion {
   static readonly entryBadgeDuration: number = 180;
   static readonly entryBadgeHoldDuration: number = 820;
   static readonly entryBadgeOffsetVp: number = 8;
+  static readonly achievementNoticeEnterDuration: number = 180;
+  static readonly achievementNoticeNormalHoldDuration: number = 2100;
+  static readonly achievementNoticeHighlightHoldDuration: number = 2600;
+  static readonly achievementNoticeExitDuration: number = 220;
+  static readonly achievementNoticeOffsetVp: number = 10;
+  static readonly achievementNoticeScaleFrom: number = 0.96;
   static readonly microDuration: number = 120;
 }

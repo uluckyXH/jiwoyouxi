@@ -11,6 +11,7 @@ const sourceFiles = [
   'entry/src/main/ets/shell/AchievementModule.ets',
   'entry/src/main/ets/shell/GameModule.ets',
   'entry/src/main/ets/shell/AchievementRegistry.ets',
+  'entry/src/main/ets/shell/AchievementNotice.ets',
   'entry/src/main/ets/shell/AchievementEngine.ets'
 ];
 
@@ -26,7 +27,9 @@ function loadAchievementEngine() {
 globalThis.__achievementEngine = {
   ACHIEVEMENT_DEFINITIONS,
   ACHIEVEMENT_PROCESSED_EVENT_LIMIT,
+  ACHIEVEMENT_NOTICE_INDIVIDUAL_LIMIT,
   achievementRegistryIssues,
+  achievementNoticeItemsForUnlocks,
   emptyAchievementState,
   normalizeAchievementState,
   applyAchievementEvent,
@@ -277,4 +280,41 @@ const api = loadAchievementEngine();
   assert.equal(state.processedEventIds.includes('suika-queue:32'), true);
 }
 
-console.log('Achievement engine tests passed');
+{
+  const notices = api.achievementNoticeItemsForUnlocks([
+    { achievementId: 'global.first_settlement', unlockedAt: 1787617800000 },
+    { achievementId: 'rpsBattle.first_battle', unlockedAt: 1787617800000 },
+    { achievementId: 'rpsBattle.supporter_wins', unlockedAt: 1787617800000 },
+    { achievementId: 'chicken2048.reach_2048', unlockedAt: 1787617800000 }
+  ]);
+  assert.equal(api.ACHIEVEMENT_NOTICE_INDIVIDUAL_LIMIT, 3);
+  assert.equal(notices.length, 4);
+  assert.equal(notices[0].noticeId, 'global.first_settlement');
+  assert.equal(notices[2].noticeId, 'rpsBattle.supporter_wins');
+  assert.equal(notices[3].kind, 'summary');
+  assert.equal(notices[3].achievementCount, 4);
+  assert.equal(notices[3].noticeLevel, 'highlight');
+}
+
+{
+  const notices = api.achievementNoticeItemsForUnlocks([
+    { achievementId: 'global.first_settlement', unlockedAt: 1787617800000 },
+    { achievementId: 'minesweeper.first_clear', unlockedAt: 1787617800000 }
+  ]);
+  assert.equal(notices.length, 2);
+  assert.equal(notices[0].noticeId, 'global.first_settlement');
+  assert.equal(notices[1].noticeId, 'minesweeper.first_clear');
+}
+
+{
+  const notices = api.achievementNoticeItemsForUnlocks([
+    { achievementId: 'tetris.first_tetris', unlockedAt: 1787617800000 },
+    { achievementId: 'tetris.first_tetris', unlockedAt: 1787617800000 },
+    { achievementId: 'global.favorite_three', unlockedAt: 1787617800000 },
+    { achievementId: 'notRegistered.missing', unlockedAt: 1787617800000 }
+  ]);
+  assert.equal(notices.length, 1);
+  assert.equal(notices[0].noticeId, 'tetris.first_tetris');
+}
+
+console.log('Achievement core and notice tests passed');
