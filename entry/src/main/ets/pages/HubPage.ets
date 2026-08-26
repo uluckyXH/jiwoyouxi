@@ -2,7 +2,8 @@ import { MotionPressable } from '../components/MotionPressable';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 import { CoopViewport } from '../design/CoopViewport';
-import { achievementSummaryForSnapshot } from '../shell/AchievementEngine';
+import { achievementSummaryForState } from '../shell/AchievementEngine';
+import { AchievementState } from '../shell/AchievementModule';
 import {
   APPEARANCE_DARK,
   APPEARANCE_LIGHT,
@@ -39,6 +40,7 @@ const HOME_FAVORITE_LOGO_IMAGE_SIZE: number = 52;
 @Component
 export struct HubPage {
   @Prop snapshot: CoopAppSnapshot;
+  @Prop achievementState: AchievementState;
   openGame: (gameId: string) => void = () => {};
   toggleFavorite: (gameId: string) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
@@ -478,7 +480,7 @@ export struct HubPage {
   @Builder
   Achievements() {
     AchievementWall({
-      snapshot: this.snapshot,
+      achievementState: this.achievementState,
       isDarkMode: this.isDarkMode()
     })
   }
@@ -756,11 +758,11 @@ export struct HubPage {
   }
 
   private unlockedBadges(): number {
-    return achievementSummaryForSnapshot(this.snapshot).unlocked;
+    return achievementSummaryForState(this.achievementState).unlocked;
   }
 
   private badgeTotal(): number {
-    return achievementSummaryForSnapshot(this.snapshot).total;
+    return achievementSummaryForState(this.achievementState).total;
   }
 
   private playStreak(): number {

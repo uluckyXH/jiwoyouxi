@@ -31,7 +31,9 @@ globalThis.__achievementEngine = {
   normalizeAchievementState,
   applyAchievementEvent,
   achievementProgressForState,
-  achievementSummaryForState
+  achievementSummaryForState,
+  achievementGroupsForState,
+  achievementViewItemForState
 };
 `, context);
   return context.__achievementEngine;
@@ -64,6 +66,10 @@ const api = loadAchievementEngine();
   assert.equal(state.completedSessionCount, 0);
   assert.equal(state.playedGameIds.length, 0);
   assert.equal(api.achievementSummaryForState(state).unlocked, 0);
+  assert.equal(api.achievementSummaryForState(state).total, 22);
+  assert.equal(api.achievementGroupsForState(state, 'all').length, 7);
+  assert.equal(api.achievementGroupsForState(state, 'unlocked').length, 0);
+  assert.equal(api.achievementGroupsForState(state, 'inProgress').length, 0);
 }
 
 {
@@ -148,6 +154,27 @@ const api = loadAchievementEngine();
     'rpsBattle.first_battle',
     'rpsBattle.supporter_wins'
   ].join(','));
+
+  const firstSettlement = api.achievementViewItemForState(result.state, 'global.first_settlement');
+  const tenSessions = api.achievementViewItemForState(result.state, 'global.complete_ten_sessions');
+  const favorite = api.achievementViewItemForState(result.state, 'global.favorite_three');
+  const allGroups = api.achievementGroupsForState(result.state, 'all');
+  const unlockedGroups = api.achievementGroupsForState(result.state, 'unlocked');
+  const inProgressGroups = api.achievementGroupsForState(result.state, 'inProgress');
+  const itemCount = allGroups.reduce((count, group) => count + group.items.length, 0);
+  assert.equal(api.achievementSummaryForState(result.state).unlocked, 3);
+  assert.equal(firstSettlement.status, 'unlocked');
+  assert.equal(firstSettlement.isLegacyMigrated, false);
+  assert.equal(tenSessions.status, 'inProgress');
+  assert.equal(tenSessions.current, 1);
+  assert.equal(tenSessions.target, 10);
+  assert.equal(favorite.status, 'locked');
+  assert.equal(favorite.target, 0);
+  assert.equal(allGroups.length, 7);
+  assert.equal(itemCount, 22);
+  assert.equal(unlockedGroups.length, 2);
+  assert.equal(inProgressGroups.length, 1);
+  assert.equal(inProgressGroups[0].definition.id, 'global');
 }
 
 {

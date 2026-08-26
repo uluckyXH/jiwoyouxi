@@ -1,7 +1,9 @@
 import { describe, expect, it, Level, Size, TestType } from '@ohos/hypium';
 import {
+  achievementGroupsForState,
   achievementProgressForState,
   achievementSummaryForState,
+  achievementViewItemForState,
   applyAchievementEvent,
   emptyAchievementState,
   normalizeAchievementState
@@ -53,6 +55,10 @@ export default function achievementEngineTest(): void {
         expect(state.completedSessionCount).assertEqual(0);
         expect(state.playedGameIds.length).assertEqual(0);
         expect(achievementSummaryForState(state).unlocked).assertEqual(0);
+        expect(achievementSummaryForState(state).total).assertEqual(22);
+        expect(achievementGroupsForState(state, 'all').length).assertEqual(7);
+        expect(achievementGroupsForState(state, 'unlocked').length).assertEqual(0);
+        expect(achievementGroupsForState(state, 'inProgress').length).assertEqual(0);
       });
 
     it('updates a fact threshold once and rejects a duplicate event id',
@@ -139,6 +145,47 @@ export default function achievementEngineTest(): void {
         expect(unofficial.state.completedSessionCount).assertEqual(1);
         expect(achievementProgressForState(unofficial.state, 'chicken2048.reach_2048') === undefined)
           .assertEqual(true);
+      });
+
+    it('projects the achievement wall from independent state instead of legacy snapshot data',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const result = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'rps-battle-2:session-end:1',
+          'rps-battle-2',
+          'rpsBattle',
+          [
+            { key: 'won', value: 1 },
+            { key: 'supportWon', value: 1 }
+          ],
+          'sessionEnd'
+        ));
+        const firstSettlement = achievementViewItemForState(result.state, 'global.first_settlement');
+        const tenSessions = achievementViewItemForState(result.state, 'global.complete_ten_sessions');
+        const favorite = achievementViewItemForState(result.state, 'global.favorite_three');
+        const allGroups = achievementGroupsForState(result.state, 'all');
+        const unlockedGroups = achievementGroupsForState(result.state, 'unlocked');
+        const inProgressGroups = achievementGroupsForState(result.state, 'inProgress');
+        let itemCount = 0;
+        allGroups.forEach((group) => {
+          itemCount += group.items.length;
+        });
+
+        if (firstSettlement === undefined || tenSessions === undefined || favorite === undefined) {
+          throw new Error('Expected registered achievement view items');
+        }
+        expect(achievementSummaryForState(result.state).unlocked).assertEqual(3);
+        expect(firstSettlement.status).assertEqual('unlocked');
+        expect(firstSettlement.isLegacyMigrated).assertEqual(false);
+        expect(tenSessions.status).assertEqual('inProgress');
+        expect(tenSessions.current).assertEqual(1);
+        expect(tenSessions.target).assertEqual(10);
+        expect(favorite.status).assertEqual('locked');
+        expect(favorite.target).assertEqual(0);
+        expect(allGroups.length).assertEqual(7);
+        expect(itemCount).assertEqual(22);
+        expect(unlockedGroups.length).assertEqual(2);
+        expect(inProgressGroups.length).assertEqual(1);
+        expect(inProgressGroups[0].definition.id).assertEqual('global');
       });
 
     it('unlocks global counts from new events without reading old game records',

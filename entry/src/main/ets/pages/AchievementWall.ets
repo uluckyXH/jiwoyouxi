@@ -3,22 +3,22 @@ import { AchievementTheme } from '../design/AchievementTheme';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 import {
-  achievementGroupsForSnapshot,
-  achievementSummaryForSnapshot,
-  achievementViewItemFor
+  achievementGroupsForState,
+  achievementSummaryForState,
+  achievementViewItemForState
 } from '../shell/AchievementEngine';
 import {
   AchievementFilter,
   AchievementGroupView,
+  AchievementState,
   AchievementViewItem
 } from '../shell/AchievementModule';
 import { ACHIEVEMENT_DEFINITIONS } from '../shell/AchievementRegistry';
-import { CoopAppSnapshot } from '../shell/GameModule';
 import { gameLogoPath, moduleById } from '../shell/GameRegistry';
 
 @Component
 export struct AchievementWall {
-  @Prop snapshot: CoopAppSnapshot;
+  @Prop achievementState: AchievementState;
   @Prop isDarkMode: boolean = false;
   @State private activeFilter: AchievementFilter = 'all';
   @State private selectedAchievementId: string = '';
@@ -425,15 +425,15 @@ export struct AchievementWall {
   }
 
   private visibleGroups(): AchievementGroupView[] {
-    return achievementGroupsForSnapshot(this.snapshot, this.activeFilter);
+    return achievementGroupsForState(this.achievementState, this.activeFilter);
   }
 
   private summary() {
-    return achievementSummaryForSnapshot(this.snapshot);
+    return achievementSummaryForState(this.achievementState);
   }
 
   private detailItem(): AchievementViewItem {
-    const found = achievementViewItemFor(this.snapshot, this.selectedAchievementId);
+    const found = achievementViewItemForState(this.achievementState, this.selectedAchievementId);
     if (found !== undefined) {
       return found;
     }
@@ -448,7 +448,7 @@ export struct AchievementWall {
   }
 
   private groupProgressText(groupId: string): string {
-    const group = achievementGroupsForSnapshot(this.snapshot, 'all')
+    const group = achievementGroupsForState(this.achievementState, 'all')
       .find((item: AchievementGroupView) => item.definition.id === groupId);
     if (group === undefined) {
       return '0 / 0';
@@ -482,6 +482,9 @@ export struct AchievementWall {
   }
 
   private statusText(item: AchievementViewItem): string {
+    if (!item.definition.enabled) {
+      return '待开放';
+    }
     if (item.status === 'unlocked') {
       return '已解锁';
     }
@@ -489,16 +492,16 @@ export struct AchievementWall {
   }
 
   private statusDetail(item: AchievementViewItem): string {
+    if (!item.definition.enabled) {
+      return '待校准';
+    }
     if (item.status === 'unlocked') {
-      return item.isLegacyMigrated ? '历史补发' : this.shortDate(item.unlockedAt);
+      return this.shortDate(item.unlockedAt);
     }
     return this.hasNumericProgress(item) ? `${item.current} / ${item.target}` : '等待达成';
   }
 
   private unlockedRecordText(item: AchievementViewItem): string {
-    if (item.isLegacyMigrated) {
-      return '已由历史记录补发';
-    }
     return this.fullDate(item.unlockedAt);
   }
 
@@ -530,14 +533,23 @@ export struct AchievementWall {
   }
 
   private emptyTitle(): string {
-    return this.activeFilter === 'unlocked' ? '还没有已解锁成就' : '这一页的勋章都已收进册子啦';
+    if (this.activeFilter === 'unlocked') {
+      return '还没有已解锁成就';
+    }
+    if (this.activeFilter === 'inProgress') {
+      return '还没有进行中的成就';
+    }
+    return '暂时没有可展示成就';
   }
 
   private emptyDescription(): string {
     if (this.activeFilter === 'unlocked') {
-      return '再完成一局，把第一枚勋章带回鸡窝。';
+      return '完成已接入的挑战后，勋章会自动收进鸡窝。';
     }
-    return '换到“全部”回顾已收集的小高光。';
+    if (this.activeFilter === 'inProgress') {
+      return '首次获得可累计的进度后，它会显示在这里。';
+    }
+    return '稍后再试。';
   }
 
   private selectFilter(filter: AchievementFilter): void {

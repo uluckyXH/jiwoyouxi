@@ -1,7 +1,9 @@
 import { common } from '@kit.AbilityKit';
+import { AchievementService } from '../app/AchievementService';
 import { CoopStorage } from '../app/CoopStorage';
 import { CoopMotion } from '../design/CoopMotion';
-import { synchronizeAchievementProgress } from '../shell/AchievementEngine';
+import { emptyAchievementState } from '../shell/AchievementEngine';
+import { AchievementState } from '../shell/AchievementModule';
 import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
 import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
@@ -18,10 +20,12 @@ import { SuikaPage } from '../games/suika/SuikaPage';
 @Component
 struct Index {
   private appContext: common.Context | undefined = undefined;
+  private achievementService: AchievementService = new AchievementService();
   private entryBadgeInTimer: number = -1;
   private entryBadgeOutTimer: number = -1;
   private entryBadgeUnmountTimer: number = -1;
   @State snapshot: CoopAppSnapshot = emptySnapshot();
+  @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
   @State tetrisSession: number = 0;
   @State sceneDirection: string = 'push';
@@ -34,9 +38,13 @@ struct Index {
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext();
     if (context !== undefined) {
-      this.appContext = context as common.Context;
-      CoopStorage.load(this.appContext).then((snapshot: CoopAppSnapshot) => {
+      const appContext = context as common.Context;
+      this.appContext = appContext;
+      CoopStorage.load(appContext).then((snapshot: CoopAppSnapshot) => {
         this.saveSnapshot(snapshot);
+      });
+      this.achievementService.initialize(appContext).then((state: AchievementState) => {
+        this.achievementState = state;
       });
     }
   }
@@ -63,6 +71,7 @@ struct Index {
         GameSceneTransition({ role: 'hub', sceneDirection: this.sceneDirection }) {
           HubPage({
             snapshot: this.snapshot,
+            achievementState: this.achievementState,
             openGame: (gameId: string) => {
               this.openGame(gameId);
             },
@@ -396,10 +405,9 @@ struct Index {
   }
 
   private saveSnapshot(snapshot: CoopAppSnapshot): void {
-    const nextSnapshot = synchronizeAchievementProgress(snapshot, Date.now());
-    this.snapshot = nextSnapshot;
+    this.snapshot = snapshot;
     if (this.appContext !== undefined) {
-      CoopStorage.save(this.appContext, nextSnapshot);
+      CoopStorage.save(this.appContext, snapshot);
     }
   }
 }

@@ -362,11 +362,92 @@ export function achievementSummaryForState(state: AchievementState): Achievement
   let unlocked = 0;
   ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
     const progress = progressForState(normalized, definition.id);
-    if (progress !== undefined && progress.unlockedAt > 0) {
+    if (definition.enabled && progress !== undefined && progress.unlockedAt > 0) {
       unlocked += 1;
     }
   });
   return { unlocked: unlocked, total: ACHIEVEMENT_DEFINITIONS.length };
+}
+
+function stateViewTarget(definition: AchievementDefinition): number {
+  if (!definition.enabled) {
+    return 0;
+  }
+  if (definition.rule.type === 'globalCompletedSessionsAtLeast' ||
+    definition.rule.type === 'globalPlayedGamesAtLeast') {
+    return definition.target;
+  }
+  if (definition.rule.type === 'eventFact' && definition.rule.condition.comparison === 'atLeast') {
+    return definition.target;
+  }
+  return 0;
+}
+
+function stateViewItemFor(state: AchievementState, definition: AchievementDefinition): AchievementViewItem {
+  const progress = progressForState(state, definition.id);
+  const target = stateViewTarget(definition);
+  const current = progress === undefined || target === 0
+    ? 0
+    : Math.min(target, normalizedCount(progress.current));
+  const unlockedAt = !definition.enabled || progress === undefined ? 0 : normalizedCount(progress.unlockedAt);
+  let status: AchievementStatus = 'locked';
+  if (unlockedAt > 0) {
+    status = 'unlocked';
+  } else if (current > 0) {
+    status = 'inProgress';
+  }
+  return {
+    definition: definition,
+    current: current,
+    target: target,
+    unlockedAt: unlockedAt,
+    isLegacyMigrated: false,
+    status: status
+  };
+}
+
+function matchesStateFilter(item: AchievementViewItem, filter: AchievementFilter): boolean {
+  if (filter === 'all') {
+    return true;
+  }
+  if (filter === 'unlocked') {
+    return item.status === 'unlocked';
+  }
+  return item.status === 'inProgress';
+}
+
+export function achievementGroupsForState(
+  state: AchievementState,
+  filter: AchievementFilter
+): AchievementGroupView[] {
+  const normalized = normalizeAchievementState(state);
+  const groups: AchievementGroupView[] = [];
+  ACHIEVEMENT_GROUPS.forEach((group) => {
+    const items: AchievementViewItem[] = [];
+    ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
+      if (definition.groupId === group.id) {
+        const item = stateViewItemFor(normalized, definition);
+        if (matchesStateFilter(item, filter)) {
+          items.push(item);
+        }
+      }
+    });
+    if (items.length > 0) {
+      groups.push({ definition: group, items: items });
+    }
+  });
+  return groups;
+}
+
+export function achievementViewItemForState(
+  state: AchievementState,
+  achievementId: string
+): AchievementViewItem | undefined {
+  const definition = achievementDefinitionFor(achievementId);
+  if (definition === undefined) {
+    return undefined;
+  }
+  return stateViewItemFor(normalizeAchievementState(state), definition);
 }
 
 function isRegisteredAchievementId(achievementId: string): boolean {
