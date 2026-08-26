@@ -1,6 +1,9 @@
 import {
   AchievementDefinition,
-  AchievementGroupDefinition
+  AchievementFactCondition,
+  AchievementGroupDefinition,
+  AchievementRule,
+  GameAchievementProfile
 } from './AchievementModule';
 
 export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
@@ -57,6 +60,33 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
   }
 ];
 
+export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
+  {
+    gameId: 'rpsBattle',
+    factKeys: ['won', 'supportWon', 'elapsedSec', 'conversions', 'score']
+  },
+  {
+    gameId: 'freecell',
+    factKeys: ['won', 'moves', 'elapsedSec', 'score']
+  },
+  {
+    gameId: 'minesweeper',
+    factKeys: ['won', 'elapsedSec', 'allMinesFlagged', 'score']
+  },
+  {
+    gameId: 'chicken2048',
+    factKeys: ['maxTile', 'movesMade', 'score']
+  },
+  {
+    gameId: 'tetris',
+    factKeys: ['score', 'totalLines', 'level', 'maxClearedLines']
+  },
+  {
+    gameId: 'suika',
+    factKeys: ['score', 'droppedCount', 'highestMergeLevel', 'madeWatermelon', 'isFinalMerge']
+  }
+];
+
 export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
     id: 'global.first_settlement',
@@ -64,10 +94,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '鸡窝开张',
     summary: '完成任意一局',
-    detail: '在六款主推游戏中完成任意一局。',
+    detail: '在六款主推游戏中完成任意一局正式游戏。',
     placeholderSymbol: '✦',
     progressKind: 'totalSessions',
-    target: 1
+    target: 1,
+    rule: { type: 'globalCompletedSessionsAtLeast', target: 1 },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'global.play_six_games',
@@ -75,11 +108,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '六边形鸡仔',
     summary: '体验六款主推游戏',
-    detail: '分别完成石头剪刀布大作战、空当接龙、扫雷、2048、' +
-      '俄罗斯方块和鸡窝水果摊各一局。',
+    detail: '分别完成六款主推游戏各一局正式游戏。',
     placeholderSymbol: '✦',
     progressKind: 'playedGames',
-    target: 6
+    target: 6,
+    rule: { type: 'globalPlayedGamesAtLeast', target: 6 },
+    enabled: true,
+    noticeLevel: 'highlight'
   },
   {
     id: 'global.favorite_three',
@@ -87,10 +122,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '收藏家',
     summary: '收藏 3 个常玩游戏',
-    detail: '在大厅收藏三款主推游戏。',
+    detail: '当前独立事件核心不读取收藏记录；后续确认大厅事件后再启用。',
     placeholderSymbol: '✦',
     progressKind: 'favoriteCount',
-    target: 3
+    target: 3,
+    rule: { type: 'disabled' },
+    enabled: false,
+    noticeLevel: 'normal'
   },
   {
     id: 'global.complete_ten_sessions',
@@ -98,10 +136,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '常驻鸡仔',
     summary: '完成 10 局游戏',
-    detail: '在六款主推游戏中累计完成十局。',
+    detail: '在六款主推游戏中累计完成十局正式游戏。',
     placeholderSymbol: '✦',
     progressKind: 'totalSessions',
-    target: 10
+    target: 10,
+    rule: { type: 'globalCompletedSessionsAtLeast', target: 10 },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'rpsBattle.first_battle',
@@ -112,7 +153,10 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在新版石头剪刀布大作战完成一局正式对战。',
     placeholderSymbol: '✊',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: { type: 'eventObserved', eventType: 'sessionEnd' },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'rpsBattle.supporter_wins',
@@ -123,7 +167,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在正式对战中，让你支持的阵营赢得一局。',
     placeholderSymbol: '✊',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: {
+      type: 'eventAllFacts',
+      eventType: 'sessionEnd',
+      conditions: [
+        { key: 'won', comparison: 'equals', value: 1 },
+        { key: 'supportWon', comparison: 'equals', value: 1 }
+      ]
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'rpsBattle.conversion_storm',
@@ -131,10 +185,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'rpsBattle',
     title: '转化风暴',
     summary: '见证一局高密度阵营转化',
-    detail: '在一局正式对战中达到待校准的阵营转化次数。',
+    detail: '阵营转化阈值待校准，确认前不参与判定。',
     placeholderSymbol: '✊',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: { type: 'disabled' },
+    enabled: false,
+    noticeLevel: 'highlight'
   },
   {
     id: 'freecell.complete_board',
@@ -145,7 +202,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '将四个花色全部整理到基础牌堆。',
     placeholderSymbol: '♣',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: {
+      type: 'eventFact',
+      eventType: 'sessionEnd',
+      condition: { key: 'won', comparison: 'equals', value: 1 }
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'freecell.efficient_win',
@@ -153,10 +217,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'freecell',
     title: '精打细算',
     summary: '用较少步数完成一局',
-    detail: '在待校准的步数以内完成一局空当接龙。',
+    detail: '步数阈值待校准，确认前不参与判定。',
     placeholderSymbol: '♣',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: { type: 'disabled' },
+    enabled: false,
+    noticeLevel: 'normal'
   },
   {
     id: 'freecell.quick_win',
@@ -164,10 +231,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'freecell',
     title: '疾速清台',
     summary: '在合理时间内完成一局',
-    detail: '在待校准的时间以内完成一局空当接龙。',
+    detail: '时间阈值待校准，确认前不参与判定。',
     placeholderSymbol: '♣',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: { type: 'disabled' },
+    enabled: false,
+    noticeLevel: 'highlight'
   },
   {
     id: 'minesweeper.first_clear',
@@ -178,7 +248,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在正式局中成功打开所有安全格。',
     placeholderSymbol: '✹',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: {
+      type: 'eventFact',
+      eventType: 'sessionEnd',
+      condition: { key: 'won', comparison: 'equals', value: 1 }
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'minesweeper.quick_clear',
@@ -186,10 +263,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'minesweeper',
     title: '迅捷排雷',
     summary: '在目标时间内完成雷区',
-    detail: '在指定难度与待校准时间内完成一局扫雷。',
+    detail: '难度与时间阈值待校准，确认前不参与判定。',
     placeholderSymbol: '✹',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: { type: 'disabled' },
+    enabled: false,
+    noticeLevel: 'highlight'
   },
   {
     id: 'minesweeper.perfect_flags',
@@ -197,10 +277,13 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'minesweeper',
     title: '旗帜无误',
     summary: '正确标记本局全部地雷',
-    detail: '在正式局中手动正确标记全部地雷，且没有错误插旗。',
+    detail: '插旗事实待确认，确认前不参与判定。',
     placeholderSymbol: '✹',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: { type: 'disabled' },
+    enabled: false,
+    noticeLevel: 'normal'
   },
   {
     id: 'chicken2048.reach_256',
@@ -211,7 +294,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局正式的鸡窝 2048 中首次合成 256 方块。',
     placeholderSymbol: '◆',
     progressKind: 'none',
-    target: 0
+    target: 256,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'maxTile', comparison: 'atLeast', value: 256 }
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'chicken2048.reach_1024',
@@ -222,7 +312,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局正式的鸡窝 2048 中首次合成 1024 方块。',
     placeholderSymbol: '◆',
     progressKind: 'none',
-    target: 0
+    target: 1024,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'maxTile', comparison: 'atLeast', value: 1024 }
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
   },
   {
     id: 'chicken2048.reach_2048',
@@ -233,7 +330,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局正式的鸡窝 2048 中首次合成 2048 方块。',
     placeholderSymbol: '◆',
     progressKind: 'none',
-    target: 0
+    target: 2048,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'maxTile', comparison: 'atLeast', value: 2048 }
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
   },
   {
     id: 'tetris.first_tetris',
@@ -244,7 +348,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局俄罗斯方块中完成一次四消。',
     placeholderSymbol: '▣',
     progressKind: 'none',
-    target: 0
+    target: 4,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'maxClearedLines', comparison: 'atLeast', value: 4 }
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
   },
   {
     id: 'tetris.twenty_lines',
@@ -255,7 +366,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在同一局俄罗斯方块中累计消除二十行。',
     placeholderSymbol: '▣',
     progressKind: 'none',
-    target: 0
+    target: 20,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'totalLines', comparison: 'atLeast', value: 20 }
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'tetris.level_three',
@@ -266,7 +384,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在同一局俄罗斯方块中达到等级 3。',
     placeholderSymbol: '▣',
     progressKind: 'none',
-    target: 0
+    target: 3,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'level', comparison: 'atLeast', value: 3 }
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'suika.score_600',
@@ -277,7 +402,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局鸡窝水果摊中达到 600 分。',
     placeholderSymbol: '◉',
     progressKind: 'none',
-    target: 0
+    target: 600,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'score', comparison: 'atLeast', value: 600 }
+    },
+    enabled: true,
+    noticeLevel: 'normal'
   },
   {
     id: 'suika.make_watermelon',
@@ -288,7 +420,14 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局鸡窝水果摊中首次合成普通西瓜。',
     placeholderSymbol: '◉',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'madeWatermelon', comparison: 'equals', value: 1 }
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
   },
   {
     id: 'suika.final_merge',
@@ -299,10 +438,73 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     detail: '在一局鸡窝水果摊中完成最终水果合成。',
     placeholderSymbol: '◉',
     progressKind: 'none',
-    target: 0
+    target: 1,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'isFinalMerge', comparison: 'equals', value: 1 }
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
   }
 ];
 
 export function achievementDefinitionFor(id: string): AchievementDefinition | undefined {
   return ACHIEVEMENT_DEFINITIONS.find((item: AchievementDefinition) => item.id === id);
+}
+
+export function achievementProfileFor(gameId: string): GameAchievementProfile | undefined {
+  return GAME_ACHIEVEMENT_PROFILES.find((item: GameAchievementProfile) => item.gameId === gameId);
+}
+
+export function isAchievementFactKeyAllowed(gameId: string, factKey: string): boolean {
+  const profile = achievementProfileFor(gameId);
+  return profile !== undefined && profile.factKeys.includes(factKey);
+}
+
+function ruleFactKeys(rule: AchievementRule): string[] {
+  if (rule.type === 'eventFact') {
+    return [rule.condition.key];
+  }
+  if (rule.type === 'eventAllFacts') {
+    const keys: string[] = [];
+    rule.conditions.forEach((condition: AchievementFactCondition) => {
+      if (!keys.includes(condition.key)) {
+        keys.push(condition.key);
+      }
+    });
+    return keys;
+  }
+  return [];
+}
+
+export function achievementRegistryIssues(): string[] {
+  const issues: string[] = [];
+  const ids: string[] = [];
+  ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
+    if (definition.id.length === 0 || ids.includes(definition.id)) {
+      issues.push(`duplicate-or-empty-id:${definition.id}`);
+    }
+    ids.push(definition.id);
+    if (!Number.isFinite(definition.target) || definition.target <= 0) {
+      issues.push(`invalid-target:${definition.id}`);
+    }
+    if (definition.gameId !== 'global' && achievementProfileFor(definition.gameId) === undefined) {
+      issues.push(`missing-profile:${definition.id}`);
+    }
+    if (definition.enabled && definition.rule.type === 'disabled') {
+      issues.push(`enabled-disabled-rule:${definition.id}`);
+    }
+    if (!definition.enabled && definition.rule.type !== 'disabled') {
+      issues.push(`disabled-active-rule:${definition.id}`);
+    }
+    if (definition.gameId !== 'global') {
+      ruleFactKeys(definition.rule).forEach((factKey: string) => {
+        if (!isAchievementFactKeyAllowed(definition.gameId, factKey)) {
+          issues.push(`unknown-rule-fact:${definition.id}:${factKey}`);
+        }
+      });
+    }
+  });
+  return issues;
 }

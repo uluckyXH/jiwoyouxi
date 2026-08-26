@@ -7,10 +7,12 @@ import {
   emptySnapshot,
   GameRecord
 } from '../shell/GameModule';
-import { AchievementProgress } from '../shell/AchievementModule';
+import { AchievementState, LegacyAchievementProgress } from '../shell/AchievementModule';
+import { emptyAchievementState, normalizeAchievementState } from '../shell/AchievementEngine';
 
 const STORE_NAME: string = 'chicken_coop_games';
 const SNAPSHOT_KEY: string = 'snapshot';
+const ACHIEVEMENT_STATE_KEY: string = 'achievement_state';
 
 export class CoopStorage {
   static async load(context: common.Context): Promise<CoopAppSnapshot> {
@@ -30,6 +32,28 @@ export class CoopStorage {
     try {
       const store = await preferences.getPreferences(context, { name: STORE_NAME });
       await store.put(SNAPSHOT_KEY, JSON.stringify(CoopStorage.sanitize(snapshot)));
+      await store.flush();
+    } catch (error) {
+    }
+  }
+
+  static async loadAchievementState(context: common.Context): Promise<AchievementState> {
+    try {
+      const store = await preferences.getPreferences(context, { name: STORE_NAME });
+      const raw = await store.get(ACHIEVEMENT_STATE_KEY, '');
+      if (typeof raw === 'string' && raw.length > 0) {
+        return normalizeAchievementState(JSON.parse(raw) as AchievementState);
+      }
+    } catch (error) {
+      return emptyAchievementState();
+    }
+    return emptyAchievementState();
+  }
+
+  static async saveAchievementState(context: common.Context, state: AchievementState): Promise<void> {
+    try {
+      const store = await preferences.getPreferences(context, { name: STORE_NAME });
+      await store.put(ACHIEVEMENT_STATE_KEY, JSON.stringify(normalizeAchievementState(state)));
       await store.flush();
     } catch (error) {
     }
@@ -90,16 +114,16 @@ export class CoopStorage {
     return Math.max(0, Math.floor(value));
   }
 
-  private static achievementProgresses(value: AchievementProgress[]): AchievementProgress[] {
-    const result: AchievementProgress[] = [];
+  private static achievementProgresses(value: LegacyAchievementProgress[]): LegacyAchievementProgress[] {
+    const result: LegacyAchievementProgress[] = [];
     if (!Array.isArray(value)) {
       return result;
     }
-    value.forEach((item: AchievementProgress) => {
+    value.forEach((item: LegacyAchievementProgress) => {
       if (item === undefined || typeof item.achievementId !== 'string' || item.achievementId.length === 0) {
         return;
       }
-      if (result.some((progress: AchievementProgress) => progress.achievementId === item.achievementId)) {
+      if (result.some((progress: LegacyAchievementProgress) => progress.achievementId === item.achievementId)) {
         return;
       }
       result.push({

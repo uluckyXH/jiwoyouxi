@@ -21,100 +21,233 @@ function loadAchievementEngine() {
     .replace(/^import\s+[\s\S]*?;\n/gm, '')
     .replace(/^export\s+/gm, '');
   const runtimeSource = stripTypeScriptTypes(source, { mode: 'transform' });
-  const context = { Math: Math, Number: Number };
+  const context = { Math: Math, Number: Number, Array: Array };
   vm.runInNewContext(`${runtimeSource}
 globalThis.__achievementEngine = {
   ACHIEVEMENT_DEFINITIONS,
-  emptySnapshot,
-  synchronizeAchievementProgress,
-  achievementSummaryForSnapshot,
-  achievementGroupsForSnapshot
+  ACHIEVEMENT_PROCESSED_EVENT_LIMIT,
+  achievementRegistryIssues,
+  emptyAchievementState,
+  normalizeAchievementState,
+  applyAchievementEvent,
+  achievementProgressForState,
+  achievementSummaryForState
 };
 `, context);
   return context.__achievementEngine;
 }
 
-function progressFor(snapshot, achievementId) {
-  const progress = snapshot.achievements.find((item) => item.achievementId === achievementId);
-  assert.ok(progress, `expected progress for ${achievementId}`);
-  return progress;
+function event({
+  eventId,
+  sessionId,
+  gameId,
+  type = 'milestone',
+  occurredAt = 1787617800000,
+  isOfficial = true,
+  facts = []
+}) {
+  return { eventId, sessionId, gameId, type, occurredAt, isOfficial, facts };
 }
 
-function createLegacySnapshot(api) {
-  const snapshot = api.emptySnapshot();
-  snapshot.achievementSchemaVersion = 0;
-  snapshot.records = [
-    { gameId: 'rpsBattle', highScore: 20, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'freecell', highScore: 999, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'minesweeper', highScore: 1200, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'chicken2048', highScore: 9999, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'tetris', highScore: 3000, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'suika', highScore: 1200, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'rps', highScore: 9999, playCount: 99, lastPlayedAt: 0 }
-  ];
-  snapshot.favorites = ['rpsBattle', 'freecell', 'suika', 'rps'];
-  return snapshot;
+function progressFor(api, state, achievementId) {
+  const progress = api.achievementProgressForState(state, achievementId);
+  assert.ok(progress, `expected progress for ${achievementId}`);
+  return progress;
 }
 
 const api = loadAchievementEngine();
 
 {
-  const synchronized = api.synchronizeAchievementProgress(api.emptySnapshot(), 1787531400000);
-  const summary = api.achievementSummaryForSnapshot(synchronized);
-  const groups = api.achievementGroupsForSnapshot(synchronized, 'all');
-
-  assert.equal(api.ACHIEVEMENT_DEFINITIONS.length, 22, 'the documented first batch should contain 22 achievements');
-  assert.equal(groups.length, 7, 'the wall should contain global plus six game groups');
-  assert.equal(groups[0].items.length, 4, 'global group should contain its four milestones');
-  assert.equal(summary.unlocked, 0, 'a fresh player should not receive a fabricated unlock');
+  const state = api.emptyAchievementState();
+  assert.equal(api.achievementRegistryIssues().length, 0, 'registry definitions must be internally consistent');
+  assert.equal(api.ACHIEVEMENT_DEFINITIONS.length, 22, 'the documented first batch should remain intact');
+  assert.equal(state.completedSessionCount, 0);
+  assert.equal(state.playedGameIds.length, 0);
+  assert.equal(api.achievementSummaryForState(state).unlocked, 0);
 }
 
 {
-  const migratedAt = 1787531400000;
-  const synchronized = api.synchronizeAchievementProgress(createLegacySnapshot(api), migratedAt);
-  const summary = api.achievementSummaryForSnapshot(synchronized);
+  const first = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'tetris-1:four-line-clear:1',
+    sessionId: 'tetris-1',
+    gameId: 'tetris',
+    facts: [
+      { key: 'maxClearedLines', value: 4 },
+      { key: 'totalLines', value: 4 },
+      { key: 'level', value: 1 }
+    ]
+  }));
 
-  assert.equal(summary.unlocked, 4, 'legacy records should unlock only the four reliable global milestones');
-  assert.equal(progressFor(synchronized, 'global.first_settlement').unlockedAt, migratedAt);
-  assert.equal(progressFor(synchronized, 'global.play_six_games').isLegacyMigrated, true);
-  assert.equal(progressFor(synchronized, 'chicken2048.reach_2048').unlockedAt, 0,
-    'historical score must not be treated as a 2048 tile achievement');
-  assert.equal(progressFor(synchronized, 'tetris.first_tetris').unlockedAt, 0,
-    'historical score must not be treated as a four-line clear');
+  assert.equal(first.disposition, 'applied');
+  assert.equal(first.newlyUnlocked.length, 1);
+  assert.equal(first.newlyUnlocked[0].achievementId, 'tetris.first_tetris');
+  assert.equal(progressFor(api, first.state, 'tetris.first_tetris').current, 4);
+  assert.equal(progressFor(api, first.state, 'tetris.first_tetris').unlockedAt, 1787617800000);
+
+  const repeated = api.applyAchievementEvent(first.state, event({
+    eventId: 'tetris-1:four-line-clear:1',
+    sessionId: 'tetris-1',
+    gameId: 'tetris',
+    facts: [{ key: 'maxClearedLines', value: 4 }]
+  }));
+  assert.equal(repeated.disposition, 'duplicate');
+  assert.equal(repeated.newlyUnlocked.length, 0);
+  assert.equal(repeated.state.processedEventIds.length, 1);
 }
 
 {
-  const migratedAt = 1787531400000;
-  const migrated = api.synchronizeAchievementProgress(createLegacySnapshot(api), migratedAt);
-  migrated.favorites = ['rpsBattle'];
-  const synchronized = api.synchronizeAchievementProgress(migrated, migratedAt + 1000);
+  const lowTile = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: '2048-1:max-tile:1',
+    sessionId: '2048-1',
+    gameId: 'chicken2048',
+    facts: [{ key: 'maxTile', value: 128 }]
+  }));
+  assert.equal(lowTile.newlyUnlocked.length, 0);
+  assert.equal(progressFor(api, lowTile.state, 'chicken2048.reach_256').current, 128);
 
-  assert.equal(progressFor(synchronized, 'global.favorite_three').unlockedAt, migratedAt,
-    'an unlocked achievement must not be re-locked when current state later changes');
-  assert.equal(progressFor(synchronized, 'global.favorite_three').current, 3,
-    'monotonic progress should preserve the completed threshold');
+  const highTile = api.applyAchievementEvent(lowTile.state, event({
+    eventId: '2048-1:max-tile:2',
+    sessionId: '2048-1',
+    gameId: 'chicken2048',
+    facts: [{ key: 'maxTile', value: 2048 }]
+  }));
+  assert.equal(highTile.newlyUnlocked.length, 3);
+  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_256').current, 256);
+  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_1024').current, 1024);
+  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_2048').current, 2048);
+
+  const lowerTileAgain = api.applyAchievementEvent(highTile.state, event({
+    eventId: '2048-2:max-tile:1',
+    sessionId: '2048-2',
+    gameId: 'chicken2048',
+    facts: [{ key: 'maxTile', value: 256 }]
+  }));
+  assert.equal(progressFor(api, lowerTileAgain.state, 'chicken2048.reach_2048').current, 2048,
+    'an unlocked high-water mark must never regress');
+  assert.equal(lowerTileAgain.newlyUnlocked.length, 0);
 }
 
 {
-  const snapshot = api.emptySnapshot();
-  snapshot.achievementSchemaVersion = 0;
-  snapshot.records = [{ gameId: 'rps', highScore: 999999, playCount: 99, lastPlayedAt: 0 }];
-  const synchronized = api.synchronizeAchievementProgress(snapshot, 1787531400000);
-
-  assert.equal(api.achievementSummaryForSnapshot(synchronized).unlocked, 0,
-    'the legacy rps entry must not leak into the six-game achievement range');
+  const result = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'rps-battle-1:session-end:1',
+    sessionId: 'rps-battle-1',
+    gameId: 'rpsBattle',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 1 },
+      { key: 'supportWon', value: 1 },
+      { key: 'score', value: 120 }
+    ]
+  }));
+  const unlockedIds = result.newlyUnlocked.map((item) => item.achievementId).sort();
+  assert.equal(result.state.completedSessionCount, 1);
+  assert.equal(result.state.playedGameIds.length, 1);
+  assert.equal(result.state.playedGameIds[0], 'rpsBattle');
+  assert.equal(unlockedIds.join(','), [
+    'global.first_settlement',
+    'rpsBattle.first_battle',
+    'rpsBattle.supporter_wins'
+  ].join(','));
 }
 
 {
-  const synchronized = api.synchronizeAchievementProgress(createLegacySnapshot(api), 1787531400000);
-  const unlockedGroups = api.achievementGroupsForSnapshot(synchronized, 'unlocked');
-  const inProgressGroups = api.achievementGroupsForSnapshot(synchronized, 'inProgress');
-  const inProgressCount = inProgressGroups.reduce((total, group) => total + group.items.length, 0);
+  let state = api.emptyAchievementState();
+  const gameIds = ['rpsBattle', 'freecell', 'minesweeper', 'chicken2048', 'tetris', 'suika'];
+  for (let index = 0; index < 10; index += 1) {
+    const gameId = gameIds[index % gameIds.length];
+    state = api.applyAchievementEvent(state, event({
+      eventId: `session-${index}:end:1`,
+      sessionId: `session-${index}`,
+      gameId: gameId,
+      type: 'sessionEnd',
+      facts: []
+    })).state;
+  }
+  assert.equal(state.completedSessionCount, 10);
+  assert.equal(state.playedGameIds.length, 6);
+  assert.equal(progressFor(api, state, 'global.complete_ten_sessions').unlockedAt, 1787617800000);
+  assert.equal(progressFor(api, state, 'global.play_six_games').unlockedAt, 1787617800000);
+  assert.equal(api.achievementProgressForState(state, 'global.favorite_three'), undefined,
+    'disabled non-game achievements must not infer progress from unrelated state');
+}
 
-  assert.equal(unlockedGroups.length, 1, 'only the global group should have trusted historical unlocks');
-  assert.equal(unlockedGroups[0].items.length, 4);
-  assert.equal(inProgressGroups.length, 6, 'all game groups should remain visible as pending work');
-  assert.equal(inProgressCount, 18, 'the 18 game-specific achievements must remain locked before event integration');
+{
+  const officialState = api.emptyAchievementState();
+  const unofficial = api.applyAchievementEvent(officialState, event({
+    eventId: '2048-dev:max-tile:1',
+    sessionId: '2048-dev',
+    gameId: 'chicken2048',
+    isOfficial: false,
+    facts: [{ key: 'maxTile', value: 2048 }]
+  }));
+  assert.equal(unofficial.disposition, 'ignored');
+  assert.equal(unofficial.state.processedEventIds.length, 0);
+  assert.equal(api.achievementProgressForState(unofficial.state, 'chicken2048.reach_2048'), undefined);
+}
+
+{
+  const unknownFact = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'suika-1:unknown-fact:1',
+    sessionId: 'suika-1',
+    gameId: 'suika',
+    facts: [{ key: 'notRegistered', value: 999 }]
+  }));
+  assert.equal(unknownFact.disposition, 'applied');
+  assert.equal(unknownFact.newlyUnlocked.length, 0);
+
+  const invalidKnownFact = api.applyAchievementEvent(unknownFact.state, event({
+    eventId: 'suika-1:invalid-score:1',
+    sessionId: 'suika-1',
+    gameId: 'suika',
+    facts: [{ key: 'score', value: Number.NaN }]
+  }));
+  assert.equal(invalidKnownFact.disposition, 'ignored');
+  assert.equal(invalidKnownFact.state.processedEventIds.length, 1);
+
+  const unknownGame = api.applyAchievementEvent(invalidKnownFact.state, event({
+    eventId: 'missing-game:session-end:1',
+    sessionId: 'missing-game',
+    gameId: 'notRegistered',
+    type: 'sessionEnd',
+    facts: []
+  }));
+  assert.equal(unknownGame.disposition, 'ignored');
+  assert.equal(unknownGame.state.completedSessionCount, 0);
+}
+
+{
+  const normalized = api.normalizeAchievementState({
+    version: 0,
+    progresses: [
+      { achievementId: 'tetris.first_tetris', current: 4.9, unlockedAt: 1787617800000.9 },
+      { achievementId: 'tetris.first_tetris', current: 0, unlockedAt: 0 },
+      { achievementId: '', current: 1, unlockedAt: 1 }
+    ],
+    processedEventIds: ['event-1', 'event-1', '', 'event-2'],
+    completedSessionCount: -4,
+    playedGameIds: ['tetris', 'not-a-game', 'tetris']
+  });
+  assert.equal(normalized.version, 1);
+  assert.equal(normalized.progresses.length, 1);
+  assert.equal(normalized.progresses[0].current, 4);
+  assert.equal(normalized.processedEventIds.join(','), 'event-1,event-2');
+  assert.equal(normalized.completedSessionCount, 0);
+  assert.equal(normalized.playedGameIds.join(','), 'tetris');
+}
+
+{
+  let state = api.emptyAchievementState();
+  for (let index = 0; index < api.ACHIEVEMENT_PROCESSED_EVENT_LIMIT + 1; index += 1) {
+    state = api.applyAchievementEvent(state, event({
+      eventId: `suika-queue:${index}`,
+      sessionId: `suika-${index}`,
+      gameId: 'suika',
+      facts: []
+    })).state;
+  }
+  assert.equal(state.processedEventIds.length, api.ACHIEVEMENT_PROCESSED_EVENT_LIMIT);
+  assert.equal(state.processedEventIds.includes('suika-queue:0'), false);
+  assert.equal(state.processedEventIds.includes('suika-queue:32'), true);
 }
 
 console.log('Achievement engine tests passed');

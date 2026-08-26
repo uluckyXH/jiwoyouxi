@@ -1,4 +1,4 @@
-import { ACHIEVEMENT_SCHEMA_VERSION, AchievementProgress } from './AchievementModule';
+import { ACHIEVEMENT_SCHEMA_VERSION, LegacyAchievementProgress } from './AchievementModule';
 
 export interface GameModule {
   id: string;
@@ -25,7 +25,7 @@ export interface CoopAppSnapshot {
   hapticEnabled: boolean;
   appearanceMode: string;
   achievementSchemaVersion: number;
-  achievements: AchievementProgress[];
+  achievements: LegacyAchievementProgress[];
   recentAchievementEventIds: string[];
 }
 

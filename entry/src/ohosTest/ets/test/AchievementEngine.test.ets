@@ -1,95 +1,188 @@
 import { describe, expect, it, Level, Size, TestType } from '@ohos/hypium';
 import {
-  achievementGroupsForSnapshot,
-  achievementSummaryForSnapshot,
-  synchronizeAchievementProgress
+  achievementProgressForState,
+  achievementSummaryForState,
+  applyAchievementEvent,
+  emptyAchievementState,
+  normalizeAchievementState
 } from '../../../main/ets/shell/AchievementEngine';
-import { AchievementProgress } from '../../../main/ets/shell/AchievementModule';
-import { CoopAppSnapshot, emptySnapshot } from '../../../main/ets/shell/GameModule';
+import { achievementRegistryIssues } from '../../../main/ets/shell/AchievementRegistry';
+import {
+  AchievementEvent,
+  AchievementFact,
+  AchievementProgress,
+  AchievementState
+} from '../../../main/ets/shell/AchievementModule';
 
-function progressFor(snapshot: CoopAppSnapshot, achievementId: string): AchievementProgress {
-  return snapshot.achievements.find((item: AchievementProgress) => item.achievementId === achievementId) as
-    AchievementProgress;
+const TEST_OCCURRED_AT: number = 1787617800000;
+
+function createEvent(
+  eventId: string,
+  sessionId: string,
+  gameId: string,
+  facts: AchievementFact[],
+  type: 'sessionEnd' | 'milestone' = 'milestone',
+  isOfficial: boolean = true
+): AchievementEvent {
+  return {
+    eventId: eventId,
+    sessionId: sessionId,
+    gameId: gameId,
+    type: type,
+    occurredAt: TEST_OCCURRED_AT,
+    isOfficial: isOfficial,
+    facts: facts
+  };
 }
 
-function legacySnapshot(): CoopAppSnapshot {
-  const snapshot = emptySnapshot();
-  snapshot.achievementSchemaVersion = 0;
-  snapshot.records = [
-    { gameId: 'rpsBattle', highScore: 20, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'freecell', highScore: 999, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'minesweeper', highScore: 1200, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'chicken2048', highScore: 9999, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'tetris', highScore: 3000, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'suika', highScore: 1200, playCount: 2, lastPlayedAt: 0 },
-    { gameId: 'rps', highScore: 9999, playCount: 99, lastPlayedAt: 0 }
-  ];
-  snapshot.favorites = ['rpsBattle', 'freecell', 'suika', 'rps'];
-  return snapshot;
+function progressFor(state: AchievementState, achievementId: string): AchievementProgress {
+  const progress = achievementProgressForState(state, achievementId);
+  if (progress === undefined) {
+    throw new Error(`Expected achievement progress for ${achievementId}`);
+  }
+  return progress;
 }
 
 export default function achievementEngineTest(): void {
   describe('AchievementEngineTest', () => {
-    it('creates the documented seven groups and no unlocked achievements for a fresh snapshot',
+    it('creates an empty independent state with a valid registry',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
-        const snapshot = emptySnapshot();
-        const groups = achievementGroupsForSnapshot(snapshot, 'all');
-        const summary = achievementSummaryForSnapshot(snapshot);
+        const state = emptyAchievementState();
 
-        expect(groups.length).assertEqual(7);
-        expect(groups[0].items.length).assertEqual(4);
-        expect(summary.unlocked).assertEqual(0);
-        expect(summary.total).assertEqual(22);
+        expect(achievementRegistryIssues().length).assertEqual(0);
+        expect(state.completedSessionCount).assertEqual(0);
+        expect(state.playedGameIds.length).assertEqual(0);
+        expect(achievementSummaryForState(state).unlocked).assertEqual(0);
       });
 
-    it('migrates only reliable global facts and never infers game mastery from historical scores',
+    it('updates a fact threshold once and rejects a duplicate event id',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
-        const migratedAt = 1787531400000;
-        const snapshot = synchronizeAchievementProgress(legacySnapshot(), migratedAt);
-        const summary = achievementSummaryForSnapshot(snapshot);
+        const first = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'tetris-1:four-line-clear:1',
+          'tetris-1',
+          'tetris',
+          [{ key: 'maxClearedLines', value: 4 }]
+        ));
+        const duplicate = applyAchievementEvent(first.state, createEvent(
+          'tetris-1:four-line-clear:1',
+          'tetris-1',
+          'tetris',
+          [{ key: 'maxClearedLines', value: 4 }]
+        ));
 
-        expect(summary.unlocked).assertEqual(4);
-        expect(progressFor(snapshot, 'global.first_settlement').unlockedAt).assertEqual(migratedAt);
-        expect(progressFor(snapshot, 'global.favorite_three').isLegacyMigrated).assertEqual(true);
-        expect(progressFor(snapshot, 'chicken2048.reach_2048').unlockedAt).assertEqual(0);
-        expect(progressFor(snapshot, 'tetris.first_tetris').unlockedAt).assertEqual(0);
+        expect(first.disposition).assertEqual('applied');
+        expect(first.newlyUnlocked.length).assertEqual(1);
+        expect(first.newlyUnlocked[0].achievementId).assertEqual('tetris.first_tetris');
+        expect(progressFor(first.state, 'tetris.first_tetris').current).assertEqual(4);
+        expect(progressFor(first.state, 'tetris.first_tetris').unlockedAt).assertEqual(TEST_OCCURRED_AT);
+        expect(duplicate.disposition).assertEqual('duplicate');
+        expect(duplicate.newlyUnlocked.length).assertEqual(0);
+        expect(duplicate.state.processedEventIds.length).assertEqual(1);
       });
 
-    it('keeps an unlocked global achievement after the current favorite list changes',
+    it('keeps high-water progress and unlocks each crossed 2048 threshold once',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
-        const migratedAt = 1787531400000;
-        const migrated = synchronizeAchievementProgress(legacySnapshot(), migratedAt);
-        const currentSnapshot: CoopAppSnapshot = {
-          records: migrated.records.slice(),
-          favorites: ['rpsBattle'],
-          recent: migrated.recent.slice(),
-          soundEnabled: migrated.soundEnabled,
-          hapticEnabled: migrated.hapticEnabled,
-          appearanceMode: migrated.appearanceMode,
-          achievementSchemaVersion: migrated.achievementSchemaVersion,
-          achievements: migrated.achievements.slice(),
-          recentAchievementEventIds: migrated.recentAchievementEventIds.slice()
-        };
-        const synchronized = synchronizeAchievementProgress(currentSnapshot, migratedAt + 1000);
+        const low = applyAchievementEvent(emptyAchievementState(), createEvent(
+          '2048-1:max-tile:1',
+          '2048-1',
+          'chicken2048',
+          [{ key: 'maxTile', value: 128 }]
+        ));
+        const high = applyAchievementEvent(low.state, createEvent(
+          '2048-1:max-tile:2',
+          '2048-1',
+          'chicken2048',
+          [{ key: 'maxTile', value: 2048 }]
+        ));
+        const laterLow = applyAchievementEvent(high.state, createEvent(
+          '2048-2:max-tile:1',
+          '2048-2',
+          'chicken2048',
+          [{ key: 'maxTile', value: 256 }]
+        ));
 
-        expect(progressFor(synchronized, 'global.favorite_three').unlockedAt).assertEqual(migratedAt);
-        expect(progressFor(synchronized, 'global.favorite_three').current).assertEqual(3);
+        expect(progressFor(low.state, 'chicken2048.reach_256').current).assertEqual(128);
+        expect(high.newlyUnlocked.length).assertEqual(3);
+        expect(progressFor(high.state, 'chicken2048.reach_1024').current).assertEqual(1024);
+        expect(progressFor(high.state, 'chicken2048.reach_2048').current).assertEqual(2048);
+        expect(progressFor(laterLow.state, 'chicken2048.reach_2048').current).assertEqual(2048);
+        expect(laterLow.newlyUnlocked.length).assertEqual(0);
       });
 
-    it('filters unlocked and in-progress groups without adding unavailable game achievements',
+    it('counts only official session-end events for independent global progress',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
-        const snapshot = synchronizeAchievementProgress(legacySnapshot(), 1787531400000);
-        const unlockedGroups = achievementGroupsForSnapshot(snapshot, 'unlocked');
-        const inProgressGroups = achievementGroupsForSnapshot(snapshot, 'inProgress');
-        let inProgressCount = 0;
-        inProgressGroups.forEach((group) => {
-          inProgressCount += group.items.length;
+        const official = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'rps-battle-1:session-end:1',
+          'rps-battle-1',
+          'rpsBattle',
+          [
+            { key: 'won', value: 1 },
+            { key: 'supportWon', value: 1 }
+          ],
+          'sessionEnd'
+        ));
+        const unofficial = applyAchievementEvent(official.state, createEvent(
+          '2048-dev:session-end:1',
+          '2048-dev',
+          'chicken2048',
+          [{ key: 'maxTile', value: 2048 }],
+          'sessionEnd',
+          false
+        ));
+
+        expect(official.state.completedSessionCount).assertEqual(1);
+        expect(official.state.playedGameIds.length).assertEqual(1);
+        expect(progressFor(official.state, 'global.first_settlement').unlockedAt).assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(official.state, 'rpsBattle.first_battle').unlockedAt).assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(official.state, 'rpsBattle.supporter_wins').unlockedAt).assertEqual(TEST_OCCURRED_AT);
+        expect(unofficial.disposition).assertEqual('ignored');
+        expect(unofficial.state.completedSessionCount).assertEqual(1);
+        expect(achievementProgressForState(unofficial.state, 'chicken2048.reach_2048') === undefined)
+          .assertEqual(true);
+      });
+
+    it('unlocks global counts from new events without reading old game records',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const gameIds: string[] = ['rpsBattle', 'freecell', 'minesweeper', 'chicken2048', 'tetris', 'suika'];
+        let state = emptyAchievementState();
+        for (let index = 0; index < 10; index += 1) {
+          const gameId = gameIds[index % gameIds.length];
+          state = applyAchievementEvent(state, createEvent(
+            `session-${index}:end:1`,
+            `session-${index}`,
+            gameId,
+            [],
+            'sessionEnd'
+          )).state;
+        }
+
+        expect(state.completedSessionCount).assertEqual(10);
+        expect(state.playedGameIds.length).assertEqual(6);
+        expect(progressFor(state, 'global.complete_ten_sessions').unlockedAt).assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(state, 'global.play_six_games').unlockedAt).assertEqual(TEST_OCCURRED_AT);
+        expect(achievementProgressForState(state, 'global.favorite_three') === undefined).assertEqual(true);
+      });
+
+    it('normalizes isolated state without consulting historical game records',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const normalized = normalizeAchievementState({
+          version: 0,
+          progresses: [
+            { achievementId: 'tetris.first_tetris', current: 4.8, unlockedAt: TEST_OCCURRED_AT + 0.8 },
+            { achievementId: 'tetris.first_tetris', current: 0, unlockedAt: 0 }
+          ],
+          processedEventIds: ['event-1', 'event-1', ''],
+          completedSessionCount: -1,
+          playedGameIds: ['tetris', 'not-a-game', 'tetris']
         });
 
-        expect(unlockedGroups.length).assertEqual(1);
-        expect(unlockedGroups[0].items.length).assertEqual(4);
-        expect(inProgressGroups.length).assertEqual(6);
-        expect(inProgressCount).assertEqual(18);
+        expect(normalized.version).assertEqual(1);
+        expect(normalized.progresses.length).assertEqual(1);
+        expect(normalized.progresses[0].current).assertEqual(4);
+        expect(normalized.processedEventIds.length).assertEqual(1);
+        expect(normalized.completedSessionCount).assertEqual(0);
+        expect(normalized.playedGameIds.length).assertEqual(1);
+        expect(normalized.playedGameIds[0]).assertEqual('tetris');
       });
   });
 }
