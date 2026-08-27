@@ -8,7 +8,10 @@ import {
   emptyAchievementState,
   normalizeAchievementState
 } from '../../../main/ets/shell/AchievementEngine';
-import { achievementRegistryIssues } from '../../../main/ets/shell/AchievementRegistry';
+import {
+  achievementRegistryIssues,
+  isAchievementBadgeAssetPathValid
+} from '../../../main/ets/shell/AchievementRegistry';
 import {
   AchievementEvent,
   AchievementFact,
@@ -59,6 +62,12 @@ export default function achievementEngineTest(): void {
         expect(achievementGroupsForState(state, 'all').length).assertEqual(7);
         expect(achievementGroupsForState(state, 'unlocked').length).assertEqual(0);
         expect(achievementGroupsForState(state, 'inProgress').length).assertEqual(0);
+        expect(isAchievementBadgeAssetPathValid('')).assertEqual(true);
+        expect(isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.png'))
+          .assertEqual(true);
+        expect(isAchievementBadgeAssetPathValid('app/game_logos/minesweeper.png')).assertEqual(false);
+        expect(isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.jpg'))
+          .assertEqual(false);
       });
 
     it('updates a fact threshold once and rejects a duplicate event id',
@@ -144,6 +153,122 @@ export default function achievementEngineTest(): void {
         expect(unofficial.disposition).assertEqual('ignored');
         expect(unofficial.state.completedSessionCount).assertEqual(1);
         expect(achievementProgressForState(unofficial.state, 'chicken2048.reach_2048') === undefined)
+          .assertEqual(true);
+      });
+
+    it('unlocks the confirmed minesweeper achievements at the 60-second boundary in registry order',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const result = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'minesweeper-1:session-end',
+          'minesweeper-1',
+          'minesweeper',
+          [
+            { key: 'won', value: 1 },
+            { key: 'elapsedSec', value: 60 },
+            { key: 'manualAllMinesFlagged', value: 1 },
+            { key: 'hasEverFlaggedNonMine', value: 0 }
+          ],
+          'sessionEnd'
+        ));
+
+        expect(result.disposition).assertEqual('applied');
+        expect(result.newlyUnlocked.length).assertEqual(4);
+        expect(result.newlyUnlocked[0].achievementId).assertEqual('global.first_settlement');
+        expect(result.newlyUnlocked[1].achievementId).assertEqual('minesweeper.first_clear');
+        expect(result.newlyUnlocked[2].achievementId).assertEqual('minesweeper.quick_clear');
+        expect(result.newlyUnlocked[3].achievementId).assertEqual('minesweeper.perfect_flags');
+        expect(progressFor(result.state, 'minesweeper.quick_clear').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(result.state, 'minesweeper.perfect_flags').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+      });
+
+    it('requires a timely win and player-originated correct flags for minesweeper achievements',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const slowWin = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'minesweeper-2:session-end',
+          'minesweeper-2',
+          'minesweeper',
+          [
+            { key: 'won', value: 1 },
+            { key: 'elapsedSec', value: 61 },
+            { key: 'manualAllMinesFlagged', value: 1 },
+            { key: 'hasEverFlaggedNonMine', value: 0 }
+          ],
+          'sessionEnd'
+        ));
+        const wrongFlagWin = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'minesweeper-3:session-end',
+          'minesweeper-3',
+          'minesweeper',
+          [
+            { key: 'won', value: 1 },
+            { key: 'elapsedSec', value: 30 },
+            { key: 'manualAllMinesFlagged', value: 1 },
+            { key: 'hasEverFlaggedNonMine', value: 1 }
+          ],
+          'sessionEnd'
+        ));
+        const autoFlagWin = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'minesweeper-4:session-end',
+          'minesweeper-4',
+          'minesweeper',
+          [
+            { key: 'won', value: 1 },
+            { key: 'elapsedSec', value: 30 },
+            { key: 'manualAllMinesFlagged', value: 0 },
+            { key: 'hasEverFlaggedNonMine', value: 0 }
+          ],
+          'sessionEnd'
+        ));
+        const devAssistedSession = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'minesweeper-dev:session-end',
+          'minesweeper-dev',
+          'minesweeper',
+          [
+            { key: 'won', value: 1 },
+            { key: 'elapsedSec', value: 30 },
+            { key: 'manualAllMinesFlagged', value: 0 },
+            { key: 'hasEverFlaggedNonMine', value: 0 }
+          ],
+          'sessionEnd'
+        ));
+        const failedSession = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'minesweeper-5:session-end',
+          'minesweeper-5',
+          'minesweeper',
+          [
+            { key: 'won', value: 0 },
+            { key: 'elapsedSec', value: 30 },
+            { key: 'manualAllMinesFlagged', value: 0 },
+            { key: 'hasEverFlaggedNonMine', value: 0 }
+          ],
+          'sessionEnd'
+        ));
+
+        expect(achievementProgressForState(slowWin.state, 'minesweeper.quick_clear') === undefined)
+          .assertEqual(true);
+        expect(progressFor(slowWin.state, 'minesweeper.perfect_flags').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(wrongFlagWin.state, 'minesweeper.quick_clear').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(achievementProgressForState(wrongFlagWin.state, 'minesweeper.perfect_flags') === undefined)
+          .assertEqual(true);
+        expect(achievementProgressForState(autoFlagWin.state, 'minesweeper.perfect_flags') === undefined)
+          .assertEqual(true);
+        expect(devAssistedSession.disposition).assertEqual('applied');
+        expect(progressFor(devAssistedSession.state, 'global.first_settlement').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(devAssistedSession.state, 'minesweeper.first_clear').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(progressFor(devAssistedSession.state, 'minesweeper.quick_clear').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(achievementProgressForState(devAssistedSession.state, 'minesweeper.perfect_flags') === undefined)
+          .assertEqual(true);
+        expect(failedSession.state.completedSessionCount).assertEqual(1);
+        expect(progressFor(failedSession.state, 'global.first_settlement').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(achievementProgressForState(failedSession.state, 'minesweeper.first_clear') === undefined)
           .assertEqual(true);
       });
 

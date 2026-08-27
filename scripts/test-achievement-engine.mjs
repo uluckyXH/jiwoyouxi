@@ -28,6 +28,7 @@ globalThis.__achievementEngine = {
   ACHIEVEMENT_DEFINITIONS,
   ACHIEVEMENT_PROCESSED_EVENT_LIMIT,
   ACHIEVEMENT_NOTICE_INDIVIDUAL_LIMIT,
+  isAchievementBadgeAssetPathValid,
   achievementRegistryIssues,
   achievementNoticeItemsForUnlocks,
   emptyAchievementState,
@@ -66,6 +67,11 @@ const api = loadAchievementEngine();
   const state = api.emptyAchievementState();
   assert.equal(api.achievementRegistryIssues().length, 0, 'registry definitions must be internally consistent');
   assert.equal(api.ACHIEVEMENT_DEFINITIONS.length, 22, 'the documented first batch should remain intact');
+  assert.equal(api.ACHIEVEMENT_DEFINITIONS.every((item) => item.badgeAssetPath === ''), true,
+    'placeholder symbols must remain active until the matching badge PNG is bundled');
+  assert.equal(api.isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.png'), true);
+  assert.equal(api.isAchievementBadgeAssetPathValid('app/game_logos/minesweeper.png'), false);
+  assert.equal(api.isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.jpg'), false);
   assert.equal(state.completedSessionCount, 0);
   assert.equal(state.playedGameIds.length, 0);
   assert.equal(api.achievementSummaryForState(state).unlocked, 0);
@@ -181,6 +187,107 @@ const api = loadAchievementEngine();
 }
 
 {
+  const perfectRun = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'minesweeper-1:session-end',
+    sessionId: 'minesweeper-1',
+    gameId: 'minesweeper',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 1 },
+      { key: 'elapsedSec', value: 60 },
+      { key: 'manualAllMinesFlagged', value: 1 },
+      { key: 'hasEverFlaggedNonMine', value: 0 }
+    ]
+  }));
+  assert.equal(perfectRun.newlyUnlocked.map((item) => item.achievementId).join(','), [
+    'global.first_settlement',
+    'minesweeper.first_clear',
+    'minesweeper.quick_clear',
+    'minesweeper.perfect_flags'
+  ].join(','), 'the 60-second perfect run should preserve the global-to-game unlock order');
+  assert.equal(progressFor(api, perfectRun.state, 'minesweeper.quick_clear').unlockedAt, 1787617800000);
+  assert.equal(progressFor(api, perfectRun.state, 'minesweeper.perfect_flags').unlockedAt, 1787617800000);
+
+  const slowWin = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'minesweeper-2:session-end',
+    sessionId: 'minesweeper-2',
+    gameId: 'minesweeper',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 1 },
+      { key: 'elapsedSec', value: 61 },
+      { key: 'manualAllMinesFlagged', value: 1 },
+      { key: 'hasEverFlaggedNonMine', value: 0 }
+    ]
+  }));
+  assert.equal(api.achievementProgressForState(slowWin.state, 'minesweeper.quick_clear'), undefined);
+  assert.equal(progressFor(api, slowWin.state, 'minesweeper.perfect_flags').unlockedAt, 1787617800000);
+
+  const wrongFlagWin = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'minesweeper-3:session-end',
+    sessionId: 'minesweeper-3',
+    gameId: 'minesweeper',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 1 },
+      { key: 'elapsedSec', value: 30 },
+      { key: 'manualAllMinesFlagged', value: 1 },
+      { key: 'hasEverFlaggedNonMine', value: 1 }
+    ]
+  }));
+  assert.equal(progressFor(api, wrongFlagWin.state, 'minesweeper.quick_clear').unlockedAt, 1787617800000);
+  assert.equal(api.achievementProgressForState(wrongFlagWin.state, 'minesweeper.perfect_flags'), undefined);
+
+  const autoFlagWin = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'minesweeper-4:session-end',
+    sessionId: 'minesweeper-4',
+    gameId: 'minesweeper',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 1 },
+      { key: 'elapsedSec', value: 30 },
+      { key: 'manualAllMinesFlagged', value: 0 },
+      { key: 'hasEverFlaggedNonMine', value: 0 }
+    ]
+  }));
+  assert.equal(api.achievementProgressForState(autoFlagWin.state, 'minesweeper.perfect_flags'), undefined);
+
+  const devAssistedSession = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'minesweeper-dev:session-end',
+    sessionId: 'minesweeper-dev',
+    gameId: 'minesweeper',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 1 },
+      { key: 'elapsedSec', value: 30 },
+      { key: 'manualAllMinesFlagged', value: 0 },
+      { key: 'hasEverFlaggedNonMine', value: 0 }
+    ]
+  }));
+  assert.equal(devAssistedSession.disposition, 'applied');
+  assert.equal(progressFor(api, devAssistedSession.state, 'global.first_settlement').unlockedAt, 1787617800000);
+  assert.equal(progressFor(api, devAssistedSession.state, 'minesweeper.first_clear').unlockedAt, 1787617800000);
+  assert.equal(progressFor(api, devAssistedSession.state, 'minesweeper.quick_clear').unlockedAt, 1787617800000);
+  assert.equal(api.achievementProgressForState(devAssistedSession.state, 'minesweeper.perfect_flags'), undefined);
+
+  const failedSession = api.applyAchievementEvent(api.emptyAchievementState(), event({
+    eventId: 'minesweeper-5:session-end',
+    sessionId: 'minesweeper-5',
+    gameId: 'minesweeper',
+    type: 'sessionEnd',
+    facts: [
+      { key: 'won', value: 0 },
+      { key: 'elapsedSec', value: 30 },
+      { key: 'manualAllMinesFlagged', value: 0 },
+      { key: 'hasEverFlaggedNonMine', value: 0 }
+    ]
+  }));
+  assert.equal(failedSession.state.completedSessionCount, 1);
+  assert.equal(progressFor(api, failedSession.state, 'global.first_settlement').unlockedAt, 1787617800000);
+  assert.equal(api.achievementProgressForState(failedSession.state, 'minesweeper.first_clear'), undefined);
+}
+
+{
   let state = api.emptyAchievementState();
   const gameIds = ['rpsBattle', 'freecell', 'minesweeper', 'chicken2048', 'tetris', 'suika'];
   for (let index = 0; index < 10; index += 1) {
@@ -291,6 +398,7 @@ const api = loadAchievementEngine();
   assert.equal(notices.length, 4);
   assert.equal(notices[0].noticeId, 'global.first_settlement');
   assert.equal(notices[2].noticeId, 'rpsBattle.supporter_wins');
+  assert.equal(notices[0].badgeAssetPath, '');
   assert.equal(notices[3].kind, 'summary');
   assert.equal(notices[3].achievementCount, 4);
   assert.equal(notices[3].noticeLevel, 'highlight');

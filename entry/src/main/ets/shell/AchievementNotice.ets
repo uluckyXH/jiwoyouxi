@@ -16,6 +16,7 @@ export function emptyAchievementNoticeItem(): AchievementNoticeItem {
     title: '',
     summary: '',
     placeholderSymbol: '✦',
+    badgeAssetPath: '',
     noticeLevel: 'normal',
     achievementCount: 0
   };
@@ -48,6 +49,7 @@ function noticeForDefinition(definition: AchievementDefinition): AchievementNoti
     title: definition.title,
     summary: definition.summary,
     placeholderSymbol: definition.placeholderSymbol,
+    badgeAssetPath: definition.badgeAssetPath,
     noticeLevel: definition.noticeLevel,
     achievementCount: 1
   };
@@ -65,6 +67,7 @@ function summaryNoticeFor(definitions: AchievementDefinition[]): AchievementNoti
     title: `本局新解锁 ${definitions.length} 项成就`,
     summary: `已展示前 ${ACHIEVEMENT_NOTICE_INDIVIDUAL_LIMIT} 项，更多记录可在成就墙查看`,
     placeholderSymbol: '✦',
+    badgeAssetPath: '',
     noticeLevel: hasHighlight ? 'highlight' : 'normal',
     achievementCount: definitions.length
   };

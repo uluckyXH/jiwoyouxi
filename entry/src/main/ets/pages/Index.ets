@@ -90,6 +90,12 @@ struct Index {
             openGame: (gameId: string) => {
               this.openGame(gameId);
             },
+            resetAchievements: () => {
+              return this.resetAchievements();
+            },
+            refreshAchievements: () => {
+              return this.refreshAchievementState();
+            },
             toggleFavorite: (gameId: string) => {
               this.toggleFavorite(gameId);
             },
@@ -149,6 +155,9 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('minesweeper', score);
+            },
+            reportAchievementEvent: (event: AchievementEvent) => {
+              this.reportAchievementEvent(event);
             }
           })
         }
@@ -445,6 +454,33 @@ struct Index {
     }).catch(() => {
       // Storage or engine errors must not surface a notification that was not persisted.
     });
+  }
+
+  private async resetAchievements(): Promise<boolean> {
+    const context = this.appContext;
+    if (context === undefined) {
+      return false;
+    }
+    try {
+      const resetState = await this.achievementService.reset(context);
+      this.achievementState = resetState;
+      this.clearAchievementNotices();
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  private async refreshAchievementState(): Promise<void> {
+    const context = this.appContext;
+    if (context === undefined) {
+      return;
+    }
+    try {
+      this.achievementState = await this.achievementService.refresh(context);
+    } catch (error) {
+      // Keep the in-memory state visible when local persistence is temporarily unavailable.
+    }
   }
 
   private enqueueAchievementNotices(result: AchievementApplyResult): void {

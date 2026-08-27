@@ -26,6 +26,7 @@ export default function achievementNoticeTest(): void {
         expect(notices[0].title).assertEqual('第一记四消');
         expect(notices[0].summary).assertEqual('单次消除 4 行');
         expect(notices[0].placeholderSymbol).assertEqual('▣');
+        expect(notices[0].badgeAssetPath).assertEqual('');
         expect(notices[0].achievementCount).assertEqual(1);
       });
 

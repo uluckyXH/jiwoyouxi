@@ -20,13 +20,19 @@ import { gameLogoPath, moduleById } from '../shell/GameRegistry';
 export struct AchievementWall {
   @Prop achievementState: AchievementState;
   @Prop isDarkMode: boolean = false;
+  resetAchievements: () => Promise<boolean> = async (): Promise<boolean> => false;
   @State private activeFilter: AchievementFilter = 'all';
   @State private selectedAchievementId: string = '';
   @State private isDetailSheetPresented: boolean = false;
+  @State private isResetSheetPresented: boolean = false;
+  @State private isResetting: boolean = false;
+  @State private resetFeedback: string = '';
+  @State private resetError: string = '';
 
   build() {
     Column({ space: 16 }) {
       this.WallHeader()
+      this.DeveloperTools()
       this.FilterBar()
       if (this.visibleGroups().length === 0) {
         this.FilterEmptyPanel()
@@ -42,6 +48,114 @@ export struct AchievementWall {
       dragBar: true,
       showClose: false
     })
+  }
+
+  @Builder
+  DeveloperTools() {
+    Column({ space: 6 }) {
+      Row() {
+        Text('DEV 工具')
+          .fontSize(10)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.devHintColor())
+        Blank()
+        Text('仅清除成就数据')
+          .fontSize(10)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.mutedColor())
+      }
+      .width('100%')
+
+      Text('DEV · 清除本机成就')
+        .width('100%')
+        .height(42)
+        .fontSize(13)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.devResetTextColor())
+        .textAlign(TextAlign.Center)
+        .backgroundColor(this.devResetSurfaceColor())
+        .border({ width: 1, color: this.devResetLineColor() })
+        .borderRadius(14)
+        .onClick(() => {
+          if (!this.isResetting) {
+            this.resetError = '';
+            this.isResetSheetPresented = true;
+          }
+        })
+        .bindSheet($$this.isResetSheetPresented, this.AchievementResetSheet(), {
+          height: 286,
+          dragBar: true,
+          showClose: false
+        })
+
+      if (this.resetFeedback.length > 0) {
+        Text(this.resetFeedback)
+          .fontSize(11)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.devHintColor())
+          .width('100%')
+      }
+    }
+    .width('100%')
+  }
+
+  @Builder
+  AchievementResetSheet() {
+    Column({ space: 12 }) {
+      Text('清除本机成就？')
+        .fontSize(20)
+        .fontWeight(FontWeight.Bold)
+        .fontColor(this.inkColor())
+      Text('会清空成就进度、已处理事件和本局提醒队列；游戏存档、最高分、收藏和设置不会受影响。')
+        .fontSize(13)
+        .fontWeight(FontWeight.Medium)
+        .fontColor(this.mutedColor())
+        .textAlign(TextAlign.Center)
+        .maxLines(3)
+      if (this.resetError.length > 0) {
+        Text(this.resetError)
+          .fontSize(12)
+          .fontWeight(FontWeight.Medium)
+          .fontColor(this.devResetTextColor())
+          .textAlign(TextAlign.Center)
+      }
+      Row({ space: 10 }) {
+        Text('取消')
+          .layoutWeight(1)
+          .height(42)
+          .fontSize(13)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.inkColor())
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.groupSurfaceColor())
+          .border({ width: 1, color: this.lineColor() })
+          .borderRadius(21)
+          .onClick(() => {
+            if (!this.isResetting) {
+              this.isResetSheetPresented = false;
+            }
+          })
+        Text(this.isResetting ? '清除中…' : '确认清除')
+          .layoutWeight(1)
+          .height(42)
+          .fontSize(13)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.isDarkMode ? '#2A1714' : '#FFFFFF')
+          .textAlign(TextAlign.Center)
+          .backgroundColor(this.devResetActionColor())
+          .borderRadius(21)
+          .opacity(this.isResetting ? 0.62 : 1)
+          .onClick(() => {
+            this.confirmAchievementReset();
+          })
+      }
+      .width('100%')
+    }
+    .width('100%')
+    .height('100%')
+    .padding({ left: 24, right: 24, top: 16, bottom: 22 })
+    .alignItems(HorizontalAlign.Center)
+    .backgroundColor(this.detailSurfaceColor())
   }
 
   @Builder
@@ -250,10 +364,17 @@ export struct AchievementWall {
   @Builder
   AchievementBadge(item: AchievementViewItem) {
     Stack({ alignContent: Alignment.Center }) {
-      Text(item.definition.placeholderSymbol)
-        .fontSize(23)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.badgeSymbolColor(item))
+      if (this.hasBadgeAsset(item)) {
+        Image($rawfile(this.badgeAssetPath(item)))
+          .width(38)
+          .height(38)
+          .objectFit(ImageFit.Contain)
+      } else {
+        Text(item.definition.placeholderSymbol)
+          .fontSize(23)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.badgeSymbolColor(item))
+      }
       if (item.status === 'unlocked') {
         Text('✓')
           .width(17)
@@ -382,10 +503,17 @@ export struct AchievementWall {
   @Builder
   DetailBadge(item: AchievementViewItem) {
     Stack({ alignContent: Alignment.Center }) {
-      Text(item.definition.placeholderSymbol)
-        .fontSize(40)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.badgeSymbolColor(item))
+      if (this.hasBadgeAsset(item)) {
+        Image($rawfile(this.badgeAssetPath(item)))
+          .width(72)
+          .height(72)
+          .objectFit(ImageFit.Contain)
+      } else {
+        Text(item.definition.placeholderSymbol)
+          .fontSize(40)
+          .fontWeight(FontWeight.Bold)
+          .fontColor(this.badgeSymbolColor(item))
+      }
       if (item.status === 'unlocked') {
         Text('✓')
           .width(24)
@@ -481,6 +609,14 @@ export struct AchievementWall {
     return item.target > 0;
   }
 
+  private hasBadgeAsset(item: AchievementViewItem): boolean {
+    return this.badgeAssetPath(item).length > 0;
+  }
+
+  private badgeAssetPath(item: AchievementViewItem): string {
+    return item.definition.badgeAssetPath;
+  }
+
   private statusText(item: AchievementViewItem): string {
     if (!item.definition.enabled) {
       return '待开放';
@@ -567,6 +703,28 @@ export struct AchievementWall {
   private openAchievementDetail(achievementId: string): void {
     this.selectedAchievementId = achievementId;
     this.isDetailSheetPresented = true;
+  }
+
+  private confirmAchievementReset(): void {
+    if (this.isResetting) {
+      return;
+    }
+    this.isResetting = true;
+    this.resetFeedback = '';
+    this.resetError = '';
+    this.resetAchievements().then((didReset: boolean) => {
+      this.isResetting = false;
+      if (!didReset) {
+        this.resetError = '未能写入本机成就数据，请重试。';
+        return;
+      }
+      this.activeFilter = 'all';
+      this.isResetSheetPresented = false;
+      this.resetFeedback = '已清除本机成就进度，可重新测试。';
+    }).catch(() => {
+      this.isResetting = false;
+      this.resetError = '未能写入本机成就数据，请重试。';
+    });
   }
 
   private accentColor(item: AchievementViewItem): string {
@@ -666,5 +824,25 @@ export struct AchievementWall {
 
   private detailSurfaceColor(): string {
     return this.isDarkMode ? AchievementTheme.detailSurfaceDark : AchievementTheme.detailSurfaceLight;
+  }
+
+  private devHintColor(): string {
+    return this.isDarkMode ? '#FFB9A7' : '#B34F3F';
+  }
+
+  private devResetTextColor(): string {
+    return this.isDarkMode ? '#FFD0C4' : '#A33E30';
+  }
+
+  private devResetSurfaceColor(): string {
+    return this.isDarkMode ? 'rgba(255,164,139,0.12)' : 'rgba(190,73,55,0.08)';
+  }
+
+  private devResetLineColor(): string {
+    return this.isDarkMode ? 'rgba(255,186,166,0.32)' : 'rgba(178,66,48,0.28)';
+  }
+
+  private devResetActionColor(): string {
+    return this.isDarkMode ? '#E47C66' : '#C85443';
   }
 }

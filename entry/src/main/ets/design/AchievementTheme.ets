@@ -7,12 +7,12 @@ export class AchievementTheme {
   static readonly filterHeight: number = 36;
   static readonly progressHeight: number = 5;
   static readonly detailBadgeSize: number = 92;
-  static readonly noticeWidth: number = 276;
-  static readonly noticeHeight: number = 70;
-  static readonly noticeRadius: number = 22;
-  static readonly noticeTopPadding: number = 24;
-  static readonly noticeLogoSize: number = 34;
-  static readonly noticeMedalSize: number = 38;
+  static readonly noticeWidth: number = 236;
+  static readonly noticeHeight: number = 46;
+  static readonly noticeRadius: number = 23;
+  static readonly noticeBottomPadding: number = 92;
+  static readonly noticeIconSize: number = 34;
+  static readonly noticeIconImageSize: number = 28;
 
   static readonly goldLight: string = '#F4A62A';
   static readonly goldDark: string = '#FFC46F';

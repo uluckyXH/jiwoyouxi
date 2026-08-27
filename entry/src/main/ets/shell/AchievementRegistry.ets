@@ -15,6 +15,8 @@ export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
   'suika'
 ];
 
+const ACHIEVEMENT_BADGE_ASSET_DIRECTORY: string = 'app/achievements/';
+
 export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
   {
     id: 'global',
@@ -71,7 +73,7 @@ export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
   },
   {
     gameId: 'minesweeper',
-    factKeys: ['won', 'elapsedSec', 'allMinesFlagged', 'score']
+    factKeys: ['won', 'elapsedSec', 'manualAllMinesFlagged', 'hasEverFlaggedNonMine']
   },
   {
     gameId: 'chicken2048',
@@ -96,6 +98,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '完成任意一局',
     detail: '在六款主推游戏中完成任意一局正式游戏。',
     placeholderSymbol: '✦',
+    badgeAssetPath: '',
     progressKind: 'totalSessions',
     target: 1,
     rule: { type: 'globalCompletedSessionsAtLeast', target: 1 },
@@ -110,6 +113,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '体验六款主推游戏',
     detail: '分别完成六款主推游戏各一局正式游戏。',
     placeholderSymbol: '✦',
+    badgeAssetPath: '',
     progressKind: 'playedGames',
     target: 6,
     rule: { type: 'globalPlayedGamesAtLeast', target: 6 },
@@ -124,6 +128,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '收藏 3 个常玩游戏',
     detail: '当前独立事件核心不读取收藏记录；后续确认大厅事件后再启用。',
     placeholderSymbol: '✦',
+    badgeAssetPath: '',
     progressKind: 'favoriteCount',
     target: 3,
     rule: { type: 'disabled' },
@@ -138,6 +143,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '完成 10 局游戏',
     detail: '在六款主推游戏中累计完成十局正式游戏。',
     placeholderSymbol: '✦',
+    badgeAssetPath: '',
     progressKind: 'totalSessions',
     target: 10,
     rule: { type: 'globalCompletedSessionsAtLeast', target: 10 },
@@ -152,6 +158,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '完成任意一局新版乱斗',
     detail: '在新版石头剪刀布大作战完成一局正式对战。',
     placeholderSymbol: '✊',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: { type: 'eventObserved', eventType: 'sessionEnd' },
@@ -166,6 +173,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '支持的阵营赢得一局',
     detail: '在正式对战中，让你支持的阵营赢得一局。',
     placeholderSymbol: '✊',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: {
@@ -187,6 +195,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '见证一局高密度阵营转化',
     detail: '阵营转化阈值待校准，确认前不参与判定。',
     placeholderSymbol: '✊',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: { type: 'disabled' },
@@ -201,6 +210,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '完成一局空当接龙',
     detail: '将四个花色全部整理到基础牌堆。',
     placeholderSymbol: '♣',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: {
@@ -219,6 +229,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '用较少步数完成一局',
     detail: '步数阈值待校准，确认前不参与判定。',
     placeholderSymbol: '♣',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: { type: 'disabled' },
@@ -233,6 +244,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '在合理时间内完成一局',
     detail: '时间阈值待校准，确认前不参与判定。',
     placeholderSymbol: '♣',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: { type: 'disabled' },
@@ -243,10 +255,11 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     id: 'minesweeper.first_clear',
     groupId: 'minesweeper',
     gameId: 'minesweeper',
-    title: '雷区通关',
+    title: '平安出窝',
     summary: '首次成功排雷',
-    detail: '在正式局中成功打开所有安全格。',
+    detail: '在一局正式扫雷中成功打开所有安全格。',
     placeholderSymbol: '✹',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: {
@@ -262,28 +275,45 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'minesweeper',
     gameId: 'minesweeper',
     title: '迅捷排雷',
-    summary: '在目标时间内完成雷区',
-    detail: '难度与时间阈值待校准，确认前不参与判定。',
+    summary: '60 秒内完成雷区',
+    detail: '在一局正式扫雷中于 60 秒内完成雷区。',
     placeholderSymbol: '✹',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
-    rule: { type: 'disabled' },
-    enabled: false,
+    rule: {
+      type: 'eventAllFacts',
+      eventType: 'sessionEnd',
+      conditions: [
+        { key: 'won', comparison: 'equals', value: 1 },
+        { key: 'elapsedSec', comparison: 'atMost', value: 60 }
+      ]
+    },
+    enabled: true,
     noticeLevel: 'highlight'
   },
   {
     id: 'minesweeper.perfect_flags',
     groupId: 'minesweeper',
     gameId: 'minesweeper',
-    title: '旗帜无误',
-    summary: '正确标记本局全部地雷',
-    detail: '插旗事实待确认，确认前不参与判定。',
+    title: '旗开得胜',
+    summary: '十旗全对完成通关',
+    detail: '在一局正式扫雷中手动正确插满十面旗并完成通关。',
     placeholderSymbol: '✹',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
-    rule: { type: 'disabled' },
-    enabled: false,
-    noticeLevel: 'normal'
+    rule: {
+      type: 'eventAllFacts',
+      eventType: 'sessionEnd',
+      conditions: [
+        { key: 'won', comparison: 'equals', value: 1 },
+        { key: 'manualAllMinesFlagged', comparison: 'equals', value: 1 },
+        { key: 'hasEverFlaggedNonMine', comparison: 'equals', value: 0 }
+      ]
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
   },
   {
     id: 'chicken2048.reach_256',
@@ -293,6 +323,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '最大方块达到 256',
     detail: '在一局正式的鸡窝 2048 中首次合成 256 方块。',
     placeholderSymbol: '◆',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 256,
     rule: {
@@ -311,6 +342,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '最大方块达到 1024',
     detail: '在一局正式的鸡窝 2048 中首次合成 1024 方块。',
     placeholderSymbol: '◆',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1024,
     rule: {
@@ -329,6 +361,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '最大方块达到 2048',
     detail: '在一局正式的鸡窝 2048 中首次合成 2048 方块。',
     placeholderSymbol: '◆',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 2048,
     rule: {
@@ -347,6 +380,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '单次消除 4 行',
     detail: '在一局俄罗斯方块中完成一次四消。',
     placeholderSymbol: '▣',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 4,
     rule: {
@@ -365,6 +399,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '单局累计消除 20 行',
     detail: '在同一局俄罗斯方块中累计消除二十行。',
     placeholderSymbol: '▣',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 20,
     rule: {
@@ -383,6 +418,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '达到等级 3',
     detail: '在同一局俄罗斯方块中达到等级 3。',
     placeholderSymbol: '▣',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 3,
     rule: {
@@ -401,6 +437,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '本局分数达到 600',
     detail: '在一局鸡窝水果摊中达到 600 分。',
     placeholderSymbol: '◉',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 600,
     rule: {
@@ -419,6 +456,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '首次合成西瓜',
     detail: '在一局鸡窝水果摊中首次合成普通西瓜。',
     placeholderSymbol: '◉',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: {
@@ -437,6 +475,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     summary: '完成最终合成',
     detail: '在一局鸡窝水果摊中完成最终水果合成。',
     placeholderSymbol: '◉',
+    badgeAssetPath: '',
     progressKind: 'none',
     target: 1,
     rule: {
@@ -460,6 +499,11 @@ export function achievementProfileFor(gameId: string): GameAchievementProfile | 
 export function isAchievementFactKeyAllowed(gameId: string, factKey: string): boolean {
   const profile = achievementProfileFor(gameId);
   return profile !== undefined && profile.factKeys.includes(factKey);
+}
+
+export function isAchievementBadgeAssetPathValid(badgeAssetPath: string): boolean {
+  return badgeAssetPath.length === 0 || (badgeAssetPath.startsWith(ACHIEVEMENT_BADGE_ASSET_DIRECTORY) &&
+    badgeAssetPath.endsWith('.png'));
 }
 
 function ruleFactKeys(rule: AchievementRule): string[] {
@@ -497,6 +541,9 @@ export function achievementRegistryIssues(): string[] {
     }
     if (!definition.enabled && definition.rule.type !== 'disabled') {
       issues.push(`disabled-active-rule:${definition.id}`);
+    }
+    if (!isAchievementBadgeAssetPathValid(definition.badgeAssetPath)) {
+      issues.push(`invalid-badge-asset-path:${definition.id}`);
     }
     if (definition.gameId !== 'global') {
       ruleFactKeys(definition.rule).forEach((factKey: string) => {

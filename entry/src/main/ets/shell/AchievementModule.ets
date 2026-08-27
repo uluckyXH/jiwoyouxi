@@ -112,6 +112,7 @@ export interface AchievementNoticeItem {
   title: string;
   summary: string;
   placeholderSymbol: string;
+  badgeAssetPath: string;
   noticeLevel: AchievementNoticeLevel;
   achievementCount: number;
 }
@@ -130,6 +131,11 @@ export interface AchievementDefinition {
   summary: string;
   detail: string;
   placeholderSymbol: string;
+  /**
+   * Future badge image. Keep this empty until the matching rawfile PNG is bundled.
+   * Values use the rawfile-relative app/achievements/<name>.png form.
+   */
+  badgeAssetPath: string;
   progressKind: AchievementProgressKind;
   target: number;
   rule: AchievementRule;

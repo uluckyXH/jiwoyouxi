@@ -42,6 +42,8 @@ export struct HubPage {
   @Prop snapshot: CoopAppSnapshot;
   @Prop achievementState: AchievementState;
   openGame: (gameId: string) => void = () => {};
+  resetAchievements: () => Promise<boolean> = async (): Promise<boolean> => false;
+  refreshAchievements: () => Promise<void> = async (): Promise<void> => {};
   toggleFavorite: (gameId: string) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
   updateHaptic: (enabled: boolean) => void = () => {};
@@ -481,7 +483,8 @@ export struct HubPage {
   Achievements() {
     AchievementWall({
       achievementState: this.achievementState,
-      isDarkMode: this.isDarkMode()
+      isDarkMode: this.isDarkMode(),
+      resetAchievements: this.resetAchievements
     })
   }
 
@@ -738,6 +741,9 @@ export struct HubPage {
   }
 
   private switchTab(index: number): void {
+    if (index === 2) {
+      this.refreshAchievements();
+    }
     if (this.activeTab === index) {
       return;
     }

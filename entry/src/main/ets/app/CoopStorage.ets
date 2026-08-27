@@ -50,12 +50,14 @@ export class CoopStorage {
     return emptyAchievementState();
   }
 
-  static async saveAchievementState(context: common.Context, state: AchievementState): Promise<void> {
+  static async saveAchievementState(context: common.Context, state: AchievementState): Promise<boolean> {
     try {
       const store = await preferences.getPreferences(context, { name: STORE_NAME });
       await store.put(ACHIEVEMENT_STATE_KEY, JSON.stringify(normalizeAchievementState(state)));
       await store.flush();
+      return true;
     } catch (error) {
+      return false;
     }
   }
 

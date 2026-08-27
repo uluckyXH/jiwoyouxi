@@ -1,6 +1,8 @@
 import { CoopModalTransition } from '../../components/CoopModalTransition';
+import { CoopMotion } from '../../design/CoopMotion';
 import { CoopTheme } from '../../design/CoopTheme';
 import { CoopViewport } from '../../design/CoopViewport';
+import { AchievementEvent } from '../../shell/AchievementModule';
 import { MinesweeperBoard } from './MinesweeperBoard';
 import { MinesweeperExitConfirmOverlay } from './MinesweeperExitConfirmOverlay';
 import { MinesweeperHud } from './MinesweeperHud';
@@ -29,8 +31,14 @@ export struct MinesweeperPage {
   @Prop @Watch('onExternalExitRequestChanged') externalExitRequestId: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
   private timer: number = -1;
+  private achievementReportTimer: number = -1;
   private settled: boolean = false;
+  private achievementSessionSequence: number = 0;
+  private achievementSessionId: string = '';
+  private manualAllMinesFlagged: boolean = false;
+  private hasEverFlaggedNonMine: boolean = false;
   private devUnlockPauseTapCount: number = 0;
   private devUnlockModeTapCount: number = 0;
   private pausedBeforeExitConfirm: boolean = false;
@@ -55,6 +63,7 @@ export struct MinesweeperPage {
 
   aboutToDisappear(): void {
     this.stopTimer();
+    this.clearAchievementReportTimer();
   }
 
   build() {
@@ -139,6 +148,7 @@ export struct MinesweeperPage {
               this.restart();
             },
             exitToHub: () => {
+              this.clearAchievementReportTimer();
               this.exitToHub();
             },
             closeOverlay: () => {
@@ -236,6 +246,7 @@ export struct MinesweeperPage {
 
   private restart(): void {
     this.stopTimer();
+    this.clearAchievementReportTimer();
     this.elapsed = 0;
     this.started = false;
     this.flagMode = false;
@@ -247,6 +258,10 @@ export struct MinesweeperPage {
     this.showExitConfirmOverlay = false;
     this.pausedBeforeExitConfirm = false;
     this.settled = false;
+    this.achievementSessionSequence += 1;
+    this.achievementSessionId = `minesweeper-${Date.now()}-${this.achievementSessionSequence}`;
+    this.manualAllMinesFlagged = false;
+    this.hasEverFlaggedNonMine = false;
     const difficulty = this.difficulty();
     this.cells = createEmptyMineCells(difficulty.rows, difficulty.cols);
   }
@@ -269,6 +284,50 @@ export struct MinesweeperPage {
     }
   }
 
+  private clearAchievementReportTimer(): void {
+    if (this.achievementReportTimer !== -1) {
+      clearTimeout(this.achievementReportTimer);
+      this.achievementReportTimer = -1;
+    }
+  }
+
+  private scheduleAchievementReport(won: boolean): void {
+    this.clearAchievementReportTimer();
+    const event: AchievementEvent = {
+      eventId: `${this.achievementSessionId}:session-end`,
+      sessionId: this.achievementSessionId,
+      gameId: 'minesweeper',
+      type: 'sessionEnd',
+      occurredAt: Date.now(),
+      isOfficial: true,
+      facts: [
+        { key: 'won', value: won ? 1 : 0 },
+        { key: 'elapsedSec', value: this.elapsed },
+        { key: 'manualAllMinesFlagged', value: this.manualAllMinesFlagged ? 1 : 0 },
+        { key: 'hasEverFlaggedNonMine', value: this.hasEverFlaggedNonMine ? 1 : 0 }
+      ]
+    };
+    this.achievementReportTimer = setTimeout(() => {
+      this.achievementReportTimer = -1;
+      this.reportAchievementEvent(event);
+    }, CoopMotion.achievementResultReportDelay);
+  }
+
+  private areAllMinesManuallyFlagged(cells: MineCell[]): boolean {
+    let mineTotal = 0;
+    let flaggedMineTotal = 0;
+    cells.forEach((cell: MineCell) => {
+      if (!cell.mine) {
+        return;
+      }
+      mineTotal += 1;
+      if (cell.flag) {
+        flaggedMineTotal += 1;
+      }
+    });
+    return mineTotal > 0 && flaggedMineTotal === mineTotal;
+  }
+
   private tapCell(index: number): void {
     if (this.paused || this.gameOver) {
       return;
@@ -286,7 +345,11 @@ export struct MinesweeperPage {
       return;
     }
     if (this.flagMode) {
-      this.cells = toggleFlagAt(this.cells, index, this.mineCount());
+      const nextCells = toggleFlagAt(this.cells, index, this.mineCount());
+      if (!cell.flag && nextCells[index].flag && !cell.mine) {
+        this.hasEverFlaggedNonMine = true;
+      }
+      this.cells = nextCells;
       return;
     }
     if (cell.flag) {
@@ -299,6 +362,7 @@ export struct MinesweeperPage {
     }
     const opened = openSafeCells(this.cells, difficulty, index);
     if (isMinesweeperWin(opened, difficulty)) {
+      this.manualAllMinesFlagged = this.areAllMinesManuallyFlagged(opened);
       this.cells = flagAllMines(opened);
       this.finish(true);
       return;
@@ -318,6 +382,7 @@ export struct MinesweeperPage {
     if (won) {
       this.recordScore(minesweeperWinScore(this.elapsed));
     }
+    this.scheduleAchievementReport(won);
   }
 
   private toggleDevRevealMines(): void {
@@ -344,6 +409,7 @@ export struct MinesweeperPage {
       return;
     }
     if (!this.shouldConfirmExit()) {
+      this.clearAchievementReportTimer();
       this.exitToHub();
       return;
     }
@@ -360,6 +426,7 @@ export struct MinesweeperPage {
   private confirmExitToHub(): void {
     this.showExitConfirmOverlay = false;
     this.stopTimer();
+    this.clearAchievementReportTimer();
     this.exitToHub();
   }
 

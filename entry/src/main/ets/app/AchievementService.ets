@@ -16,6 +16,10 @@ export class AchievementService {
   private initialized: boolean = false;
 
   async initialize(context: common.Context): Promise<AchievementState> {
+    return this.refresh(context);
+  }
+
+  async refresh(context: common.Context): Promise<AchievementState> {
     this.state = await CoopStorage.loadAchievementState(context);
     this.initialized = true;
     return this.currentState();
@@ -26,15 +30,31 @@ export class AchievementService {
       await this.initialize(context);
     }
     const result = applyAchievementEvent(this.state, event);
-    this.state = result.state;
     if (result.disposition === 'applied') {
-      await CoopStorage.saveAchievementState(context, this.state);
+      const didSave = await CoopStorage.saveAchievementState(context, result.state);
+      if (!didSave) {
+        throw new Error('Unable to persist achievement state.');
+      }
     }
+    this.state = result.state;
     return {
       state: this.currentState(),
       disposition: result.disposition,
       newlyUnlocked: result.newlyUnlocked.slice()
     };
+  }
+
+  async reset(context: common.Context): Promise<AchievementState> {
+    if (!this.initialized) {
+      await this.initialize(context);
+    }
+    const resetState = emptyAchievementState();
+    const didSave = await CoopStorage.saveAchievementState(context, resetState);
+    if (!didSave) {
+      throw new Error('Unable to reset achievement state.');
+    }
+    this.state = resetState;
+    return this.currentState();
   }
 
   currentState(): AchievementState {
