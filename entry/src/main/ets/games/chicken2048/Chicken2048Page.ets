@@ -1,6 +1,8 @@
 import { CoopModalTransition } from '../../components/CoopModalTransition';
+import { CoopMotion } from '../../design/CoopMotion';
 import { CoopTheme } from '../../design/CoopTheme';
 import { CoopViewport } from '../../design/CoopViewport';
+import { AchievementEvent } from '../../shell/AchievementModule';
 import { Chicken2048ExitConfirmOverlay } from './Chicken2048ExitConfirmOverlay';
 import { Chicken2048ResultOverlay } from './Chicken2048ResultOverlay';
 import {
@@ -272,8 +274,14 @@ export struct Chicken2048Page {
   @Prop bestScore: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
   private nextTileId: number = 1;
   private scoreReported: boolean = false;
+  private achievementReportTimer: number = -1;
+  private achievementSessionSequence: number = 0;
+  private achievementSessionId: string = '';
+  private achievementSessionIsOfficial: boolean = true;
+  private hasReportedAchievementSessionEnd: boolean = false;
   private touchStartX: number = 0;
   private touchStartY: number = 0;
   private nextMergePulseId: number = 1;
@@ -307,6 +315,7 @@ export struct Chicken2048Page {
   aboutToDisappear(): void {
     this.clearMergePulseTimers();
     this.clearSpawnPulseTimer();
+    this.clearAchievementReportTimer();
     this.inputLocked = false;
   }
 
@@ -774,6 +783,7 @@ export struct Chicken2048Page {
   private restart(): void {
     this.clearMergePulseTimers();
     this.clearSpawnPulseTimer();
+    this.startAchievementSession();
     this.nextTileId = 1;
     this.nextMergePulseId = 1;
     this.nextSpawnPulseId = 1;
@@ -848,6 +858,47 @@ export struct Chicken2048Page {
     this.gameOver = true;
     this.showWinOverlay = false;
     this.safeRecordScore();
+    this.scheduleAchievementReport();
+  }
+
+  private startAchievementSession(): void {
+    this.clearAchievementReportTimer();
+    this.achievementSessionSequence += 1;
+    this.achievementSessionId = `chicken2048-${Date.now()}-${this.achievementSessionSequence}`;
+    this.achievementSessionIsOfficial = true;
+    this.hasReportedAchievementSessionEnd = false;
+  }
+
+  private clearAchievementReportTimer(): void {
+    if (this.achievementReportTimer !== -1) {
+      clearTimeout(this.achievementReportTimer);
+      this.achievementReportTimer = -1;
+    }
+  }
+
+  private scheduleAchievementReport(): void {
+    if (!this.achievementSessionIsOfficial || this.hasReportedAchievementSessionEnd ||
+      this.achievementReportTimer !== -1 || this.achievementSessionId.length === 0) {
+      return;
+    }
+    const event: AchievementEvent = {
+      eventId: `${this.achievementSessionId}:session-end`,
+      sessionId: this.achievementSessionId,
+      gameId: 'chicken2048',
+      type: 'sessionEnd',
+      occurredAt: Date.now(),
+      isOfficial: true,
+      facts: [
+        { key: 'maxTile', value: this.maxTile },
+        { key: 'movesMade', value: this.movesMade },
+        { key: 'score', value: this.score }
+      ]
+    };
+    this.achievementReportTimer = setTimeout(() => {
+      this.achievementReportTimer = -1;
+      this.hasReportedAchievementSessionEnd = true;
+      this.reportAchievementEvent(event);
+    }, CoopMotion.achievementResultReportDelay);
   }
 
   private safeRecordScore(): void {
@@ -859,6 +910,7 @@ export struct Chicken2048Page {
   }
 
   private leaveToHub(): void {
+    this.clearAchievementReportTimer();
     if (this.hasGameStarted()) {
       this.safeRecordScore();
     }
@@ -951,6 +1003,7 @@ export struct Chicken2048Page {
   private applyDevBoard(values: number[], score: number): void {
     this.clearMergePulseTimers();
     this.clearSpawnPulseTimer();
+    this.achievementSessionIsOfficial = false;
     this.inputLocked = false;
     this.mergePulses = [];
     this.spawnPulses = [];

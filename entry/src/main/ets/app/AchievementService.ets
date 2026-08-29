@@ -14,20 +14,37 @@ import { CoopStorage } from './CoopStorage';
 export class AchievementService {
   private state: AchievementState = emptyAchievementState();
   private initialized: boolean = false;
+  private operationQueue: Promise<void> = Promise.resolve();
 
-  async initialize(context: common.Context): Promise<AchievementState> {
-    return this.refresh(context);
+  initialize(context: common.Context): Promise<AchievementState> {
+    return this.enqueue(() => this.refreshNow(context));
   }
 
-  async refresh(context: common.Context): Promise<AchievementState> {
+  refresh(context: common.Context): Promise<AchievementState> {
+    return this.enqueue(() => this.refreshNow(context));
+  }
+
+  report(context: common.Context, event: AchievementEvent): Promise<AchievementApplyResult> {
+    return this.enqueue(() => this.reportNow(context, event));
+  }
+
+  reset(context: common.Context): Promise<AchievementState> {
+    return this.enqueue(() => this.resetNow(context));
+  }
+
+  currentState(): AchievementState {
+    return normalizeAchievementState(this.state);
+  }
+
+  private async refreshNow(context: common.Context): Promise<AchievementState> {
     this.state = await CoopStorage.loadAchievementState(context);
     this.initialized = true;
     return this.currentState();
   }
 
-  async report(context: common.Context, event: AchievementEvent): Promise<AchievementApplyResult> {
+  private async reportNow(context: common.Context, event: AchievementEvent): Promise<AchievementApplyResult> {
     if (!this.initialized) {
-      await this.initialize(context);
+      await this.refreshNow(context);
     }
     const result = applyAchievementEvent(this.state, event);
     if (result.disposition === 'applied') {
@@ -44,9 +61,9 @@ export class AchievementService {
     };
   }
 
-  async reset(context: common.Context): Promise<AchievementState> {
+  private async resetNow(context: common.Context): Promise<AchievementState> {
     if (!this.initialized) {
-      await this.initialize(context);
+      await this.refreshNow(context);
     }
     const resetState = emptyAchievementState();
     const didSave = await CoopStorage.saveAchievementState(context, resetState);
@@ -57,7 +74,9 @@ export class AchievementService {
     return this.currentState();
   }
 
-  currentState(): AchievementState {
-    return normalizeAchievementState(this.state);
+  private enqueue<T>(operation: () => Promise<T>): Promise<T> {
+    const task: Promise<T> = this.operationQueue.then(() => operation());
+    this.operationQueue = task.then(() => undefined, () => undefined);
+    return task;
   }
 }

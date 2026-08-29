@@ -1,6 +1,8 @@
 import { common } from '@kit.AbilityKit';
+import { CoopMotion } from '../../design/CoopMotion';
 import { CoopViewport } from '../../design/CoopViewport';
 import { NativeAudioService } from '../../services/AudioService';
+import { AchievementEvent } from '../../shell/AchievementModule';
 import {
   FREECELL_INTRO_ASSET_BACKGROUND,
   FREECELL_INTRO_ASSET_TITLE,
@@ -61,9 +63,14 @@ export struct FreecellPage {
   @Prop bestScore: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
   private timer: number = -1;
   private toastTimer: number = -1;
   private autoTimer: number = -1;
+  private achievementReportTimer: number = -1;
+  private achievementSessionSequence: number = 0;
+  private achievementSessionId: string = '';
+  private hasReportedAchievementSessionEnd: boolean = false;
   private autoVisited: string[] = [];
   private lastTapCardId: string = '';
   private lastTapAt: number = 0;
@@ -96,6 +103,7 @@ export struct FreecellPage {
   @State introSceneVisible: boolean = false;
 
   aboutToAppear(): void {
+    this.ensureAchievementSession();
     const context = this.getUIContext().getHostContext();
     if (context !== undefined) {
       this.audioService.init(context as common.Context);
@@ -107,6 +115,7 @@ export struct FreecellPage {
     this.stopTimer();
     this.stopAutoComplete();
     this.clearToastTimer();
+    this.clearAchievementReportTimer();
     this.audioService.release();
   }
 
@@ -589,6 +598,7 @@ export struct FreecellPage {
     this.won = false;
     this.showResultOverlay = false;
     this.settled = false;
+    this.clearAchievementReportTimer();
     this.playClick();
   }
 
@@ -598,6 +608,7 @@ export struct FreecellPage {
     }
     this.stopAutoComplete();
     this.stopTimer();
+    this.startAchievementSession();
     this.gameState = createSolvableGame(randomSeed());
     this.history = [];
     this.recentMoves = [];
@@ -630,6 +641,7 @@ export struct FreecellPage {
 
   private requestExitToHub(): void {
     if (!this.hasActiveProgress() || this.won) {
+      this.clearAchievementReportTimer();
       this.exitToHub();
       return;
     }
@@ -644,6 +656,7 @@ export struct FreecellPage {
 
   private confirmExitToHub(): void {
     this.showExitConfirmOverlay = false;
+    this.clearAchievementReportTimer();
     this.exitToHub();
   }
 
@@ -672,6 +685,53 @@ export struct FreecellPage {
     this.showGuideOverlay = false;
     this.showExitConfirmOverlay = false;
     this.recordScore(this.currentScore());
+    this.scheduleAchievementReport();
+  }
+
+  private ensureAchievementSession(): void {
+    if (this.achievementSessionId.length === 0) {
+      this.startAchievementSession();
+    }
+  }
+
+  private startAchievementSession(): void {
+    this.clearAchievementReportTimer();
+    this.achievementSessionSequence += 1;
+    this.achievementSessionId = `freecell-${Date.now()}-${this.achievementSessionSequence}`;
+    this.hasReportedAchievementSessionEnd = false;
+  }
+
+  private clearAchievementReportTimer(): void {
+    if (this.achievementReportTimer !== -1) {
+      clearTimeout(this.achievementReportTimer);
+      this.achievementReportTimer = -1;
+    }
+  }
+
+  private scheduleAchievementReport(): void {
+    if (this.hasReportedAchievementSessionEnd || this.achievementReportTimer !== -1 ||
+      this.achievementSessionId.length === 0) {
+      return;
+    }
+    const event: AchievementEvent = {
+      eventId: `${this.achievementSessionId}:session-end`,
+      sessionId: this.achievementSessionId,
+      gameId: 'freecell',
+      type: 'sessionEnd',
+      occurredAt: Date.now(),
+      isOfficial: true,
+      facts: [
+        { key: 'won', value: 1 },
+        { key: 'moves', value: this.currentMoves() },
+        { key: 'elapsedSec', value: this.elapsed },
+        { key: 'score', value: this.currentScore() }
+      ]
+    };
+    this.achievementReportTimer = setTimeout(() => {
+      this.achievementReportTimer = -1;
+      this.hasReportedAchievementSessionEnd = true;
+      this.reportAchievementEvent(event);
+    }, CoopMotion.achievementResultReportDelay);
   }
 
   private ensureStarted(): void {

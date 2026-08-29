@@ -5,6 +5,12 @@ import { AchievementUnlockNotice } from '../components/AchievementUnlockNotice';
 import { CoopMotion } from '../design/CoopMotion';
 import { emptyAchievementState } from '../shell/AchievementEngine';
 import {
+  favoriteAchievementEventAfterPersist,
+  favoriteSnapshotAfterPersist,
+  favoriteSnapshotAfterToggle,
+  FavoriteSnapshotToggleResult
+} from '../shell/AchievementFavoriteEvent';
+import {
   AchievementApplyResult,
   AchievementEvent,
   AchievementNoticeItem,
@@ -35,6 +41,9 @@ struct Index {
   private achievementNoticeInTimer: number = -1;
   private achievementNoticeHoldTimer: number = -1;
   private achievementNoticeUnmountTimer: number = -1;
+  private snapshotSaveQueue: Promise<boolean> = Promise.resolve(true);
+  private snapshotRevision: number = 0;
+  private favoriteAchievementEventSequence: number = 0;
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
@@ -130,6 +139,9 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('rpsBattle', score);
+            },
+            reportAchievementEvent: (event: AchievementEvent) => {
+              this.reportAchievementEvent(event);
             }
           })
         }
@@ -142,6 +154,9 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('freecell', score);
+            },
+            reportAchievementEvent: (event: AchievementEvent) => {
+              this.reportAchievementEvent(event);
             }
           })
         }
@@ -170,6 +185,9 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('chicken2048', score);
+            },
+            reportAchievementEvent: (event: AchievementEvent) => {
+              this.reportAchievementEvent(event);
             }
           })
         }
@@ -183,6 +201,9 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('tetris', score);
+            },
+            reportAchievementEvent: (event: AchievementEvent) => {
+              this.reportAchievementEvent(event);
             }
           })
         }
@@ -195,6 +216,9 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('suika', score);
+            },
+            reportAchievementEvent: (event: AchievementEvent) => {
+              this.reportAchievementEvent(event);
             }
           })
         }
@@ -270,23 +294,27 @@ struct Index {
   }
 
   private toggleFavorite(gameId: string): void {
-    const favorites = this.snapshot.favorites.slice();
-    const index = favorites.indexOf(gameId);
-    if (index >= 0) {
-      favorites.splice(index, 1);
-    } else {
-      favorites.unshift(gameId);
-    }
-    this.saveSnapshot({
-      records: this.snapshot.records.slice(),
-      favorites: favorites.slice(0, 12),
-      recent: this.snapshot.recent.slice(),
-      soundEnabled: this.snapshot.soundEnabled,
-      hapticEnabled: this.snapshot.hapticEnabled,
-      appearanceMode: this.snapshot.appearanceMode,
-      achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
-      achievements: this.snapshot.achievements.slice(),
-      recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
+    const previousSnapshot = this.snapshot;
+    const toggleResult: FavoriteSnapshotToggleResult = favoriteSnapshotAfterToggle(previousSnapshot, gameId);
+    const revision = this.replaceSnapshot(toggleResult.snapshot);
+    this.enqueueSnapshotSave(toggleResult.snapshot).then((didSave: boolean) => {
+      if (!didSave) {
+        if (revision === this.snapshotRevision) {
+          this.replaceSnapshot(favoriteSnapshotAfterPersist(previousSnapshot, toggleResult.snapshot, false));
+        }
+        return;
+      }
+      this.favoriteAchievementEventSequence += 1;
+      const event = favoriteAchievementEventAfterPersist(
+        true,
+        toggleResult.didAddFavorite,
+        toggleResult.snapshot.favorites,
+        Date.now(),
+        this.favoriteAchievementEventSequence
+      );
+      if (event !== undefined) {
+        this.reportAchievementEvent(event);
+      }
     });
   }
 
@@ -567,9 +595,29 @@ struct Index {
   }
 
   private saveSnapshot(snapshot: CoopAppSnapshot): void {
+    this.replaceSnapshot(snapshot);
+    this.enqueueSnapshotSave(snapshot);
+  }
+
+  private replaceSnapshot(snapshot: CoopAppSnapshot): number {
     this.snapshot = snapshot;
-    if (this.appContext !== undefined) {
-      CoopStorage.save(this.appContext, snapshot);
+    this.snapshotRevision += 1;
+    return this.snapshotRevision;
+  }
+
+  private enqueueSnapshotSave(snapshot: CoopAppSnapshot): Promise<boolean> {
+    const context = this.appContext;
+    if (context === undefined) {
+      return Promise.resolve(false);
     }
+    const saveTask: Promise<boolean> = this.snapshotSaveQueue.then(() => {
+      return CoopStorage.save(context, snapshot);
+    });
+    this.snapshotSaveQueue = saveTask.then((didSave: boolean) => {
+      return didSave;
+    }, () => {
+      return false;
+    });
+    return saveTask;
   }
 }

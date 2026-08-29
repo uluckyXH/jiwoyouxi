@@ -1,5 +1,6 @@
 import {
   AchievementDefinition,
+  AchievementEventType,
   AchievementFactCondition,
   AchievementGroupDefinition,
   AchievementRule,
@@ -64,28 +65,39 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
 
 export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
   {
+    gameId: 'global',
+    factKeys: ['favoriteCount'],
+    eventTypes: ['milestone']
+  },
+  {
     gameId: 'rpsBattle',
-    factKeys: ['won', 'supportWon', 'elapsedSec', 'conversions', 'score']
+    factKeys: ['won', 'supportWon', 'elapsedSec', 'conversions', 'score'],
+    eventTypes: ['sessionEnd', 'milestone']
   },
   {
     gameId: 'freecell',
-    factKeys: ['won', 'moves', 'elapsedSec', 'score']
+    factKeys: ['won', 'moves', 'elapsedSec', 'score'],
+    eventTypes: ['sessionEnd', 'milestone']
   },
   {
     gameId: 'minesweeper',
-    factKeys: ['won', 'elapsedSec', 'manualAllMinesFlagged', 'hasEverFlaggedNonMine']
+    factKeys: ['won', 'elapsedSec', 'manualAllMinesFlagged', 'hasEverFlaggedNonMine'],
+    eventTypes: ['sessionEnd', 'milestone']
   },
   {
     gameId: 'chicken2048',
-    factKeys: ['maxTile', 'movesMade', 'score']
+    factKeys: ['maxTile', 'movesMade', 'score'],
+    eventTypes: ['sessionEnd', 'milestone']
   },
   {
     gameId: 'tetris',
-    factKeys: ['score', 'totalLines', 'level', 'maxClearedLines']
+    factKeys: ['score', 'totalLines', 'level', 'maxClearedLines'],
+    eventTypes: ['sessionEnd', 'milestone']
   },
   {
     gameId: 'suika',
-    factKeys: ['score', 'droppedCount', 'highestMergeLevel', 'madeWatermelon', 'isFinalMerge']
+    factKeys: ['score', 'droppedCount', 'highestMergeLevel', 'madeWatermelon', 'isFinalMerge'],
+    eventTypes: ['sessionEnd', 'milestone']
   }
 ];
 
@@ -126,13 +138,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '收藏家',
     summary: '收藏 3 个常玩游戏',
-    detail: '当前独立事件核心不读取收藏记录；后续确认大厅事件后再启用。',
+    detail: '收藏 3 款主推游戏，收藏写入成功后解锁。',
     placeholderSymbol: '✦',
     badgeAssetPath: '',
     progressKind: 'favoriteCount',
     target: 3,
-    rule: { type: 'disabled' },
-    enabled: false,
+    rule: {
+      type: 'eventFact',
+      eventType: 'milestone',
+      condition: { key: 'favoriteCount', comparison: 'atLeast', value: 3 }
+    },
+    enabled: true,
     noticeLevel: 'normal'
   },
   {
@@ -501,6 +517,24 @@ export function isAchievementFactKeyAllowed(gameId: string, factKey: string): bo
   return profile !== undefined && profile.factKeys.includes(factKey);
 }
 
+export function isAchievementEventTypeAllowed(gameId: string, eventType: AchievementEventType): boolean {
+  const profile = achievementProfileFor(gameId);
+  return profile !== undefined && profile.eventTypes.includes(eventType);
+}
+
+export function achievementPrimaryFavoriteCount(gameIds: string[]): number {
+  if (!Array.isArray(gameIds)) {
+    return 0;
+  }
+  const favorites: string[] = [];
+  gameIds.forEach((gameId: string) => {
+    if (ACHIEVEMENT_PRIMARY_GAME_IDS.includes(gameId) && !favorites.includes(gameId)) {
+      favorites.push(gameId);
+    }
+  });
+  return favorites.length;
+}
+
 export function isAchievementBadgeAssetPathValid(badgeAssetPath: string): boolean {
   return badgeAssetPath.length === 0 || (badgeAssetPath.startsWith(ACHIEVEMENT_BADGE_ASSET_DIRECTORY) &&
     badgeAssetPath.endsWith('.png'));
@@ -533,7 +567,7 @@ export function achievementRegistryIssues(): string[] {
     if (!Number.isFinite(definition.target) || definition.target <= 0) {
       issues.push(`invalid-target:${definition.id}`);
     }
-    if (definition.gameId !== 'global' && achievementProfileFor(definition.gameId) === undefined) {
+    if (achievementProfileFor(definition.gameId) === undefined) {
       issues.push(`missing-profile:${definition.id}`);
     }
     if (definition.enabled && definition.rule.type === 'disabled') {
@@ -545,13 +579,11 @@ export function achievementRegistryIssues(): string[] {
     if (!isAchievementBadgeAssetPathValid(definition.badgeAssetPath)) {
       issues.push(`invalid-badge-asset-path:${definition.id}`);
     }
-    if (definition.gameId !== 'global') {
-      ruleFactKeys(definition.rule).forEach((factKey: string) => {
-        if (!isAchievementFactKeyAllowed(definition.gameId, factKey)) {
-          issues.push(`unknown-rule-fact:${definition.id}:${factKey}`);
-        }
-      });
-    }
+    ruleFactKeys(definition.rule).forEach((factKey: string) => {
+      if (!isAchievementFactKeyAllowed(definition.gameId, factKey)) {
+        issues.push(`unknown-rule-fact:${definition.id}:${factKey}`);
+      }
+    });
   });
   return issues;
 }

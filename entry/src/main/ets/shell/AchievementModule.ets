@@ -153,6 +153,7 @@ export interface AchievementGroupDefinition {
 export interface GameAchievementProfile {
   gameId: string;
   factKeys: string[];
+  eventTypes: AchievementEventType[];
 }
 
 export interface AchievementViewItem {

@@ -1,4 +1,6 @@
 import { CoopViewport } from '../../design/CoopViewport';
+import { CoopMotion } from '../../design/CoopMotion';
+import { AchievementEvent } from '../../shell/AchievementModule';
 import { TetrisBoard } from './TetrisBoard';
 import { TetrisControlPanel } from './TetrisControl';
 import { TetrisStatsPanel, TetrisStatusPanel } from './TetrisHud';
@@ -43,10 +45,16 @@ export struct TetrisPage {
   @Prop @Watch('onSessionChanged') session: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
 
   private dropTimer: number = -1;
   private lockTimer: number = -1;
   private clearTimer: number = -1;
+  private achievementReportTimer: number = -1;
+  private achievementSessionSequence: number = 0;
+  private achievementSessionId: string = '';
+  private hasReportedAchievementSessionEnd: boolean = false;
+  private maxClearedLines: number = 0;
   private bag: number[] = [];
   private previousPhase: number = TETRIS_PHASE_FALLING;
   private exitConfirmPhase: number = TETRIS_PHASE_FALLING;
@@ -76,6 +84,7 @@ export struct TetrisPage {
 
   aboutToDisappear(): void {
     this.stopTimers();
+    this.clearAchievementReportTimer();
   }
 
   onSessionChanged(): void {
@@ -372,6 +381,7 @@ export struct TetrisPage {
 
   private restart(): void {
     this.stopTimers();
+    this.startAchievementSession();
     this.exitConfirmVisible = false;
     this.bag = [];
     this.board = createEmptyBoard();
@@ -383,6 +393,7 @@ export struct TetrisPage {
     this.level = 1;
     this.combo = 0;
     this.lastClear = 0;
+    this.maxClearedLines = 0;
     this.lockResetCount = 0;
     this.clearingRows = [];
     this.clearSweepProgress = 0;
@@ -642,6 +653,7 @@ export struct TetrisPage {
     if (cleared > 0) {
       const nextCombo = this.combo + 1;
       this.lastClear = cleared;
+      this.maxClearedLines = Math.max(this.maxClearedLines, cleared);
       this.combo = nextCombo;
       this.score += lineScore(cleared) + comboScore(nextCombo);
       this.lines += cleared;
@@ -693,6 +705,47 @@ export struct TetrisPage {
     this.stopTimers();
     this.phase = TETRIS_PHASE_GAME_OVER;
     this.recordScore(Math.max(0, this.score));
+    this.scheduleAchievementReport();
+  }
+
+  private startAchievementSession(): void {
+    this.clearAchievementReportTimer();
+    this.achievementSessionSequence += 1;
+    this.achievementSessionId = `tetris-${Date.now()}-${this.achievementSessionSequence}`;
+    this.hasReportedAchievementSessionEnd = false;
+  }
+
+  private clearAchievementReportTimer(): void {
+    if (this.achievementReportTimer !== -1) {
+      clearTimeout(this.achievementReportTimer);
+      this.achievementReportTimer = -1;
+    }
+  }
+
+  private scheduleAchievementReport(): void {
+    if (this.hasReportedAchievementSessionEnd || this.achievementReportTimer !== -1 ||
+      this.achievementSessionId.length === 0) {
+      return;
+    }
+    const event: AchievementEvent = {
+      eventId: `${this.achievementSessionId}:session-end`,
+      sessionId: this.achievementSessionId,
+      gameId: 'tetris',
+      type: 'sessionEnd',
+      occurredAt: Date.now(),
+      isOfficial: true,
+      facts: [
+        { key: 'score', value: this.score },
+        { key: 'totalLines', value: this.lines },
+        { key: 'level', value: this.level },
+        { key: 'maxClearedLines', value: this.maxClearedLines }
+      ]
+    };
+    this.achievementReportTimer = setTimeout(() => {
+      this.achievementReportTimer = -1;
+      this.hasReportedAchievementSessionEnd = true;
+      this.reportAchievementEvent(event);
+    }, CoopMotion.achievementResultReportDelay);
   }
 
   private requestLeaveToHub(): void {
@@ -733,6 +786,7 @@ export struct TetrisPage {
   private leaveToHub(): void {
     this.exitConfirmVisible = false;
     this.stopTimers();
+    this.clearAchievementReportTimer();
     this.exitToHub();
   }
 

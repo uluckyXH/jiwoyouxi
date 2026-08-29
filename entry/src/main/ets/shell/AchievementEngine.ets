@@ -25,6 +25,7 @@ import {
   ACHIEVEMENT_PRIMARY_GAME_IDS,
   achievementDefinitionFor,
   achievementProfileFor,
+  isAchievementEventTypeAllowed,
   isAchievementFactKeyAllowed
 } from './AchievementRegistry';
 
@@ -88,7 +89,7 @@ function normalizePlayedGameIds(gameIds: string[]): string[] {
     return normalized;
   }
   gameIds.forEach((gameId: string) => {
-    if (achievementProfileFor(gameId) !== undefined && !normalized.includes(gameId)) {
+    if (isPrimaryGameId(gameId) && !normalized.includes(gameId)) {
       normalized.push(gameId);
     }
   });
@@ -233,6 +234,9 @@ function isValidEvent(event: AchievementEvent): boolean {
   if (event.type !== 'sessionEnd' && event.type !== 'milestone') {
     return false;
   }
+  if (!isAchievementEventTypeAllowed(event.gameId, event.type)) {
+    return false;
+  }
   if (event.isOfficial !== true && event.isOfficial !== false) {
     return false;
   }
@@ -246,7 +250,7 @@ function nextProcessedEventIds(eventIds: string[], eventId: string): string[] {
 }
 
 function nextStateForSessionEnd(state: AchievementState, event: AchievementEvent): AchievementState {
-  if (event.type !== 'sessionEnd') {
+  if (event.type !== 'sessionEnd' || !isPrimaryGameId(event.gameId)) {
     return state;
   }
   const playedGameIds = state.playedGameIds.slice();

@@ -305,7 +305,7 @@ export default function achievementEngineTest(): void {
         expect(tenSessions.current).assertEqual(1);
         expect(tenSessions.target).assertEqual(10);
         expect(favorite.status).assertEqual('locked');
-        expect(favorite.target).assertEqual(0);
+        expect(favorite.target).assertEqual(3);
         expect(allGroups.length).assertEqual(7);
         expect(itemCount).assertEqual(22);
         expect(unlockedGroups.length).assertEqual(2);
@@ -333,6 +333,50 @@ export default function achievementEngineTest(): void {
         expect(progressFor(state, 'global.complete_ten_sessions').unlockedAt).assertEqual(TEST_OCCURRED_AT);
         expect(progressFor(state, 'global.play_six_games').unlockedAt).assertEqual(TEST_OCCURRED_AT);
         expect(achievementProgressForState(state, 'global.favorite_three') === undefined).assertEqual(true);
+      });
+
+    it('unlocks favorite collector only from the global milestone event without affecting session totals',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const twoFavorites = applyAchievementEvent(emptyAchievementState(), createEvent(
+          'favorites:1:1',
+          'favorites:1:1',
+          'global',
+          [{ key: 'favoriteCount', value: 2 }],
+          'milestone'
+        ));
+        const threeFavorites = applyAchievementEvent(twoFavorites.state, createEvent(
+          'favorites:2:2',
+          'favorites:2:2',
+          'global',
+          [{ key: 'favoriteCount', value: 3 }],
+          'milestone'
+        ));
+        const repeated = applyAchievementEvent(threeFavorites.state, createEvent(
+          'favorites:2:2',
+          'favorites:2:2',
+          'global',
+          [{ key: 'favoriteCount', value: 1 }],
+          'milestone'
+        ));
+        const invalidSessionEnd = applyAchievementEvent(threeFavorites.state, createEvent(
+          'global-session-end:1',
+          'global-session-end:1',
+          'global',
+          [],
+          'sessionEnd'
+        ));
+
+        expect(twoFavorites.disposition).assertEqual('applied');
+        expect(progressFor(twoFavorites.state, 'global.favorite_three').current).assertEqual(2);
+        expect(threeFavorites.newlyUnlocked.length).assertEqual(1);
+        expect(threeFavorites.newlyUnlocked[0].achievementId).assertEqual('global.favorite_three');
+        expect(progressFor(threeFavorites.state, 'global.favorite_three').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
+        expect(threeFavorites.state.completedSessionCount).assertEqual(0);
+        expect(threeFavorites.state.playedGameIds.length).assertEqual(0);
+        expect(repeated.disposition).assertEqual('duplicate');
+        expect(invalidSessionEnd.disposition).assertEqual('ignored');
+        expect(invalidSessionEnd.state.processedEventIds.length).assertEqual(2);
       });
 
     it('normalizes isolated state without consulting historical game records',

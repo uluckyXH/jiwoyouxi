@@ -1,6 +1,8 @@
 import { common } from '@kit.AbilityKit';
 import { displaySync } from '@kit.ArkGraphics2D';
 import { NativeAudioService } from '../../services/AudioService';
+import { CoopMotion } from '../../design/CoopMotion';
+import { AchievementEvent } from '../../shell/AchievementModule';
 import { RpsBattleCountdownOverlay } from './RpsBattleCountdownOverlay';
 import { RpsBattleTheme } from './RpsBattleTheme';
 import { RpsBattleEngine } from './RpsBattleEngine';
@@ -66,6 +68,7 @@ export struct RpsBattlePage {
   @Prop bestScore: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
 
   private engine: RpsBattleEngine | null = null;
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
@@ -81,6 +84,10 @@ export struct RpsBattlePage {
   private displaySyncFrameHandler: ((info: displaySync.IntervalInfo) => void) | null = null;
   private hudTimer: number = -1;
   private countdownTimer: number = -1;
+  private achievementReportTimer: number = -1;
+  private achievementSessionSequence: number = 0;
+  private achievementSessionId: string = '';
+  private hasReportedAchievementSessionEnd: boolean = false;
   private lastTickAt: number = 0;
   private lastFrameTimestamp: number = 0;
   private lastConvertSoundAt: number = 0;
@@ -140,6 +147,7 @@ export struct RpsBattlePage {
     this.disposed = true;
     this.stopCountdown();
     this.stopHudLoop();
+    this.clearAchievementReportTimer();
     this.releaseLoopDriver();
     this.audioService.pauseBgm();
     this.audioService.release();
@@ -375,6 +383,7 @@ export struct RpsBattlePage {
     this.stopCountdown();
     this.stopLoop();
     this.stopHudLoop();
+    this.startAchievementSession();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
     this.pausedFromPhase = 'playing';
@@ -681,6 +690,48 @@ export struct RpsBattlePage {
       this.recordScore(result.score);
       this.hasRecordedResult = true;
     }
+    this.scheduleAchievementReport(result);
+  }
+
+  private startAchievementSession(): void {
+    this.clearAchievementReportTimer();
+    this.achievementSessionSequence += 1;
+    this.achievementSessionId = `rpsBattle-${Date.now()}-${this.achievementSessionSequence}`;
+    this.hasReportedAchievementSessionEnd = false;
+  }
+
+  private clearAchievementReportTimer(): void {
+    if (this.achievementReportTimer !== -1) {
+      clearTimeout(this.achievementReportTimer);
+      this.achievementReportTimer = -1;
+    }
+  }
+
+  private scheduleAchievementReport(result: RpsBattleResult): void {
+    if (result.isInterventionMatch || this.hasReportedAchievementSessionEnd ||
+      this.achievementReportTimer !== -1 || this.achievementSessionId.length === 0) {
+      return;
+    }
+    const event: AchievementEvent = {
+      eventId: `${this.achievementSessionId}:session-end`,
+      sessionId: this.achievementSessionId,
+      gameId: 'rpsBattle',
+      type: 'sessionEnd',
+      occurredAt: Date.now(),
+      isOfficial: true,
+      facts: [
+        { key: 'won', value: result.winner === '' ? 0 : 1 },
+        { key: 'supportWon', value: result.supportWon ? 1 : 0 },
+        { key: 'elapsedSec', value: result.elapsedSec },
+        { key: 'conversions', value: result.conversions },
+        { key: 'score', value: result.score }
+      ]
+    };
+    this.achievementReportTimer = setTimeout(() => {
+      this.achievementReportTimer = -1;
+      this.hasReportedAchievementSessionEnd = true;
+      this.reportAchievementEvent(event);
+    }, CoopMotion.achievementResultReportDelay);
   }
 
   private requestPause(): void {
@@ -741,6 +792,7 @@ export struct RpsBattlePage {
     this.stopCountdown();
     this.stopLoop();
     this.stopHudLoop();
+    this.clearAchievementReportTimer();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
     this.pausedFromPhase = 'playing';
@@ -765,6 +817,7 @@ export struct RpsBattlePage {
     this.stopCountdown();
     this.stopLoop();
     this.stopHudLoop();
+    this.clearAchievementReportTimer();
     this.pendingBgm = false;
     this.audioService.pauseBgm();
     this.exitConfirmationPending = false;

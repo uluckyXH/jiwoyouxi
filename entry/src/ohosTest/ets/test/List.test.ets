@@ -1,4 +1,5 @@
 import achievementEngineTest from './AchievementEngine.test';
+import achievementFavoriteEventTest from './AchievementFavoriteEvent.test';
 import achievementNoticeTest from './AchievementNotice.test';
 import freecellIntroRulesTest from './FreecellIntroRules.test';
 import rpsBattleBountySystemTest from './RpsBattleBountySystem.test';
@@ -16,6 +17,7 @@ import rpsBattleZoneSystemTest from './RpsBattleZoneSystem.test';
 
 export default function testSuite(): void {
   achievementEngineTest();
+  achievementFavoriteEventTest();
   achievementNoticeTest();
   freecellIntroRulesTest();
   rpsBattleBountySystemTest();

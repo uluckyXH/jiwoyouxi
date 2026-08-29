@@ -1,8 +1,10 @@
 import { common } from '@kit.AbilityKit';
 import image from '@ohos.multimedia.image';
+import { CoopMotion } from '../../design/CoopMotion';
 import { CoopTheme } from '../../design/CoopTheme';
 import { CoopViewport } from '../../design/CoopViewport';
 import { NativeAudioService } from '../../services/AudioService';
+import { AchievementEvent } from '../../shell/AchievementModule';
 import { integrateFruits, resolveSuikaCollisions } from './SuikaPhysics';
 import { getSpawnLevel, NEXT_FRUIT_DELAY_MS, resolveOverflowState } from './SuikaRules';
 import { CollisionStepResult, FRUITS, FruitBody, SuikaBounds } from './SuikaTypes';
@@ -156,10 +158,15 @@ export struct SuikaPage {
   @Prop bestScore: number = 0;
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
   private settings: RenderingContextSettings = new RenderingContextSettings(true);
   private context: CanvasRenderingContext2D = new CanvasRenderingContext2D(this.settings);
   private audioService: NativeAudioService = new NativeAudioService();
   private timer: number = -1;
+  private achievementReportTimer: number = -1;
+  private achievementSessionSequence: number = 0;
+  private achievementSessionId: string = '';
+  private hasReportedAchievementSessionEnd: boolean = false;
   private nextId: number = 1;
   private fruits: FruitBody[] = [];
   private spawnIndex: number = 0;
@@ -216,6 +223,7 @@ export struct SuikaPage {
   aboutToDisappear(): void {
     this.disposed = true;
     this.stopLoop();
+    this.clearAchievementReportTimer();
     this.audioService.release();
     this.releaseHangingSignImage();
     this.releaseFruitImages();
@@ -400,6 +408,7 @@ export struct SuikaPage {
 
   private restart(): void {
     this.stopLoop();
+    this.startAchievementSession();
     this.fruits = [];
     this.nextId = 1;
     this.spawnIndex = 0;
@@ -557,11 +566,51 @@ export struct SuikaPage {
     this.showExitConfirmOverlay = false;
     this.stopLoop();
     this.recordScore(this.score);
+    this.scheduleAchievementReport();
     this.draw();
+  }
+
+  private startAchievementSession(): void {
+    this.clearAchievementReportTimer();
+    this.achievementSessionSequence += 1;
+    this.achievementSessionId = `suika-${Date.now()}-${this.achievementSessionSequence}`;
+    this.hasReportedAchievementSessionEnd = false;
+  }
+
+  private clearAchievementReportTimer(): void {
+    if (this.achievementReportTimer !== -1) {
+      clearTimeout(this.achievementReportTimer);
+      this.achievementReportTimer = -1;
+    }
+  }
+
+  private scheduleAchievementReport(): void {
+    if (this.hasReportedAchievementSessionEnd || this.achievementReportTimer !== -1 ||
+      this.achievementSessionId.length === 0) {
+      return;
+    }
+    const event: AchievementEvent = {
+      eventId: `${this.achievementSessionId}:session-end`,
+      sessionId: this.achievementSessionId,
+      gameId: 'suika',
+      type: 'sessionEnd',
+      occurredAt: Date.now(),
+      isOfficial: true,
+      facts: [
+        { key: 'score', value: this.score },
+        { key: 'droppedCount', value: this.spawnIndex }
+      ]
+    };
+    this.achievementReportTimer = setTimeout(() => {
+      this.achievementReportTimer = -1;
+      this.hasReportedAchievementSessionEnd = true;
+      this.reportAchievementEvent(event);
+    }, CoopMotion.achievementResultReportDelay);
   }
 
   private requestExitToHub(): void {
     if (this.gameOver || !this.hasGameStarted()) {
+      this.clearAchievementReportTimer();
       this.exitToHub();
       return;
     }
@@ -582,6 +631,7 @@ export struct SuikaPage {
 
   private confirmExitToHub(): void {
     this.showExitConfirmOverlay = false;
+    this.clearAchievementReportTimer();
     this.exitToHub();
   }
 

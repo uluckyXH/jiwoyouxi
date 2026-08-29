@@ -28,12 +28,14 @@ export class CoopStorage {
     return emptySnapshot();
   }
 
-  static async save(context: common.Context, snapshot: CoopAppSnapshot): Promise<void> {
+  static async save(context: common.Context, snapshot: CoopAppSnapshot): Promise<boolean> {
     try {
       const store = await preferences.getPreferences(context, { name: STORE_NAME });
       await store.put(SNAPSHOT_KEY, JSON.stringify(CoopStorage.sanitize(snapshot)));
       await store.flush();
+      return true;
     } catch (error) {
+      return false;
     }
   }
 
