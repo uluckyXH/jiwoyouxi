@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/AppIcon';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 
@@ -7,7 +8,7 @@ const TAB_BAR_TOP_PADDING: number = 10;
 const TAB_BAR_BOTTOM_PADDING: number = 24;
 const TAB_ITEM_RADIUS: number = 14;
 const TAB_ICON_SIZE: number = 26;
-const TAB_SYMBOL_SIZE: number = 23;
+const TAB_SVG_SIZE: number = 24;
 const TAB_LABEL_HEIGHT: number = 16;
 
 @Component
@@ -19,10 +20,10 @@ export struct HubBottomTabBar {
 
   build() {
     Row() {
-      this.TabItem(0, $r('sys.symbol.house'), '首页')
-      this.TabItem(1, $r('sys.symbol.heart'), '收藏')
-      this.TabItem(2, $r('sys.symbol.star'), '成就')
-      this.TabItem(3, $r('sys.symbol.more'), '设置')
+      this.TabItem(0, 'home', '首页')
+      this.TabItem(1, 'heart', '收藏')
+      this.TabItem(2, 'medal', '成就')
+      this.TabItem(3, 'settings', '设置')
     }
     .width('100%')
     .height(TAB_BAR_HEIGHT)
@@ -38,12 +39,14 @@ export struct HubBottomTabBar {
   }
 
   @Builder
-  TabItem(index: number, icon: Resource, label: string) {
+  TabItem(index: number, icon: string, label: string) {
     Column({ space: 3 }) {
       Stack({ alignContent: Alignment.Center }) {
-        SymbolGlyph(icon)
-          .fontSize(TAB_SYMBOL_SIZE)
-          .fontColor([this.activeTab === index ? this.activeIconColor() : this.mutedColor()])
+        AppIcon({
+          name: icon,
+          iconSize: TAB_SVG_SIZE,
+          tint: this.activeTab === index ? this.activeIconColor() : this.mutedColor()
+        })
       }
       .width(TAB_ICON_SIZE)
       .height(TAB_ICON_SIZE)
@@ -59,6 +62,8 @@ export struct HubBottomTabBar {
     .justifyContent(FlexAlign.Center)
     .borderRadius(TAB_ITEM_RADIUS)
     .backgroundColor('rgba(255,255,255,0.00)')
+    .accessibilityGroup(true)
+    .accessibilityText(`${label}，${this.activeTab === index ? '已选择' : '未选择'}`)
     .scale({
       x: this.pressedTab === index ? CoopMotion.pressScale : 1,
       y: this.pressedTab === index ? CoopMotion.pressScale : 1
@@ -97,7 +102,7 @@ export struct HubBottomTabBar {
   }
 
   private activeIconColor(): string {
-    return this.isDarkMode ? '#ffd083' : '#f4a51f';
+    return this.isDarkMode ? '#FFD083' : '#A76720';
   }
 
   private activeLabelColor(): string {

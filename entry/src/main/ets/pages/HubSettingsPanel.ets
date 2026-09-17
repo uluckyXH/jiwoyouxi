@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/AppIcon';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 import { APPEARANCE_DARK, APPEARANCE_LIGHT } from '../shell/GameModule';
@@ -27,9 +28,7 @@ export struct HubSettingsPanel {
     Row() {
       Row({ space: 8 }) {
         Stack({ alignContent: Alignment.Center }) {
-          SymbolGlyph($r('sys.symbol.more'))
-            .fontSize(17)
-            .fontColor([this.activeIconColor()])
+          AppIcon({ name: 'settings', iconSize: 20, tint: this.activeIconColor() })
         }
         .width(28)
         .height(28)
@@ -60,8 +59,8 @@ export struct HubSettingsPanel {
   @Builder
   AppearanceModeSelector() {
     Row({ space: 6 }) {
-      this.AppearanceModeOption('☀', '浅色', APPEARANCE_LIGHT)
-      this.AppearanceModeOption('☾', '深色', APPEARANCE_DARK)
+      this.AppearanceModeOption('sun', '浅色', APPEARANCE_LIGHT)
+      this.AppearanceModeOption('moon', '深色', APPEARANCE_DARK)
     }
     .width('100%')
     .height(SETTINGS_SEGMENT_HEIGHT)
@@ -73,13 +72,10 @@ export struct HubSettingsPanel {
   }
 
   @Builder
-  AppearanceModeOption(symbol: string, label: string, appearanceMode: string) {
+  AppearanceModeOption(icon: string, label: string, appearanceMode: string) {
     Stack({ alignContent: Alignment.Center }) {
       Row({ space: 7 }) {
-        Text(symbol)
-          .fontSize(18)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.appearanceSegmentTextColor(appearanceMode))
+        AppIcon({ name: icon, iconSize: 22, tint: this.appearanceSegmentTextColor(appearanceMode) })
         Text(label)
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
@@ -93,6 +89,8 @@ export struct HubSettingsPanel {
     .borderRadius(SETTINGS_GROUP_RADIUS - 5)
     .backgroundColor(this.appearanceSegmentBgColor(appearanceMode))
     .border({ width: 1, color: this.appearanceSegmentLineColor(appearanceMode) })
+    .accessibilityGroup(true)
+    .accessibilityText(`${label}模式，${appearanceMode === this.appearanceMode ? '已选择' : '未选择'}`)
     .onClick(() => {
       this.selectAppearanceMode(appearanceMode);
     })
@@ -119,7 +117,7 @@ export struct HubSettingsPanel {
   }
 
   private activeIconColor(): string {
-    return this.isDarkMode() ? '#FFD083' : '#F4A51F';
+    return this.isDarkMode() ? '#FFD083' : '#A76720';
   }
 
   private panelColor(): string {

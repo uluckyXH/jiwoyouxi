@@ -54,10 +54,10 @@ export struct AchievementUnlockNotice {
           .height(AchievementTheme.noticeIconImageSize)
           .objectFit(ImageFit.Contain)
       } else {
-        Text(this.notice.placeholderSymbol)
-          .fontSize(this.notice.kind === 'summary' ? 17 : 20)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.symbolColor())
+        Image($rawfile('app/achievements/achievement_wall_logo.svg'))
+          .width(AchievementTheme.noticeIconImageSize)
+          .height(AchievementTheme.noticeIconImageSize)
+          .objectFit(ImageFit.Contain)
       }
     }
     .width(AchievementTheme.noticeIconSize)
@@ -99,10 +99,6 @@ export struct AchievementUnlockNotice {
 
   private titleColor(): string {
     return this.isDarkMode ? '#FFF2DF' : '#4E3020';
-  }
-
-  private symbolColor(): string {
-    return this.isDarkMode ? AchievementTheme.goldDark : AchievementTheme.goldLight;
   }
 
   private isHighlight(): boolean {

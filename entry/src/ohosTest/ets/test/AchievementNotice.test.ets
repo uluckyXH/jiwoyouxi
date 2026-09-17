@@ -26,7 +26,7 @@ export default function achievementNoticeTest(): void {
         expect(notices[0].title).assertEqual('第一记四消');
         expect(notices[0].summary).assertEqual('单次消除 4 行');
         expect(notices[0].placeholderSymbol).assertEqual('▣');
-        expect(notices[0].badgeAssetPath).assertEqual('');
+        expect(notices[0].badgeAssetPath).assertEqual('app/achievements/ach_tetris_first_tetris.svg');
         expect(notices[0].achievementCount).assertEqual(1);
       });
 
@@ -69,12 +69,30 @@ export default function achievementNoticeTest(): void {
         const notices = achievementNoticeItemsForUnlocks([
           unlock('tetris.first_tetris'),
           unlock('tetris.first_tetris'),
-          unlock('global.favorite_three'),
+          unlock('rpsBattle.conversion_storm'),
           unlock('notRegistered.missing')
         ]);
 
         expect(notices.length).assertEqual(1);
         expect(notices[0].noticeId).assertEqual('tetris.first_tetris');
+      });
+
+    it('shares each global SVG with the wall and preserves individual notice order',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const ids: string[] = [
+          'global.first_settlement', 'global.play_six_games',
+          'global.favorite_three', 'global.complete_ten_sessions'
+        ];
+        const files: string[] = [
+          'ach_global_first_settlement.svg', 'ach_global_play_six_games.svg',
+          'ach_global_favorite_three.svg', 'ach_global_complete_ten_sessions.svg'
+        ];
+        ids.forEach((id, index) => {
+          const notices = achievementNoticeItemsForUnlocks([unlock(id)]);
+          expect(notices.length).assertEqual(1);
+          expect(notices[0].noticeId).assertEqual(id);
+          expect(notices[0].badgeAssetPath).assertEqual(`app/achievements/${files[index]}`);
+        });
       });
 
     it('returns no notification item when there are no newly unlocked achievements',

@@ -9,8 +9,9 @@ export struct HubStatsPanel {
 
   build() {
     Row({ space: 10 }) {
-      this.StatCard('连续游玩', String(this.playStreak), '天', '🔥')
-      this.StatCard('鸡窝徽章', String(this.unlockedBadges), '/ ' + String(this.badgeTotal), '⭐')
+      this.StatCard('连续游玩', String(this.playStreak), '天', 'app/ui/streak.svg')
+      this.StatCard('鸡窝徽章', String(this.unlockedBadges), '/ ' + String(this.badgeTotal),
+        'app/achievements/achievement_wall_logo.svg')
     }
     .width('100%')
   }
@@ -36,10 +37,13 @@ export struct HubStatsPanel {
       }
       .alignItems(HorizontalAlign.Start)
       .width('100%')
-      Text(icon)
-        .fontSize(24)
-        .opacity(0.72)
-        .position({ x: 100, y: 10 })
+      Image($rawfile(icon))
+        .width(32)
+        .height(32)
+        .objectFit(ImageFit.Contain)
+        .align(Alignment.TopEnd)
+        .margin({ top: 8 })
+        .accessibilityLevel('no')
     }
     .layoutWeight(1)
     .height(84)

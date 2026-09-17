@@ -1,5 +1,6 @@
 export class AchievementTheme {
   static readonly pageTitleSize: number = 22;
+  static readonly wallLogoSize: number = 40;
   static readonly badgeSize: number = 48;
   static readonly groupLogoSize: number = 28;
   static readonly rowHeight: number = 80;
@@ -18,6 +19,10 @@ export class AchievementTheme {
   static readonly goldDark: string = '#FFC46F';
   static readonly goldSoftLight: string = '#FFF0C9';
   static readonly goldSoftDark: string = '#493920';
+  static readonly unearnedSurfaceLight: string = '#FFF9F0';
+  static readonly unearnedSurfaceDark: string = '#2D2922';
+  static readonly unearnedLineLight: string = '#E9DDCA';
+  static readonly unearnedLineDark: string = '#514638';
   static readonly lockedSymbolLight: string = '#9B8A79';
   static readonly lockedSymbolDark: string = '#B6A38F';
   static readonly progressTrackLight: string = 'rgba(152,116,77,0.14)';

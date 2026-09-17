@@ -1,6 +1,6 @@
 import { AchievementEvent } from './AchievementModule';
 import { CoopAppSnapshot } from './GameModule';
-import { achievementPrimaryFavoriteCount } from './AchievementRegistry';
+import { ACHIEVEMENT_PRIMARY_GAME_IDS, achievementPrimaryFavoriteCount } from './AchievementRegistry';
 
 export interface FavoriteSnapshotToggleResult {
   snapshot: CoopAppSnapshot;
@@ -44,13 +44,15 @@ export function favoriteSnapshotAfterPersist(
 }
 
 export function favoriteAchievementEventAfterPersist(
+  addedGameId: string,
   didSave: boolean,
   didAddFavorite: boolean,
   favorites: string[],
   occurredAt: number,
   sequence: number
 ): AchievementEvent | undefined {
-  if (!didSave || !didAddFavorite || !Number.isFinite(occurredAt) || occurredAt <= 0 ||
+  if (!ACHIEVEMENT_PRIMARY_GAME_IDS.includes(addedGameId) || !favorites.includes(addedGameId) ||
+    !didSave || !didAddFavorite || !Number.isFinite(occurredAt) || occurredAt <= 0 ||
     !Number.isFinite(sequence) || sequence <= 0) {
     return undefined;
   }

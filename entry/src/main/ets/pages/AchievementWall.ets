@@ -1,3 +1,5 @@
+import { AchievementBadge } from '../components/AchievementBadge';
+import { AchievementDetail } from './AchievementDetail';
 import { MotionPressable } from '../components/MotionPressable';
 import { AchievementTheme } from '../design/AchievementTheme';
 import { CoopMotion } from '../design/CoopMotion';
@@ -44,7 +46,7 @@ export struct AchievementWall {
     }
     .width('100%')
     .bindSheet($$this.isDetailSheetPresented, this.AchievementDetailSheet(), {
-      height: 360,
+      height: this.selectedAchievementId === 'global.play_six_games' ? '80%' : 520,
       dragBar: true,
       showClose: false
     })
@@ -163,28 +165,26 @@ export struct AchievementWall {
     Column({ space: 9 }) {
       Row({ space: 12 }) {
         Row({ space: 9 }) {
-          Stack({ alignContent: Alignment.Center }) {
-            Text('♕')
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.goldColor())
-          }
-          .width(32)
-          .height(32)
-          .backgroundColor(this.groupSurfaceColor())
-          .borderRadius(16)
-          .border({ width: 1, color: this.lineColor() })
+          Image($rawfile('app/achievements/achievement_wall_logo.svg'))
+            .width(AchievementTheme.wallLogoSize)
+            .height(AchievementTheme.wallLogoSize)
+            .objectFit(ImageFit.Contain)
 
           Column({ space: 2 }) {
             Text('成就墙')
               .fontSize(AchievementTheme.pageTitleSize)
               .fontWeight(FontWeight.Bold)
               .fontColor(this.inkColor())
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
             Text('收集你在鸡窝里的小高光')
               .fontSize(12)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.mutedColor())
+              .maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
           }
+          .layoutWeight(1)
           .alignItems(HorizontalAlign.Start)
         }
         .layoutWeight(1)
@@ -253,6 +253,13 @@ export struct AchievementWall {
   AchievementGroup(group: AchievementGroupView) {
     Column({ space: 8 }) {
       this.GroupHeader(group)
+      if (group.definition.id === 'global') {
+        Text('跨游戏积累，收集在鸡窝里的每一步')
+          .width('100%')
+          .fontSize(11)
+          .fontColor(this.mutedColor())
+          .padding({ left: 2, bottom: 2 })
+      }
       ForEach(group.items, (item: AchievementViewItem) => {
         this.AchievementRow(item)
       }, (item: AchievementViewItem) => item.definition.id)
@@ -285,10 +292,10 @@ export struct AchievementWall {
   GroupIdentity(group: AchievementGroupView) {
     Stack({ alignContent: Alignment.Center }) {
       if (group.definition.gameId === 'global') {
-        Text(group.definition.placeholderSymbol)
-          .fontSize(16)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.goldColor())
+        Image($rawfile('app/ui/collection.svg'))
+          .width(24)
+          .height(24)
+          .objectFit(ImageFit.Contain)
       } else {
         Image($rawfile(gameLogoPath(group.definition.gameId)))
           .width(24)
@@ -313,7 +320,7 @@ export struct AchievementWall {
       }
     }) {
       Row({ space: 12 }) {
-        this.AchievementBadge(item)
+        AchievementBadge({ item: item, isDarkMode: this.isDarkMode, accentColor: this.accentColor(item) })
         Column({ space: 5 }) {
           Text(item.definition.title)
             .width('100%')
@@ -362,40 +369,6 @@ export struct AchievementWall {
   }
 
   @Builder
-  AchievementBadge(item: AchievementViewItem) {
-    Stack({ alignContent: Alignment.Center }) {
-      if (this.hasBadgeAsset(item)) {
-        Image($rawfile(this.badgeAssetPath(item)))
-          .width(38)
-          .height(38)
-          .objectFit(ImageFit.Contain)
-      } else {
-        Text(item.definition.placeholderSymbol)
-          .fontSize(23)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.badgeSymbolColor(item))
-      }
-      if (item.status === 'unlocked') {
-        Text('✓')
-          .width(17)
-          .height(17)
-          .fontSize(11)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.unlockCheckColor())
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.goldColor())
-          .borderRadius(9)
-          .position({ x: 33, y: 33 })
-      }
-    }
-    .width(AchievementTheme.badgeSize)
-    .height(AchievementTheme.badgeSize)
-    .backgroundColor(this.badgeSurfaceColor(item))
-    .border({ width: 1, color: this.badgeLineColor(item) })
-    .borderRadius(16)
-  }
-
-  @Builder
   AchievementProgressLine(item: AchievementViewItem) {
     Row({ space: 6 }) {
       Text(`${item.current} / ${item.target}`)
@@ -424,10 +397,11 @@ export struct AchievementWall {
   @Builder
   FilterEmptyPanel() {
     Column({ space: 8 }) {
-      Text(this.activeFilter === 'unlocked' ? '✦' : '◌')
-        .fontSize(28)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.goldColor())
+      Image($rawfile(this.activeFilter === 'unlocked' ? 'app/ui/achievements_empty.svg' : 'app/ui/progress_empty.svg'))
+        .width(64)
+        .height(64)
+        .objectFit(ImageFit.Contain)
+        .accessibilityLevel('no')
       Text(this.emptyTitle())
         .fontSize(16)
         .fontWeight(FontWeight.Bold)
@@ -448,108 +422,13 @@ export struct AchievementWall {
   @Builder
   AchievementDetailSheet() {
     if (this.selectedAchievementId.length > 0) {
-      this.AchievementDetailContent(this.detailItem())
+      AchievementDetail({
+        item: this.detailItem(),
+        achievementState: this.achievementState,
+        isDarkMode: this.isDarkMode,
+        close: () => { this.isDetailSheetPresented = false; }
+      })
     }
-  }
-
-  @Builder
-  AchievementDetailContent(item: AchievementViewItem) {
-    Column({ space: 12 }) {
-      this.DetailBadge(item)
-      Text(item.definition.title)
-        .fontSize(20)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.inkColor())
-        .textAlign(TextAlign.Center)
-      Text(item.definition.detail)
-        .fontSize(13)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.mutedColor())
-        .textAlign(TextAlign.Center)
-        .maxLines(2)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Row()
-        .width('100%')
-        .height(1)
-        .backgroundColor(this.lineColor())
-      this.DetailInfoRow('当前状态', this.statusText(item))
-      this.DetailInfoRow('来源游戏', this.detailGameTitle(item))
-      if (item.status === 'unlocked') {
-        this.DetailInfoRow('解锁记录', this.unlockedRecordText(item))
-      } else if (this.hasNumericProgress(item)) {
-        this.DetailInfoRow('当前进度', `${item.current} / ${item.target}`)
-      }
-      Text('知道了')
-        .width(132)
-        .height(40)
-        .fontSize(13)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.unlockCheckColor())
-        .textAlign(TextAlign.Center)
-        .backgroundColor(this.goldColor())
-        .borderRadius(20)
-        .margin({ top: 4 })
-        .onClick(() => {
-          this.isDetailSheetPresented = false;
-        })
-    }
-    .width('100%')
-    .height('100%')
-    .padding({ left: 24, right: 24, top: 16, bottom: 22 })
-    .alignItems(HorizontalAlign.Center)
-    .backgroundColor(this.detailSurfaceColor())
-  }
-
-  @Builder
-  DetailBadge(item: AchievementViewItem) {
-    Stack({ alignContent: Alignment.Center }) {
-      if (this.hasBadgeAsset(item)) {
-        Image($rawfile(this.badgeAssetPath(item)))
-          .width(72)
-          .height(72)
-          .objectFit(ImageFit.Contain)
-      } else {
-        Text(item.definition.placeholderSymbol)
-          .fontSize(40)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.badgeSymbolColor(item))
-      }
-      if (item.status === 'unlocked') {
-        Text('✓')
-          .width(24)
-          .height(24)
-          .fontSize(14)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.unlockCheckColor())
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.goldColor())
-          .borderRadius(12)
-          .position({ x: 66, y: 66 })
-      }
-    }
-    .width(AchievementTheme.detailBadgeSize)
-    .height(AchievementTheme.detailBadgeSize)
-    .backgroundColor(this.badgeSurfaceColor(item))
-    .border({ width: 1, color: this.badgeLineColor(item) })
-    .borderRadius(28)
-  }
-
-  @Builder
-  DetailInfoRow(label: string, value: string) {
-    Row() {
-      Text(label)
-        .fontSize(12)
-        .fontWeight(FontWeight.Medium)
-        .fontColor(this.mutedColor())
-      Blank()
-      Text(value)
-        .fontSize(12)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.inkColor())
-        .maxLines(1)
-        .textOverflow({ overflow: TextOverflow.Ellipsis })
-    }
-    .width('100%')
   }
 
   private visibleGroups(): AchievementGroupView[] {
@@ -609,14 +488,6 @@ export struct AchievementWall {
     return item.target > 0;
   }
 
-  private hasBadgeAsset(item: AchievementViewItem): boolean {
-    return this.badgeAssetPath(item).length > 0;
-  }
-
-  private badgeAssetPath(item: AchievementViewItem): string {
-    return item.definition.badgeAssetPath;
-  }
-
   private statusText(item: AchievementViewItem): string {
     if (!item.definition.enabled) {
       return '待开放';
@@ -637,31 +508,12 @@ export struct AchievementWall {
     return this.hasNumericProgress(item) ? `${item.current} / ${item.target}` : '等待达成';
   }
 
-  private unlockedRecordText(item: AchievementViewItem): string {
-    return this.fullDate(item.unlockedAt);
-  }
-
-  private detailGameTitle(item: AchievementViewItem): string {
-    if (item.definition.gameId === 'global') {
-      return '鸡窝游戏合集';
-    }
-    return moduleById(item.definition.gameId).title;
-  }
-
   private shortDate(timestamp: number): string {
     if (timestamp <= 0) {
       return '';
     }
     const date = new Date(timestamp);
     return `${this.twoDigits(date.getMonth() + 1)}-${this.twoDigits(date.getDate())}`;
-  }
-
-  private fullDate(timestamp: number): string {
-    if (timestamp <= 0) {
-      return '已解锁';
-    }
-    const date = new Date(timestamp);
-    return `${date.getFullYear()}-${this.twoDigits(date.getMonth() + 1)}-${this.twoDigits(date.getDate())}`;
   }
 
   private twoDigits(value: number): string {
@@ -680,7 +532,7 @@ export struct AchievementWall {
 
   private emptyDescription(): string {
     if (this.activeFilter === 'unlocked') {
-      return '完成已接入的挑战后，勋章会自动收进鸡窝。';
+      return '完成一局游戏，把第一枚勋章带回鸡窝。';
     }
     if (this.activeFilter === 'inProgress') {
       return '首次获得可累计的进度后，它会显示在这里。';
@@ -789,25 +641,6 @@ export struct AchievementWall {
       return this.isDarkMode ? 'rgba(255,196,111,0.28)' : 'rgba(244,166,42,0.30)';
     }
     return this.lineColor();
-  }
-
-  private badgeSurfaceColor(item: AchievementViewItem): string {
-    if (item.status === 'unlocked') {
-      return this.isDarkMode ? AchievementTheme.goldSoftDark : AchievementTheme.goldSoftLight;
-    }
-    return this.isDarkMode ? '#302A23' : '#F8EFE2';
-  }
-
-  private badgeLineColor(item: AchievementViewItem): string {
-    return item.status === 'unlocked' ? this.accentColor(item) : this.lineColor();
-  }
-
-  private badgeSymbolColor(item: AchievementViewItem): string {
-    return item.status === 'unlocked' ? this.accentColor(item) : this.lockedSymbolColor();
-  }
-
-  private lockedSymbolColor(): string {
-    return this.isDarkMode ? AchievementTheme.lockedSymbolDark : AchievementTheme.lockedSymbolLight;
   }
 
   private statusColor(item: AchievementViewItem): string {

@@ -132,8 +132,8 @@ export interface AchievementDefinition {
   detail: string;
   placeholderSymbol: string;
   /**
-   * Future badge image. Keep this empty until the matching rawfile PNG is bundled.
-   * Values use the rawfile-relative app/achievements/<name>.png form.
+   * Bundled SVG or PNG, relative to rawfile: app/achievements/<name>.svg.
+   * Empty paths use the placeholder symbol until the artwork is ready.
    */
   badgeAssetPath: string;
   progressKind: AchievementProgressKind;

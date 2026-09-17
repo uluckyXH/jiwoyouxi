@@ -28,6 +28,7 @@ export default function achievementFavoriteEventTest(): void {
     it('creates a collector event only after a successful primary favorite write',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const failedWrite = favoriteAchievementEventAfterPersist(
+          'minesweeper',
           false,
           true,
           ['rpsBattle', 'freecell', 'minesweeper'],
@@ -35,6 +36,7 @@ export default function achievementFavoriteEventTest(): void {
           1
         );
         const removal = favoriteAchievementEventAfterPersist(
+          'minesweeper',
           true,
           false,
           ['rpsBattle', 'freecell'],
@@ -42,6 +44,7 @@ export default function achievementFavoriteEventTest(): void {
           2
         );
         const nonPrimaryFavorite = favoriteAchievementEventAfterPersist(
+          'rps',
           true,
           true,
           ['rps'],
@@ -49,6 +52,7 @@ export default function achievementFavoriteEventTest(): void {
           3
         );
         const event = favoriteAchievementEventAfterPersist(
+          'minesweeper',
           true,
           true,
           ['rpsBattle', 'freecell', 'minesweeper'],
@@ -69,6 +73,18 @@ export default function achievementFavoriteEventTest(): void {
         expect(event.facts.length).assertEqual(1);
         expect(event.facts[0].key).assertEqual('favoriteCount');
         expect(event.facts[0].value).assertEqual(3);
+      });
+
+    it('does not use existing primary favorites to reward adding an unrelated game',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const event = favoriteAchievementEventAfterPersist(
+          'rps', true, true, ['rps', 'rpsBattle', 'freecell', 'minesweeper'], TEST_OCCURRED_AT, 5
+        );
+        const missingGame = favoriteAchievementEventAfterPersist(
+          'suika', true, true, ['rpsBattle', 'freecell', 'minesweeper'], TEST_OCCURRED_AT, 6
+        );
+        expect(event === undefined).assertEqual(true);
+        expect(missingGame === undefined).assertEqual(true);
       });
 
     it('restores the previous favorite snapshot when persistence fails',

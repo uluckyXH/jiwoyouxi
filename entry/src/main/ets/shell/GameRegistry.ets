@@ -76,10 +76,21 @@ export function moduleById(id: string): GameModule {
 }
 
 export function gameLogoPath(gameId: string): string {
-  if (gameId === 'suika') return 'app/game_logos/game_icon_suika.png';
-  if (gameId === 'minesweeper') return 'app/game_logos/game_icon_minesweeper.png';
-  if (gameId === 'tetris') return 'app/game_logos/game_icon_tetris.png';
-  if (gameId === 'chicken2048') return 'app/game_logos/game_icon_chicken2048.png';
-  if (gameId === 'freecell') return 'app/game_logos/game_icon_freecell.png';
-  return 'app/game_logos/game_icon_rps.png';
+  // App shell identities only; game scenes own their artwork under rawfile/games/.
+  if (gameId === 'suika') {
+    return 'app/game_logos/game_icon_suika.svg';
+  }
+  if (gameId === 'minesweeper') {
+    return 'app/game_logos/game_icon_minesweeper.svg';
+  }
+  if (gameId === 'tetris') {
+    return 'app/game_logos/game_icon_tetris.svg';
+  }
+  if (gameId === 'chicken2048') {
+    return 'app/game_logos/game_icon_chicken2048.svg';
+  }
+  if (gameId === 'freecell') {
+    return 'app/game_logos/game_icon_freecell.svg';
+  }
+  return 'app/game_logos/game_icon_rps.svg';
 }

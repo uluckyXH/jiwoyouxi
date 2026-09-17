@@ -306,6 +306,7 @@ struct Index {
       }
       this.favoriteAchievementEventSequence += 1;
       const event = favoriteAchievementEventAfterPersist(
+        gameId,
         true,
         toggleResult.didAddFavorite,
         toggleResult.snapshot.favorites,

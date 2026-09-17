@@ -1,3 +1,4 @@
+import { AppIcon } from '../components/AppIcon';
 import { MotionPressable } from '../components/MotionPressable';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
@@ -11,9 +12,11 @@ import {
   GameModule,
   GameRecord
 } from '../shell/GameModule';
-import { gameLogoPath, GAME_MODULES, moduleById } from '../shell/GameRegistry';
+import { GAME_MODULES, moduleById } from '../shell/GameRegistry';
 import { AchievementWall } from './AchievementWall';
 import { HubBottomTabBar } from './HubBottomTabBar';
+import { HubGameLogoTile } from './HubGameLogoTile';
+import { HubHeroBanner } from './HubHeroBanner';
 import { HubSettingsPanel } from './HubSettingsPanel';
 import { HubStatsPanel } from './HubStatsPanel';
 
@@ -22,11 +25,7 @@ const HOME_SIDE_PADDING: number = 20;
 const HOME_TOP_PADDING: number = 56;
 const HOME_CONTENT_BOTTOM_SPACE: number = 108;
 const HOME_HEADER_ACTION_SIZE: number = 42;
-const HOME_HEADER_SYMBOL_SIZE: number = 22;
-const HOME_BANNER_IMAGE: string = 'app/home/banner.png';
-const HOME_HERO_BANNER_HEIGHT: number = 200;
-const HOME_HERO_BANNER_IMAGE_HEIGHT: number = 250;
-const HOME_HERO_BANNER_IMAGE_OFFSET_Y: number = -38;
+const HOME_HEADER_ICON_SIZE: number = 22;
 const HOME_GAME_CARD_HEIGHT: number = 108;
 const HOME_GAME_CARD_SLOT_HEIGHT: number = 122;
 const HOME_GAME_GRID_GAP: number = 10;
@@ -122,8 +121,12 @@ export struct HubPage {
   HomeContent() {
     Column({ space: 14 }) {
       this.WelcomeHeader()
-      this.HeroBanner()
-      this.SectionTitleRow('精选游戏', '🐔', true)
+      HubHeroBanner({
+        isDarkMode: this.isDarkMode(),
+        gameTitle: moduleById(this.heroGameId()).title,
+        startGame: () => this.openGame(this.heroGameId())
+      })
+      this.SectionTitleRow('精选游戏', 'app/ui/chicken.svg', true)
       this.HomeGameGrid()
       HubStatsPanel({
         playStreak: this.playStreak(),
@@ -153,9 +156,11 @@ export struct HubPage {
 
       Row({ space: 10 }) {
         Stack({ alignContent: Alignment.Center }) {
-          SymbolGlyph(this.appearanceToggleIcon())
-            .fontSize(HOME_HEADER_SYMBOL_SIZE)
-            .fontColor([this.activeColor()])
+          AppIcon({
+            name: this.isDarkMode() ? 'sun' : 'moon',
+            iconSize: HOME_HEADER_ICON_SIZE,
+            tint: this.activeColor()
+          })
         }
           .width(HOME_HEADER_ACTION_SIZE)
           .height(HOME_HEADER_ACTION_SIZE)
@@ -163,13 +168,16 @@ export struct HubPage {
           .border({ width: 1, color: this.lineColor() })
           .borderRadius(HOME_HEADER_ACTION_SIZE / 2)
           .shadow(this.softShadow())
+          .accessibilityText(this.isDarkMode() ? '切换到浅色模式' : '切换到深色模式')
           .onClick(() => {
             this.toggleAppearanceMode();
           })
-        Image($r('app.media.app_icon'))
+        Image($rawfile('app/ui/chicken.svg'))
           .width(HOME_HEADER_ACTION_SIZE)
           .height(HOME_HEADER_ACTION_SIZE)
-          .objectFit(ImageFit.Cover)
+          .padding(3)
+          .objectFit(ImageFit.Contain)
+          .accessibilityText('鸡窝游戏')
           .borderRadius(HOME_HEADER_ACTION_SIZE / 2)
           .backgroundColor(this.iconButtonBgColor())
           .border({ width: 1, color: this.lineColor() })
@@ -180,40 +188,15 @@ export struct HubPage {
   }
 
   @Builder
-  HeroBanner() {
-    MotionPressable({
-      pressScale: 0.985,
-      pressedOpacity: 0.98,
-      action: () => {
-        this.openGame(this.heroGameId());
-      }
-    }) {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Image($rawfile(HOME_BANNER_IMAGE))
-          .width('100%')
-          .height(HOME_HERO_BANNER_IMAGE_HEIGHT)
-          .objectFit(ImageFit.Cover)
-          .translate({ x: 0, y: HOME_HERO_BANNER_IMAGE_OFFSET_Y })
-      }
-      .width('100%')
-      .height(HOME_HERO_BANNER_HEIGHT)
-      .borderRadius(28)
-      .clip(true)
-      .backgroundColor(this.heroBannerBgColor())
-      .border({ width: 1, color: this.lineColor() })
-      .shadow(this.cardShadow())
-    }
-  }
-
-  @Builder
   SectionTitleRow(title: string, icon: string, showMore: boolean) {
     Row() {
       Row({ space: 8 }) {
-        Text(icon)
+        Image($rawfile(icon))
           .width(28)
           .height(28)
-          .fontSize(17)
-          .textAlign(TextAlign.Center)
+          .padding(2)
+          .objectFit(ImageFit.Contain)
+          .accessibilityLevel('no')
           .backgroundColor(this.sectionIconBgColor())
           .borderRadius(14)
           .border({ width: 1, color: this.lineColor() })
@@ -224,16 +207,16 @@ export struct HubPage {
       }
       Blank()
       if (showMore) {
-        Text('›')
+        Stack({ alignContent: Alignment.Center }) {
+          AppIcon({ name: 'chevron_right', iconSize: 20, tint: this.inkColor() })
+        }
           .width(34)
           .height(30)
-          .fontSize(26)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.inkColor())
-          .textAlign(TextAlign.Center)
           .backgroundColor(this.sectionActionBgColor())
           .borderRadius(15)
           .border({ width: 1, color: this.lineColor() })
+          .responseRegion({ x: -3, y: -5, width: 40, height: 40 })
+          .accessibilityText('查看精选游戏')
           .onClick(() => {
             this.activeTab = 0;
           })
@@ -276,7 +259,15 @@ export struct HubPage {
           .opacity(this.isDarkMode() ? 0.72 : 0.58)
           .position({ x: 14, y: 10 })
         Row({ space: 12 }) {
-          this.GameLogoTile(module, HOME_GAME_LOGO_TILE_SIZE, HOME_GAME_LOGO_IMAGE_SIZE, true)
+          HubGameLogoTile({
+            gameId: module.id,
+            tileSize: HOME_GAME_LOGO_TILE_SIZE,
+            imageSize: HOME_GAME_LOGO_IMAGE_SIZE,
+            showFavorite: true,
+            isFavorite: this.isFavorite(module.id),
+            isDarkMode: this.isDarkMode(),
+            toggleFavorite: this.toggleFavorite
+          })
 
           Column({ space: 6 }) {
             Text(module.title)
@@ -309,41 +300,9 @@ export struct HubPage {
   }
 
   @Builder
-  GameLogoTile(module: GameModule, tileSize: number, imageSize: number, showFavorite: boolean) {
-    Stack({ alignContent: Alignment.Center }) {
-          Image($rawfile(gameLogoPath(module.id)))
-        .width(imageSize)
-        .height(imageSize)
-        .objectFit(ImageFit.Contain)
-        .shadow(this.logoShadow())
-      if (showFavorite) {
-        Text(this.isFavorite(module.id) ? '★' : '☆')
-          .width(24)
-          .height(24)
-          .fontSize(15)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.isFavorite(module.id) ? CoopTheme.brand : this.favoriteInactiveColor())
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.favoriteBadgeBgColor())
-          .borderRadius(12)
-          .border({ width: 1, color: this.lineColor() })
-          .position({ x: tileSize - 18, y: -7 })
-          .onClick(() => {
-            this.toggleFavorite(module.id);
-          })
-      }
-    }
-    .width(tileSize)
-    .height(tileSize)
-    .borderRadius(18)
-    .backgroundColor(this.gameIconBgColor())
-    .border({ width: 1, color: this.iconTileLineColor() })
-  }
-
-  @Builder
   FavoriteList() {
     Column({ space: 12 }) {
-      this.SectionTitleRow('我的收藏', '♡', false)
+      this.SectionTitleRow('我的收藏', 'app/ui/favorites_empty.svg', false)
       if (this.visibleFavoriteIds().length === 0) {
         this.FavoriteEmptyPanel()
       } else {
@@ -388,15 +347,14 @@ export struct HubPage {
 
         Column({ space: 8 }) {
           Row() {
-            this.GameLogoTile(module, HOME_FAVORITE_LOGO_TILE_SIZE, HOME_FAVORITE_LOGO_IMAGE_SIZE, false)
+            HubGameLogoTile({
+              gameId: module.id,
+              tileSize: HOME_FAVORITE_LOGO_TILE_SIZE,
+              imageSize: HOME_FAVORITE_LOGO_IMAGE_SIZE,
+              isDarkMode: this.isDarkMode()
+            })
             Blank()
-            Text('★')
-              .width(28)
-              .height(28)
-              .fontSize(18)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.favoriteActiveColor())
-              .textAlign(TextAlign.Center)
+            AppIcon({ name: 'star_filled', iconSize: 24, tint: this.favoriteActiveColor() })
           }
           .width('100%')
           .alignItems(VerticalAlign.Top)
@@ -435,16 +393,11 @@ export struct HubPage {
   @Builder
   FavoriteEmptyPanel() {
     Column({ space: 10 }) {
-      Text('♡')
-        .width(52)
-        .height(52)
-        .fontSize(28)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.favoriteActiveColor())
-        .textAlign(TextAlign.Center)
-        .backgroundColor(this.panelSoftColor())
-        .borderRadius(18)
-        .border({ width: 1, color: this.lineColor() })
+      Image($rawfile('app/ui/favorites_empty.svg'))
+        .width(72)
+        .height(72)
+        .objectFit(ImageFit.Contain)
+        .accessibilityLevel('no')
       Text('还没有收藏')
         .fontSize(17)
         .fontWeight(FontWeight.Bold)
@@ -595,10 +548,6 @@ export struct HubPage {
     });
   }
 
-  private appearanceToggleIcon(): Resource {
-    return $r('sys.symbol.exposure');
-  }
-
   private homeBgColor(): string {
     return this.isDarkMode() ? '#101110' : CoopTheme.appSurface;
   }
@@ -611,16 +560,12 @@ export struct HubPage {
     return this.isDarkMode() ? '#c8b7a2' : '#786555';
   }
 
-  private brandDarkColor(): string {
-    return this.isDarkMode() ? '#ffc46f' : CoopTheme.brandDark;
-  }
-
   private activeColor(): string {
-    return this.isDarkMode() ? '#ffb079' : CoopTheme.coral;
+    return this.isDarkMode() ? '#FFD083' : '#A76720';
   }
 
   private favoriteActiveColor(): string {
-    return this.isDarkMode() ? '#ffd083' : CoopTheme.brand;
+    return this.isDarkMode() ? '#FFD083' : '#B47628';
   }
 
   private favoriteActionBgColor(): string {
@@ -655,32 +600,12 @@ export struct HubPage {
     return this.panelSoftColor();
   }
 
-  private favoriteBadgeBgColor(): string {
-    return this.isDarkMode() ? '#1b1916' : '#fffaf2';
-  }
-
-  private favoriteInactiveColor(): string {
-    return this.isDarkMode() ? 'rgba(201,181,156,0.62)' : 'rgba(123,108,98,0.58)';
-  }
-
   private gameCardBgColor(): string {
     return this.isDarkMode() ? '#25221e' : '#fffdf8';
   }
 
   private gameCardLineColor(): string {
     return this.isDarkMode() ? 'rgba(255,231,196,0.18)' : 'rgba(126,78,35,0.16)';
-  }
-
-  private gameIconBgColor(): string {
-    return this.isDarkMode() ? '#332c25' : '#fff3d9';
-  }
-
-  private iconTileLineColor(): string {
-    return this.isDarkMode() ? 'rgba(255,236,205,0.20)' : 'rgba(111,73,39,0.16)';
-  }
-
-  private heroBannerBgColor(): string {
-    return this.isDarkMode() ? '#26221d' : '#fff8ee';
   }
 
   private softShadow(): ShadowOptions {
@@ -714,23 +639,6 @@ export struct HubPage {
       color: 'rgba(112,69,28,0.22)',
       offsetX: 0,
       offsetY: 16
-    };
-  }
-
-  private logoShadow(): ShadowOptions {
-    if (this.isDarkMode()) {
-      return {
-        radius: 12,
-        color: 'rgba(0,0,0,0.34)',
-        offsetX: 0,
-        offsetY: 5
-      };
-    }
-    return {
-      radius: 12,
-      color: 'rgba(96,57,24,0.14)',
-      offsetX: 0,
-      offsetY: 5
     };
   }
 

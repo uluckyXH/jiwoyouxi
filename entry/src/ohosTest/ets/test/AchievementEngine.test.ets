@@ -65,6 +65,11 @@ export default function achievementEngineTest(): void {
         expect(isAchievementBadgeAssetPathValid('')).assertEqual(true);
         expect(isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.png'))
           .assertEqual(true);
+        expect(isAchievementBadgeAssetPathValid('app/achievements/ach_global_first_settlement.svg'))
+          .assertEqual(true);
+        expect(isAchievementBadgeAssetPathValid('app/achievements/../outside.svg')).assertEqual(false);
+        expect(isAchievementBadgeAssetPathValid('app/achievements/nested/badge.svg')).assertEqual(false);
+        expect(isAchievementBadgeAssetPathValid('app/achievements/badge.svg?variant=1')).assertEqual(false);
         expect(isAchievementBadgeAssetPathValid('app/game_logos/minesweeper.png')).assertEqual(false);
         expect(isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.jpg'))
           .assertEqual(false);
@@ -377,6 +382,40 @@ export default function achievementEngineTest(): void {
         expect(repeated.disposition).assertEqual('duplicate');
         expect(invalidSessionEnd.disposition).assertEqual('ignored');
         expect(invalidSessionEnd.state.processedEventIds.length).assertEqual(2);
+      });
+
+    it('preserves all four global badges and their progress when reopening the wall',
+      TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+        const gameIds: string[] = ['rpsBattle', 'freecell', 'minesweeper', 'chicken2048', 'tetris', 'suika'];
+        let state = emptyAchievementState();
+        for (let index = 0; index < 10; index += 1) {
+          state = applyAchievementEvent(state, createEvent(
+            `wall-${index}:end`, `wall-${index}`, gameIds[index % gameIds.length], [], 'sessionEnd'
+          )).state;
+        }
+        state = applyAchievementEvent(state, createEvent(
+          'wall:favorite-three', 'wall:favorites', 'global', [{ key: 'favoriteCount', value: 3 }]
+        )).state;
+        const lowerFavoriteCount = applyAchievementEvent(state, createEvent(
+          'wall:favorite-one', 'wall:favorites-next', 'global', [{ key: 'favoriteCount', value: 1 }]
+        ));
+        const restored = normalizeAchievementState(lowerFavoriteCount.state);
+        const globalGroup = achievementGroupsForState(restored, 'unlocked')[0];
+
+        expect(lowerFavoriteCount.newlyUnlocked.length).assertEqual(0);
+        expect(globalGroup.definition.id).assertEqual('global');
+        expect(globalGroup.items.length).assertEqual(4);
+        const targets: number[] = [1, 6, 3, 10];
+        globalGroup.items.forEach((item, index) => {
+          expect(item.status).assertEqual('unlocked');
+          expect(item.current).assertEqual(targets[index]);
+          expect(item.target).assertEqual(targets[index]);
+          expect(item.unlockedAt).assertEqual(TEST_OCCURRED_AT);
+          expect(item.definition.badgeAssetPath.endsWith('.svg')).assertEqual(true);
+        });
+        expect(achievementGroupsForState(restored, 'inProgress').length).assertEqual(0);
+        expect(restored.playedGameIds.length).assertEqual(6);
+        expect(restored.completedSessionCount).assertEqual(10);
       });
 
     it('normalizes isolated state without consulting historical game records',
