@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
 import { resolve } from 'node:path';
 import vm from 'node:vm';
@@ -67,8 +67,13 @@ const api = loadAchievementEngine();
   const state = api.emptyAchievementState();
   assert.equal(api.achievementRegistryIssues().length, 0, 'registry definitions must be internally consistent');
   assert.equal(api.ACHIEVEMENT_DEFINITIONS.length, 22, 'the documented first batch should remain intact');
-  assert.equal(api.ACHIEVEMENT_DEFINITIONS.every((item) => item.badgeAssetPath === ''), true,
-    'placeholder symbols must remain active until the matching badge PNG is bundled');
+  for (const item of api.ACHIEVEMENT_DEFINITIONS) {
+    assert.equal(api.isAchievementBadgeAssetPathValid(item.badgeAssetPath), true);
+    assert.equal(existsSync(resolve(projectRoot, 'entry/src/main/resources/rawfile', item.badgeAssetPath)), true,
+      `badge artwork must be bundled for ${item.id}`);
+    assert.equal(item.badgeAssetPath.endsWith('.svg'), true, 'the current badge set uses vector artwork');
+  }
+  assert.equal(api.isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.svg'), true);
   assert.equal(api.isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.png'), true);
   assert.equal(api.isAchievementBadgeAssetPathValid('app/game_logos/minesweeper.png'), false);
   assert.equal(api.isAchievementBadgeAssetPathValid('app/achievements/ach_minesweeper_first_clear.jpg'), false);
@@ -178,7 +183,7 @@ const api = loadAchievementEngine();
   assert.equal(tenSessions.current, 1);
   assert.equal(tenSessions.target, 10);
   assert.equal(favorite.status, 'locked');
-  assert.equal(favorite.target, 0);
+  assert.equal(favorite.target, 3);
   assert.equal(allGroups.length, 7);
   assert.equal(itemCount, 22);
   assert.equal(unlockedGroups.length, 2);
@@ -305,7 +310,7 @@ const api = loadAchievementEngine();
   assert.equal(progressFor(api, state, 'global.complete_ten_sessions').unlockedAt, 1787617800000);
   assert.equal(progressFor(api, state, 'global.play_six_games').unlockedAt, 1787617800000);
   assert.equal(api.achievementProgressForState(state, 'global.favorite_three'), undefined,
-    'disabled non-game achievements must not infer progress from unrelated state');
+    'favorite achievements must not infer progress from session events');
 }
 
 {
@@ -398,7 +403,7 @@ const api = loadAchievementEngine();
   assert.equal(notices.length, 4);
   assert.equal(notices[0].noticeId, 'global.first_settlement');
   assert.equal(notices[2].noticeId, 'rpsBattle.supporter_wins');
-  assert.equal(notices[0].badgeAssetPath, '');
+  assert.equal(notices[0].badgeAssetPath, 'app/achievements/ach_global_first_settlement.svg');
   assert.equal(notices[3].kind, 'summary');
   assert.equal(notices[3].achievementCount, 4);
   assert.equal(notices[3].noticeLevel, 'highlight');
@@ -421,8 +426,9 @@ const api = loadAchievementEngine();
     { achievementId: 'global.favorite_three', unlockedAt: 1787617800000 },
     { achievementId: 'notRegistered.missing', unlockedAt: 1787617800000 }
   ]);
-  assert.equal(notices.length, 1);
+  assert.equal(notices.length, 2);
   assert.equal(notices[0].noticeId, 'tetris.first_tetris');
+  assert.equal(notices[1].noticeId, 'global.favorite_three');
 }
 
 console.log('Achievement core and notice tests passed');

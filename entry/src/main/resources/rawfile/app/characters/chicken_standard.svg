@@ -1,0 +1,281 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="768" height="1024" viewBox="0 0 768 1024" role="img" aria-labelledby="character-title character-description">
+  <title id="character-title">鸡仔 · 标准站姿</title>
+  <desc id="character-description">白色羽毛、慵懒半眯眼、红色格纹衬衫、卡其长裤与白鞋的鸡仔。透明背景，正面自然站立，身体各部位分组，全部以矢量路径和渐变绘制。</desc>
+  <defs>
+    <radialGradient id="head-volume" gradientUnits="userSpaceOnUse" cx="448" cy="205" r="335" gradientTransform="translate(0 -16) scale(1 1.07)">
+      <stop stop-color="#FFFCF5"/>
+      <stop offset=".52" stop-color="#F6EEE7"/>
+      <stop offset=".78" stop-color="#E4DAD8"/>
+      <stop offset="1" stop-color="#A5AFBF"/>
+    </radialGradient>
+    <linearGradient id="head-cool" gradientUnits="userSpaceOnUse" x1="179" y1="250" x2="341" y2="250">
+      <stop stop-color="#587293" stop-opacity=".49"/>
+      <stop offset=".57" stop-color="#8192AD" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#8D9EB9" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="head-warm" gradientUnits="userSpaceOnUse" cx="491" cy="389" r="197">
+      <stop stop-color="#F2BAA7" stop-opacity=".32"/>
+      <stop offset="1" stop-color="#F2BAA7" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="head-rim" gradientUnits="userSpaceOnUse" x1="184" y1="190" x2="607" y2="288">
+      <stop stop-color="#A5B2C5"/>
+      <stop offset=".37" stop-color="#D3CBD0"/>
+      <stop offset=".7" stop-color="#E9DCD1"/>
+      <stop offset="1" stop-color="#957B6D"/>
+    </linearGradient>
+    <linearGradient id="shirt-volume" gradientUnits="userSpaceOnUse" x1="262" y1="555" x2="512" y2="612">
+      <stop stop-color="#872E4A"/>
+      <stop offset=".28" stop-color="#B64762"/>
+      <stop offset=".67" stop-color="#D96479"/>
+      <stop offset="1" stop-color="#EE8A93"/>
+    </linearGradient>
+    <linearGradient id="shirt-bottom" gradientUnits="userSpaceOnUse" x1="385" y1="511" x2="385" y2="710">
+      <stop stop-color="#5B1631" stop-opacity=".32"/>
+      <stop offset=".26" stop-color="#A13952" stop-opacity="0"/>
+      <stop offset=".77" stop-color="#CA596B" stop-opacity="0"/>
+      <stop offset="1" stop-color="#692136" stop-opacity=".24"/>
+    </linearGradient>
+    <linearGradient id="sleeve-left-volume" gradientUnits="userSpaceOnUse" x1="198" y1="563" x2="280" y2="594">
+      <stop stop-color="#7E2946"/>
+      <stop offset=".52" stop-color="#AF405D"/>
+      <stop offset="1" stop-color="#D2647A"/>
+    </linearGradient>
+    <linearGradient id="sleeve-right-volume" gradientUnits="userSpaceOnUse" x1="497" y1="579" x2="566" y2="558">
+      <stop stop-color="#C4546B"/>
+      <stop offset=".52" stop-color="#EE8290"/>
+      <stop offset="1" stop-color="#E39D9F"/>
+    </linearGradient>
+    <linearGradient id="collar-volume" gradientUnits="userSpaceOnUse" x1="289" y1="476" x2="481" y2="508">
+      <stop stop-color="#8D2947"/>
+      <stop offset=".58" stop-color="#C14C67"/>
+      <stop offset="1" stop-color="#EA8390"/>
+    </linearGradient>
+    <linearGradient id="trousers-volume" gradientUnits="userSpaceOnUse" x1="269" y1="775" x2="516" y2="775">
+      <stop stop-color="#9F6944"/>
+      <stop offset=".1" stop-color="#BD8556"/>
+      <stop offset=".25" stop-color="#E1AC72"/>
+      <stop offset=".43" stop-color="#C08A54"/>
+      <stop offset=".51" stop-color="#8A5531"/>
+      <stop offset=".62" stop-color="#B57C4A"/>
+      <stop offset=".82" stop-color="#E0A56A"/>
+      <stop offset="1" stop-color="#D19B68"/>
+    </linearGradient>
+    <radialGradient id="hand-left-volume" gradientUnits="userSpaceOnUse" cx="239" cy="694" r="62">
+      <stop stop-color="#FFF8EE"/>
+      <stop offset=".63" stop-color="#E7DAD0"/>
+      <stop offset="1" stop-color="#A9A8B6"/>
+    </radialGradient>
+    <radialGradient id="hand-right-volume" gradientUnits="userSpaceOnUse" cx="554" cy="686" r="64">
+      <stop stop-color="#FFF9EB"/>
+      <stop offset=".65" stop-color="#F0DECB"/>
+      <stop offset="1" stop-color="#C3A591"/>
+    </radialGradient>
+    <linearGradient id="shoe-left-volume" gradientUnits="userSpaceOnUse" x1="252" y1="912" x2="415" y2="920">
+      <stop stop-color="#8492AC"/>
+      <stop offset=".36" stop-color="#E0DADE"/>
+      <stop offset=".76" stop-color="#FFF9EE"/>
+      <stop offset="1" stop-color="#E7D8CD"/>
+    </linearGradient>
+    <linearGradient id="shoe-right-volume" gradientUnits="userSpaceOnUse" x1="417" y1="915" x2="558" y2="913">
+      <stop stop-color="#C3AFAC"/>
+      <stop offset=".57" stop-color="#F4E9DB"/>
+      <stop offset="1" stop-color="#FFFAEE"/>
+    </linearGradient>
+    <linearGradient id="sole-volume" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#4C342B"/>
+      <stop offset="1" stop-color="#211C1D"/>
+    </linearGradient>
+    <linearGradient id="eye-gold" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#AF700E"/>
+      <stop offset=".44" stop-color="#DAA72C"/>
+      <stop offset="1" stop-color="#F4CB65"/>
+    </linearGradient>
+    <linearGradient id="beak-upper-volume" x1="0" y1="0" x2=".7" y2="1">
+      <stop stop-color="#FFE092"/>
+      <stop offset=".43" stop-color="#EAB342"/>
+      <stop offset="1" stop-color="#B47818"/>
+    </linearGradient>
+    <linearGradient id="beak-lower-volume" x1="0" y1="0" x2=".9" y2="1">
+      <stop stop-color="#CC8B23"/>
+      <stop offset=".58" stop-color="#F2C35D"/>
+      <stop offset="1" stop-color="#9A5B16"/>
+    </linearGradient>
+    <radialGradient id="blush-volume">
+      <stop stop-color="#DB8E96" stop-opacity=".69"/>
+      <stop offset=".75" stop-color="#EBA6AA" stop-opacity=".52"/>
+      <stop offset="1" stop-color="#EBA6AA" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="head-clip">
+      <path d="M486 101c29-8 48-16 66-23 18-7 31 1 29 15-2 13-18 19-33 23 28-7 52 3 62 20 10 18 6 33-10 32-14-5-27-11-42-6 15 24 22 48 25 85 4 40-1 82-14 114-9 23-21 42-37 58-37 41-88 61-140 63-52 3-104-6-144-30-49-28-76-66-83-118-10-66 8-124 43-166 38-46 89-69 150-76 48-5 84 15 128 9Z"/>
+    </clipPath>
+    <clipPath id="shirt-clip">
+      <path d="M287 477c42-18 134-18 181 0 28 16 44 44 49 82l-3 139-93 14-23-63-22 64-104-32-6-124c-1-39 6-63 21-80Z"/>
+    </clipPath>
+    <clipPath id="sleeve-left-clip">
+      <path d="M287 484c-39-1-64 21-81 58-16 37-23 76-12 106 7 21 21 36 40 49l36-35c-15-20-18-38-12-60l31-72Z"/>
+    </clipPath>
+    <clipPath id="sleeve-right-clip">
+      <path d="M476 483c36 2 60 21 74 57 18 40 21 85 8 117-5 13-13 25-25 34l-35-29c15-22 13-43 5-65l-29-64Z"/>
+    </clipPath>
+    <clipPath id="eye-left-clip">
+      <path d="M270 297c38-4 82-1 123 4-18 33-51 44-84 36-22-5-34-20-39-40Z"/>
+    </clipPath>
+    <clipPath id="eye-right-clip">
+      <path d="M408 301c39 2 71 5 104 12-13 24-37 34-65 29-22-5-31-21-39-41Z"/>
+    </clipPath>
+  </defs>
+
+  <g id="character">
+    <!-- Independent legs. Hip pivots: left (334,704), right (453,704). -->
+    <g id="leg-right">
+      <path d="M388 683h122c9 57 6 119-6 204-23 9-65 10-90 0l-7-104c-1-18-6-28-19-29Z" fill="url(#trousers-volume)" stroke="#91613F" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M416 764c9 13 13 31 13 47l1 49" fill="none" stroke="#7F4D31" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/>
+      <path d="M496 779c-1 25-3 45-6 67" fill="none" stroke="#F2C88B" stroke-opacity=".28" stroke-width="4" stroke-linecap="round"/>
+      <path d="M414 883c25 6 67 6 90-2l-1 13c-27 7-60 9-88 1Z" fill="#68422F"/>
+      <g id="shoe-right">
+        <path d="M415 925c28 8 94 10 140 6l1 12c-30 9-105 6-141-3Z" fill="url(#sole-volume)" stroke="#332521" stroke-width="2.5"/>
+        <path d="m415 895 87-1c11 6 36 10 46 20 6 6 8 12 7 19-44 7-107 4-140-7Z" fill="url(#shoe-right-volume)" stroke="#A78674" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M504 901c17 7 29 9 35 17" fill="none" stroke="#FFFDF4" stroke-width="3" stroke-linecap="round"/>
+        <path d="M420 920c39 7 80 9 119 6" fill="none" stroke="#BBA497" stroke-opacity=".43" stroke-width="2"/>
+      </g>
+    </g>
+    <g id="leg-left">
+      <path d="M272 680c39-1 87 3 124 10 1 38-4 66-13 98l-7 98c-31 7-68 6-107-1-1-79-1-143 3-205Z" fill="url(#trousers-volume)" stroke="#A16E49" stroke-width="2.5" stroke-linejoin="round"/>
+      <path d="M278 722c8 17 13 39 14 56l-1 78" fill="none" stroke="#8E5B3F" stroke-opacity=".12" stroke-width="5" stroke-linecap="round"/>
+      <path d="m349 758-5 103" fill="none" stroke="#F6CB8D" stroke-opacity=".2" stroke-width="7" stroke-linecap="round"/>
+      <path d="M269 880c30 6 74 8 108 1l-1 14c-37 7-75 6-107-2Z" fill="#6B4535"/>
+      <g id="shoe-left">
+        <path d="M254 932c44 7 100 7 159 2l1 15c-47 9-109 8-161-3Z" fill="url(#sole-volume)" stroke="#302522" stroke-width="2.5"/>
+        <path d="M269 895c25 5 73 7 107 0 6 11 23 15 31 25 5 5 7 10 6 16-49 9-108 7-159-3-2-15 1-29 15-38Z" fill="url(#shoe-left-volume)" stroke="#9A8580" stroke-width="2.5" stroke-linejoin="round"/>
+        <path d="M376 903c11 10 23 14 26 23" fill="none" stroke="#FFFEF6" stroke-width="3" stroke-linecap="round"/>
+        <path d="M259 929c36 5 72 7 108 5" fill="none" stroke="#A9A1AD" stroke-opacity=".42" stroke-width="2"/>
+      </g>
+    </g>
+    <g id="pelvis">
+      <path d="M273 665c55 12 166 9 236 5l3 52c-35-2-71 7-101 14-12 4-17 12-19 25-10-17-17-23-33-27-30-7-59-13-88-15Z" fill="url(#trousers-volume)"/>
+      <path d="M402 695c3 22 1 38-9 59" fill="none" stroke="#9D6540" stroke-opacity=".53" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <!-- Neutral arms. Shoulder pivots: left (278,507), right (483,507). -->
+    <g id="arm-left">
+      <g id="hand-left">
+        <path d="m221 671 25-5c6 15 10 23 12 34 2 10 1 20-5 24-4 3-9 0-12-5 3 12 2 20-4 22-5 2-9-3-13-9-1 4-5 6-9 3-8-6-13-23-11-38 1-10 8-19 17-26Z" fill="url(#hand-left-volume)" stroke="#85706D" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m226 714 6 17m-17-22 5 17m24-23 2 11" fill="none" stroke="#B1A0A0" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M228 684c-5 5-8 11-8 18" fill="none" stroke="#FFF9F0" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <path d="M287 484c-39-1-64 21-81 58-16 37-23 76-12 106 7 21 21 36 40 49l36-35c-15-20-18-38-12-60l31-72Z" fill="url(#sleeve-left-volume)" stroke="#63283B" stroke-width="3.5"/>
+      <g clip-path="url(#sleeve-left-clip)" fill="none" stroke-linecap="round">
+        <path d="M234 492c-31 68-44 115-14 166m35-153c-28 67-34 112-6 162m-55-131c28 4 53 15 71 35m-74 10c30 5 50 17 66 33m-64 17c25 7 44 20 62 37" stroke="#EC98A4" stroke-opacity=".3" stroke-width="8"/>
+        <path d="M213 502c-29 64-32 124-4 165m39-166c-34 68-34 115-12 168m-42-112c28 7 50 17 69 35m-71 20c25 5 45 17 63 31" stroke="#76263E" stroke-opacity=".35" stroke-width="2"/>
+        <path d="M211 537c-15 31-22 65-18 89" stroke="#E883A0" stroke-opacity=".21" stroke-width="6"/>
+      </g>
+      <path d="M218 674c9-12 19-21 33-27l19 15-36 35Z" fill="#AA3E58" fill-opacity=".52" stroke="#5F2837" stroke-width="3.3" stroke-linejoin="round"/>
+      <path d="m226 674 26-21" fill="none" stroke="#DB8093" stroke-opacity=".55" stroke-width="3"/>
+      <path d="M251 584c-7 13-12 23-13 36" fill="none" stroke="#692B3F" stroke-width="4.5" stroke-linecap="round"/>
+    </g>
+    <g id="arm-right">
+      <g id="hand-right">
+        <path d="m521 668 27 1c12 10 16 21 16 34 0 13-5 26-11 30-5 3-8 0-9-4-3 8-9 14-14 11-6-3-6-13-4-23-4 6-10 8-14 3-5-6-3-19 1-29Z" fill="url(#hand-right-volume)" stroke="#A08068" stroke-width="3.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="m543 711-5 20m15-26-5 19m-27-24-2 13" fill="none" stroke="#C0A18B" stroke-width="2.8" stroke-linecap="round"/>
+        <path d="M547 684c4 6 7 14 6 20" fill="none" stroke="#FFF9E9" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <path d="M476 483c36 2 60 21 74 57 18 40 21 85 8 117-5 13-13 25-25 34l-35-29c15-22 13-43 5-65l-29-64Z" fill="url(#sleeve-right-volume)" stroke="#A34A59" stroke-width="3.5"/>
+      <g clip-path="url(#sleeve-right-clip)" fill="none" stroke-linecap="round">
+        <path d="M504 489c32 61 44 126 18 183m4-174c30 56 41 113 24 154m-54-118c22-8 43-10 65-2m-52 42c21-5 45-2 66 6m-60 38c25-4 44 0 57 7" stroke="#FFC4C3" stroke-opacity=".39" stroke-width="8"/>
+        <path d="M516 492c31 69 39 123 19 176m-34-114c23-3 43 0 62 7m-49 42c24-3 40 1 51 6" stroke="#B54C62" stroke-opacity=".5" stroke-width="2"/>
+        <path d="M548 542c13 33 18 64 11 91" stroke="#FFD0C6" stroke-opacity=".43" stroke-width="5"/>
+      </g>
+      <path d="M513 647c13 6 24 15 33 26l-13 18-35-29Z" fill="#C4596C" fill-opacity=".58" stroke="#9C4555" stroke-width="3" stroke-linejoin="round"/>
+      <path d="m514 654 25 21" fill="none" stroke="#F5A5AC" stroke-width="3"/>
+      <path d="M509 584c5 12 10 25 10 38" fill="none" stroke="#A9455D" stroke-width="4" stroke-linecap="round"/>
+    </g>
+
+    <!-- Torso pivot (388,587). Keep the plaid clipped to this group for later poses. -->
+    <g id="torso">
+      <path d="M287 477c42-18 134-18 181 0 28 16 44 44 49 82l-3 139-93 14-23-63-22 64-104-32-6-124c-1-39 6-63 21-80Z" fill="url(#shirt-volume)" stroke="#522731" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <g id="shirt-plaid" clip-path="url(#shirt-clip)" fill="none">
+        <path d="M293 473c-8 66-10 143 0 227m43-230c-5 77-9 153-3 247m46-249c2 86-3 157-8 250m46-245c9 74 13 151 10 246m35-230c13 58 21 122 20 222m23-203c17 65 18 123 17 187" stroke="#F2A0AB" stroke-opacity=".4" stroke-width="9"/>
+        <path d="M264 517c88 29 168 31 256 13m-254 29c91 29 167 32 259 14m-258 29c94 28 171 31 258 14m-258 29c90 28 169 30 258 14m-246 34c40 12 67 16 100 18m40 0c30 1 63-2 101-9" stroke="#F5A3AC" stroke-opacity=".35" stroke-width="8"/>
+        <path d="M312 468c-8 81-10 160-3 241m49-243c0 85-4 165-4 256m43-250c8 85 9 160 5 242m45-235c11 73 16 151 14 229m35-216c14 70 17 140 16 208" stroke="#812F49" stroke-opacity=".32" stroke-width="2.2"/>
+        <path d="M267 541c89 28 166 30 254 13m-253 28c87 27 166 31 254 12m-253 30c91 30 166 32 255 14m-249 32c40 12 70 18 109 21m32 2c37 0 72-4 105-11" stroke="#8E354B" stroke-opacity=".32" stroke-width="2.2"/>
+        <path d="M270 477h254v240H270Z" fill="url(#shirt-bottom)" stroke="none"/>
+      </g>
+      <g id="shirt-seams" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M403 509c9 53 7 90-5 140l-22 64" stroke="#502932" stroke-width="5.5"/>
+        <path d="M412 518c6 50 3 91-5 121" stroke="#F5A2AA" stroke-opacity=".51" stroke-width="3"/>
+        <path d="m287 635 44 9m-49 5 58 13" stroke="#552631" stroke-width="4.5"/>
+        <path d="m464 648 34-6" stroke="#973A50" stroke-width="3.5"/>
+        <path d="M274 560c-1 22-1 40 2 54" stroke="#4F2432" stroke-width="5"/>
+      </g>
+      <g id="shirt-buttons" fill="#8E3B4C" stroke="#F3A0A5" stroke-opacity=".5" stroke-width="1.3">
+        <circle cx="406" cy="559" r="3.5"/>
+        <circle cx="406" cy="600" r="3.5"/>
+      </g>
+    </g>
+    <g id="collar">
+      <path d="M286 460c44-20 128-20 183-2l13 32c-56 23-135 23-198-1Z" fill="#682338" stroke="#50212C" stroke-width="4" stroke-linejoin="round"/>
+      <path d="M289 454c53-14 122-13 176 0l9 27c-57-17-123-14-188 7Z" fill="url(#collar-volume)" stroke="#9F3853" stroke-width="2.5"/>
+      <path d="M296 466c45-11 104-11 153-3" fill="none" stroke="#F395A4" stroke-opacity=".59" stroke-width="4" stroke-linecap="round"/>
+      <path d="m289 480 111 26-46 37-76-45Z" fill="url(#collar-volume)" stroke="#43232C" stroke-width="5.5" stroke-linejoin="round"/>
+      <path d="m400 506 72-28 12 19-49 43Z" fill="url(#collar-volume)" stroke="#65303A" stroke-width="4.5" stroke-linejoin="round"/>
+      <path d="m295 490 57 35m65-20 45-23" fill="none" stroke="#F292A1" stroke-opacity=".5" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <!-- Head pivot (387,463). Expression groups may be edited independently. -->
+    <g id="head">
+      <path id="head-silhouette" d="M486 101c29-8 48-16 66-23 18-7 31 1 29 15-2 13-18 19-33 23 28-7 52 3 62 20 10 18 6 33-10 32-14-5-27-11-42-6 15 24 22 48 25 85 4 40-1 82-14 114-9 23-21 42-37 58-37 41-88 61-140 63-52 3-104-6-144-30-49-28-76-66-83-118-10-66 8-124 43-166 38-46 89-69 150-76 48-5 84 15 128 9Z" fill="url(#head-volume)" stroke="url(#head-rim)" stroke-width="2.5" stroke-linejoin="round"/>
+      <g id="head-lighting" clip-path="url(#head-clip)">
+        <path d="M158 68h476v427H158Z" fill="url(#head-cool)"/>
+        <path d="M158 68h476v427H158Z" fill="url(#head-warm)"/>
+        <path d="M544 119c-9 2-15 4-22 6m39 38c-9-2-18-1-25 1" fill="none" stroke="#AA8E80" stroke-opacity=".25" stroke-width="11" stroke-linecap="round"/>
+        <path d="M196 227c14-45 39-73 79-96" fill="none" stroke="#EBF4FE" stroke-opacity=".28" stroke-width="4" stroke-linecap="round"/>
+      </g>
+      <g id="crest-details" fill="none" stroke-linecap="round">
+        <path d="m548 116-19 5m29 41c-8-1-15-1-23 1" stroke="#856C5E" stroke-width="5.5"/>
+        <path d="M551 81c12-4 23-2 25 7m20 45c6 7 10 14 10 20" stroke="#FFFDF5" stroke-opacity=".76" stroke-width="3"/>
+      </g>
+      <g id="eyebrows" fill="none" stroke-linecap="round">
+        <path id="eyebrow-left" d="M287 254c21-25 53-28 73-9" stroke="#C3B7B5" stroke-width="21"/>
+        <path id="eyebrow-right" d="M425 254c16 20 32 29 49 22" stroke="#DCCDC6" stroke-width="18"/>
+        <path d="m390 277 8-7" stroke="#E0CEC4" stroke-opacity=".62" stroke-width="3"/>
+      </g>
+      <g id="eye-left">
+        <path d="M270 297c38-4 82-1 123 4-18 33-51 44-84 36-22-5-34-20-39-40Z" fill="url(#eye-gold)"/>
+        <g clip-path="url(#eye-left-clip)">
+          <ellipse cx="337" cy="299" rx="30" ry="39" fill="#261B16"/>
+          <ellipse cx="339" cy="309" rx="20" ry="25" fill="#1D1715"/>
+          <circle cx="336" cy="321" r="7" fill="#F7E6D7"/>
+          <path d="M266 291c44-2 85-1 129 6" fill="none" stroke="#653C1A" stroke-opacity=".55" stroke-width="13"/>
+        </g>
+        <path d="M270 297c38-4 82-1 123 4-18 33-51 44-84 36-22-5-34-20-39-40Z" fill="none" stroke="#342218" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M286 324c15 18 43 22 65 14" fill="none" stroke="#B89975" stroke-opacity=".27" stroke-width="3"/>
+      </g>
+      <g id="eye-right">
+        <path d="M408 301c39 2 71 5 104 12-13 24-37 34-65 29-22-5-31-21-39-41Z" fill="url(#eye-gold)"/>
+        <g clip-path="url(#eye-right-clip)">
+          <ellipse cx="464" cy="307" rx="26" ry="35" fill="#2C1D15"/>
+          <ellipse cx="466" cy="315" rx="18" ry="24" fill="#211711"/>
+          <circle cx="466" cy="327" r="6.5" fill="#FCEBDD"/>
+          <path d="M402 297c36 3 80 6 114 13" fill="none" stroke="#663D18" stroke-opacity=".57" stroke-width="12"/>
+        </g>
+        <path d="M408 301c39 2 71 5 104 12-13 24-37 34-65 29-22-5-31-21-39-41Z" fill="none" stroke="#3B271B" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M447 347c18 4 35 0 47-7" fill="none" stroke="#BE9A79" stroke-opacity=".3" stroke-width="3"/>
+      </g>
+      <g id="cheeks">
+        <ellipse cx="271" cy="361" rx="34" ry="12" fill="url(#blush-volume)"/>
+        <ellipse cx="512" cy="373" rx="26" ry="9" fill="url(#blush-volume)" opacity=".64"/>
+      </g>
+      <g id="beak">
+        <path d="M390 367c-1-12 4-25 14-33 5-4 11-2 15 1 11 8 18 19 24 33-17-8-35-9-53-1Z" fill="url(#beak-upper-volume)" stroke="#9A671C" stroke-width="3.5" stroke-linejoin="round"/>
+        <path d="M391 367c15-7 35-7 51 1l-25 24c-12-3-21-12-26-25Z" fill="url(#beak-lower-volume)"/>
+        <path d="M391 367c16-7 33-7 51 1l-20 20" fill="none" stroke="#6C461D" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M399 349c2-6 5-11 9-13" fill="none" stroke="#FFE7A0" stroke-opacity=".77" stroke-width="4" stroke-linecap="round"/>
+        <path d="m406 382 9 7" fill="none" stroke="#F8D684" stroke-width="3" stroke-linecap="round"/>
+      </g>
+      <g id="cheek-feathers" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path id="cheek-feathers-left" d="m213 359-15 35 31-19-16 42c15-13 30-18 44-8" stroke="#33272B" stroke-width="8.5"/>
+        <path id="cheek-feathers-right" d="m552 382 15 25-24-11 14 28-28-11" stroke="#675044" stroke-width="7"/>
+      </g>
+    </g>
+  </g>
+</svg>

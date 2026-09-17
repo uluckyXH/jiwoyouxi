@@ -20,7 +20,7 @@ import { HubHeroBanner } from './HubHeroBanner';
 import { HubSettingsPanel } from './HubSettingsPanel';
 import { HubStatsPanel } from './HubStatsPanel';
 
-const HOME_GAME_ORDER: string[] = ['suika', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
+const HOME_GAME_ORDER: string[] = ['suikaNext', 'suika', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 const HOME_SIDE_PADDING: number = 20;
 const HOME_TOP_PADDING: number = 56;
 const HOME_CONTENT_BOTTOM_SPACE: number = 108;
@@ -123,7 +123,7 @@ export struct HubPage {
       this.WelcomeHeader()
       HubHeroBanner({
         isDarkMode: this.isDarkMode(),
-        gameTitle: moduleById(this.heroGameId()).title,
+        gameTitle: moduleById(this.heroGameId()).title + (this.heroGameId() === 'suikaNext' ? ' · 重构中' : ''),
         startGame: () => this.openGame(this.heroGameId())
       })
       this.SectionTitleRow('精选游戏', 'app/ui/chicken.svg', true)
@@ -279,7 +279,10 @@ export struct HubPage {
             Text(this.homeTag(module.id))
               .fontSize(10)
               .fontWeight(FontWeight.Medium)
-              .fontColor(this.mutedColor())
+              .fontColor(module.id === 'suikaNext' ? this.activeColor() : this.mutedColor())
+              .backgroundColor(module.id === 'suikaNext' ? this.panelSoftColor() : Color.Transparent)
+              .padding({ left: module.id === 'suikaNext' ? 6 : 0, right: 6, top: 2, bottom: 2 })
+              .borderRadius(6)
               .maxLines(1)
           }
           .alignItems(HorizontalAlign.Start)
@@ -500,7 +503,8 @@ export struct HubPage {
 
   private homeTag(gameId: string): string {
     if (gameId === 'rpsBattle') return '鸡窝乱斗';
-    if (gameId === 'suika') return '鸡窝瓜摊';
+    if (gameId === 'suikaNext') return '重构中';
+    if (gameId === 'suika') return '经典版';
     if (gameId === 'chicken2048') return '数字叠叠乐';
     if (gameId === 'minesweeper') return '小心鸡雷';
     if (gameId === 'tetris') return '方块下蛋';
@@ -510,7 +514,7 @@ export struct HubPage {
 
   private favoriteRecordText(module: GameModule): string {
     const record = this.recordFor(module.id);
-    return `${module.highScoreLabel} ${record.highScore} · ${record.playCount} 局`;
+    return `${module.id === 'suikaNext' ? '重构中 · ' : ''}${module.highScoreLabel} ${record.highScore} · ${record.playCount} 局`;
   }
 
   private greetingTitle(): string {

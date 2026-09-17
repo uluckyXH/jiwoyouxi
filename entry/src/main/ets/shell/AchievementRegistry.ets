@@ -522,14 +522,19 @@ export function isAchievementEventTypeAllowed(gameId: string, eventType: Achieve
   return profile !== undefined && profile.eventTypes.includes(eventType);
 }
 
+export function achievementCanonicalGameId(gameId: string): string {
+  return gameId === 'suikaNext' ? 'suika' : gameId;
+}
+
 export function achievementPrimaryFavoriteCount(gameIds: string[]): number {
   if (!Array.isArray(gameIds)) {
     return 0;
   }
   const favorites: string[] = [];
   gameIds.forEach((gameId: string) => {
-    if (ACHIEVEMENT_PRIMARY_GAME_IDS.includes(gameId) && !favorites.includes(gameId)) {
-      favorites.push(gameId);
+    const canonicalId = achievementCanonicalGameId(gameId);
+    if (ACHIEVEMENT_PRIMARY_GAME_IDS.includes(canonicalId) && !favorites.includes(canonicalId)) {
+      favorites.push(canonicalId);
     }
   });
   return favorites.length;

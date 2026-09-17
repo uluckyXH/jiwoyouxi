@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="520" viewBox="0 0 360 520"><defs><linearGradient id="well" x2="0" y2="1"><stop stop-color="#fff9eb"/><stop offset="1" stop-color="#f5f2dd"/></linearGradient><clipPath id="roof"><path d="M27 8h306l15 26v13q-10 16-23 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-28 0-14 16-23 0V34Z"/></clipPath></defs>
+    <rect x="10" y="75" width="340" height="429" rx="24" fill="url(#well)" stroke="#ddc599" stroke-width="2"/>
+    <path d="M23 121v349q0 20 20 20h274q20 0 20-20V121" fill="none" stroke="#ddc599" stroke-opacity=".4" stroke-width="2"/>
+    <g clip-path="url(#roof)"><path d="M8 8h344v60H8Z" fill="#fff5d7"/>
+    <path d="M18 7h23l5 53h-33Z" fill="#91b492"/><path d="M74 7h23l5 53h-33Z" fill="#91b492"/><path d="M130 7h23l5 53h-33Z" fill="#91b492"/><path d="M186 7h23l5 53h-33Z" fill="#91b492"/><path d="M242 7h23l5 53h-33Z" fill="#91b492"/><path d="M298 7h23l5 53h-33Z" fill="#91b492"/></g>
+    <path d="M26 9h307" stroke="#ddc599" stroke-width="4" stroke-linecap="round"/>
+    <rect x="8" y="494" width="344" height="20" rx="8" fill="#c99862"/><path d="M29 502h58m38 0h77m42 0h80" stroke="#e4ba82" stroke-width="2" stroke-linecap="round"/>
+    <g fill="#ddc599" opacity=".5"><circle cx="30" cy="477" r="3"/><circle cx="330" cy="477" r="3"/></g></svg>

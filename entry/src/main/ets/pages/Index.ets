@@ -28,6 +28,7 @@ import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
 import { TetrisPage } from '../games/tetris/TetrisPage';
 import { SuikaPage } from '../games/suika/SuikaPage';
+import { FruitMarketPage } from '../gamesNext/fruitMarket/FruitMarketPage';
 
 @Entry
 @Component
@@ -57,6 +58,7 @@ struct Index {
   @State achievementNoticeMounted: boolean = false;
   @State achievementNoticeVisible: boolean = false;
   @State minesweeperExitRequestId: number = 0;
+  @State fruitMarketExitRequest: number = 0;
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext();
@@ -73,6 +75,10 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'suikaNext') {
+      this.fruitMarketExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'minesweeper') {
       this.requestMinesweeperExit();
       return true;
@@ -205,6 +211,19 @@ struct Index {
             reportAchievementEvent: (event: AchievementEvent) => {
               this.reportAchievementEvent(event);
             }
+          })
+        }
+      } else if (this.activeGame === 'suikaNext') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          FruitMarketPage({
+            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            bestScore: this.recordFor('suikaNext').highScore,
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.fruitMarketExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('suikaNext', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })
         }
       } else if (this.activeGame === 'suika') {

@@ -23,6 +23,7 @@ import {
   ACHIEVEMENT_DEFINITIONS,
   ACHIEVEMENT_GROUPS,
   ACHIEVEMENT_PRIMARY_GAME_IDS,
+  achievementPrimaryFavoriteCount,
   achievementDefinitionFor,
   achievementProfileFor,
   isAchievementEventTypeAllowed,
@@ -553,13 +554,7 @@ function legacyProgressValueForDefinition(snapshot: CoopAppSnapshot, definition:
     return playedGameIds.length;
   }
   if (definition.progressKind === 'favoriteCount') {
-    const favoriteGameIds: string[] = [];
-    snapshot.favorites.forEach((gameId: string) => {
-      if (isPrimaryGameId(gameId) && !favoriteGameIds.includes(gameId)) {
-        favoriteGameIds.push(gameId);
-      }
-    });
-    return favoriteGameIds.length;
+    return achievementPrimaryFavoriteCount(snapshot.favorites);
   }
   return 0;
 }

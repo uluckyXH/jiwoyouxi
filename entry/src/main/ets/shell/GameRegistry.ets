@@ -47,6 +47,15 @@ export const GAME_MODULES: GameModule[] = [
     highScoreLabel: '最高分'
   },
   {
+    id: 'suikaNext',
+    title: '鸡窝水果摊',
+    subtitle: '重构中 · 全新鲜果、音效与多屏体验',
+    icon: '◉',
+    tags: ['重构中', '物理', '合成'],
+    accent: '#779553',
+    highScoreLabel: '最高瓜分'
+  },
+  {
     id: 'suika',
     title: '鸡窝水果摊',
     subtitle: '圆滚滚玩具水果落进木箱，相同碰撞合成',
@@ -77,7 +86,7 @@ export function moduleById(id: string): GameModule {
 
 export function gameLogoPath(gameId: string): string {
   // App shell identities only; game scenes own their artwork under rawfile/games/.
-  if (gameId === 'suika') {
+  if (gameId === 'suika' || gameId === 'suikaNext') {
     return 'app/game_logos/game_icon_suika.svg';
   }
   if (gameId === 'minesweeper') {
