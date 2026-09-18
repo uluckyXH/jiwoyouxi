@@ -59,10 +59,10 @@ export struct MineBoard {
         Text(`${cell.near}`).fontSize(Math.max(12, Math.min(26, this.cellSize * 0.48))).fontWeight(FontWeight.Bold)
           .fontColor(P.number(cell.near, this.dark)).fontFamily('monospace').accessibilityLevel('no')
       }
-    }.width(this.cellSize).height(this.cellSize)
-    .scale({ x: this.pressedIndex === cell.index ? CoopMotion.pressScale : 1,
+    }.scale({ x: this.pressedIndex === cell.index ? CoopMotion.pressScale : 1,
       y: this.pressedIndex === cell.index ? CoopMotion.pressScale : 1 })
     .animation({ duration: CoopMotion.pressDuration, curve: Curve.EaseOut })
+    .width(this.cellSize).height(this.cellSize)
     .onTouch((event: TouchEvent) => {
       this.pressedIndex = !this.locked && event.type === TouchType.Down ? cell.index : -1;
     })

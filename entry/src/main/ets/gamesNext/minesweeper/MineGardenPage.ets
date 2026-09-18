@@ -1,11 +1,12 @@
 import { common } from '@kit.AbilityKit';
 import { AchievementEvent } from '../../shell/AchievementModule';
 import { MineAudio } from './MineAudio';
+import { MineBackdrop } from './MineBackdrop';
 import { MineBoard } from './MineBoard';
 import { MineDifficultyPicker, MineIconButton, MineModeSwitch, MineStats } from './MineControls';
 import { MineDialog } from './MineDialog';
 import { MineEngine } from './MineEngine';
-import { MineCrease, MineInsets, MineLayout, mineLayout } from './MineLayout';
+import { MineCompactMetrics as C, MineCrease, MineInsets, MineLayout, mineLayout, sameMineLayout } from './MineLayout';
 import { MINE_ASSETS, MINE_LEVELS, MineLevel, SurveyCell, mineLevel } from './MineModel';
 import { MinePalette as P } from './MinePalette';
 import { MineStorage } from './MineStorage';
@@ -81,9 +82,8 @@ export struct MineGardenPage {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      Image($rawfile(`${MINE_ASSETS}scene/garden_${this.dark ? 'dark' : 'light'}.svg`))
-        .width('100%').height('100%').objectFit(ImageFit.Cover).hitTestBehavior(HitTestMode.None)
-        .accessibilityLevel('no')
+      MineBackdrop({ dark: this.dark, areaWidth: this.viewport.width, areaHeight: this.viewport.height })
+        .position({ x: this.viewport.x, y: this.viewport.y })
       Column({ space: 8 }) {
         this.Header()
         if (this.viewport.wide) {
@@ -99,7 +99,7 @@ export struct MineGardenPage {
           }.width('100%').justifyContent(FlexAlign.Center).alignItems(VerticalAlign.Center)
         } else {
           Scroll() {
-            Column({ space: 12 }) {
+            Column({ space: this.viewport.compact ? C.sectionGap : 12 }) {
               this.Controls()
               this.BoardCard()
             }.width('100%')
@@ -144,18 +144,19 @@ export struct MineGardenPage {
       MineIconButton({ icon: this.phase === 'won' ? 'trophy' : this.phase === 'lost' ? 'leaf' : 'pause',
         label: this.engine.finished() ? '查看本局结果' : '暂停游戏', dark: this.dark, primary: true,
         action: () => this.present(this.engine.finished() ? 'result' : 'pause') })
-    }.width('100%').height(this.viewport.compact ? 56 : 64)
+    }.width('100%').height(this.viewport.compact ? C.header : 64)
   }
 
   @Builder
   Controls() {
-    Column({ space: 8 }) {
+    Column({ space: this.viewport.compact ? C.controlGap : 8 }) {
       MineStats({ dark: this.dark, compact: this.viewport.compact,
         remaining: this.remaining, elapsedMs: this.elapsedMs, bestMs: this.bestMs })
       MineDifficultyPicker({ dark: this.dark, compact: this.viewport.compact,
         selected: this.level.key, choose: (key: string) => this.chooseLevel(key) })
       if (this.viewport.wide) {
-        MineModeSwitch({ dark: this.dark, flagMode: this.flagMode, change: (flag: boolean) => this.changeMode(flag) })
+        MineModeSwitch({ dark: this.dark, compact: this.viewport.compact,
+          flagMode: this.flagMode, change: (flag: boolean) => this.changeMode(flag) })
         Row({ space: 8 }) {
           MineIconButton({ icon: 'restart', label: '重新开局', dark: this.dark, action: () => this.requestRestart() })
           Text('重新开局').fontSize(12).fontColor(P.muted(this.dark)).layoutWeight(1)
@@ -163,13 +164,14 @@ export struct MineGardenPage {
         }.width('100%')
       } else {
         Row({ space: 6 }) {
-          MineModeSwitch({ dark: this.dark, flagMode: this.flagMode, change: (flag: boolean) => this.changeMode(flag) })
+          MineModeSwitch({ dark: this.dark, compact: this.viewport.compact,
+            flagMode: this.flagMode, change: (flag: boolean) => this.changeMode(flag) })
             .layoutWeight(1)
           MineIconButton({ icon: 'restart', label: '重新开局', dark: this.dark, action: () => this.requestRestart() })
           MineIconButton({ icon: 'help', label: '游玩指南', dark: this.dark, action: () => this.present('help') })
         }.width('100%')
       }
-    }.width('100%')
+    }.width('100%').geometryTransition('mine-garden-controls', { follow: true })
   }
 
   @Builder
@@ -189,7 +191,7 @@ export struct MineGardenPage {
         cellSize: this.viewport.cell, lost: this.phase === 'lost', locked: this.dialog.length > 0 || this.engine.finished(),
         scrollX: this.viewport.scrollX, scrollY: this.viewport.scrollY,
         resetKey: this.session, tap: (index: number) => this.act(index, false), hold: (index: number) => this.act(index, true)
-      }).width('100%').height(Math.max(1, this.boardCardHeight() - (this.viewport.compact ? 94 : 110)))
+      }).width('100%').height(Math.max(1, this.viewport.boardCardHeight - (this.viewport.compact ? C.cardContent : 110)))
         .opacity(this.dialog.length > 0 ? 0 : 1)
       Row({ space: 6 }) {
         Image($rawfile(P.icon(this.viewport.scrolls ? 'pan' : 'leaf', this.dark, 'accent')))
@@ -197,19 +199,12 @@ export struct MineGardenPage {
         Text(this.saveFailed ? '进度未保存 · 暂停后可重试' : this.message)
           .fontSize(11).fontColor(this.saveFailed ? P.danger(this.dark) : P.muted(this.dark))
           .maxLines(2).layoutWeight(1)
-      }.height(this.viewport.compact ? 26 : 32).width('100%')
-    }.padding(12).width(this.boardCardWidth()).height(this.boardCardHeight()).borderRadius(26)
+      }.height(this.viewport.compact ? 24 : 32).width('100%')
+    }.padding(this.viewport.compact ? C.cardPadding : 12)
+    .width(this.viewport.boardCardWidth).height(this.viewport.boardCardHeight).borderRadius(26)
     .backgroundColor(P.paper(this.dark)).border({ width: 1, color: P.line(this.dark), radius: 26 }).clip(true)
     .shadow({ radius: 18, color: this.dark ? '#22000000' : '#0D647344', offsetY: 6 })
-  }
-
-  private boardCardHeight(): number {
-    return this.viewport.boardCardHeight;
-  }
-
-  private boardCardWidth(): number {
-    return this.viewport.wide ? Math.min(this.viewport.boardAreaWidth, this.viewport.gridWidth + 28) :
-      this.viewport.boardAreaWidth;
+    .geometryTransition('mine-garden-board', { follow: true })
   }
 
   @Builder
@@ -380,7 +375,18 @@ export struct MineGardenPage {
   }
 
   private relayout(): void {
-    this.viewport = mineLayout(this.pageWidth, this.pageHeight, this.level.rows, this.level.cols, this.insets, this.crease);
+    if (this.disposed) return;
+    const next = mineLayout(this.pageWidth, this.pageHeight, this.level.rows, this.level.cols, this.insets, this.crease);
+    if (sameMineLayout(this.viewport, next)) return;
+    if (!this.loaded || this.loading) {
+      this.viewport = next;
+      return;
+    }
+    // One native transition per actual layout change. No per-frame JS work or
+    // engine reset; duplicate window/safe-area events do not restart it.
+    this.getUIContext().animateTo({ duration: 200, curve: Curve.EaseOut }, () => {
+      this.viewport = next;
+    });
   }
 
   private backgrounded(): void {

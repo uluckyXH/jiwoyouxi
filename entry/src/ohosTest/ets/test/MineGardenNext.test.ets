@@ -1,7 +1,7 @@
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { MineEngine } from '../../../main/ets/gamesNext/minesweeper/MineEngine';
 import { MINE_LEVELS, MineLevel, SurveyCell, mineNeighbors } from '../../../main/ets/gamesNext/minesweeper/MineModel';
-import { MineCrease, MineInsets, mineLayout } from '../../../main/ets/gamesNext/minesweeper/MineLayout';
+import { MineCompactMetrics, MineCrease, MineInsets, mineLayout, sameMineLayout } from '../../../main/ets/gamesNext/minesweeper/MineLayout';
 import { achievementPrimaryFavoriteCount } from '../../../main/ets/shell/AchievementRegistry';
 import { gameLogoPath } from '../../../main/ets/shell/GameRegistry';
 
@@ -156,22 +156,49 @@ export default function mineGardenNextTest(): void {
         [[320, 568], [360, 780], [377, 816], [390, 844], [430, 932], [844, 390], [280, 500]].forEach((size: number[]) => {
           const layout = mineLayout(size[0], size[1], level.rows, level.cols, insets);
           expect(layout.compact).assertTrue();
-          expect(layout.gridWidth <= layout.boardAreaWidth - 28).assertTrue();
-          expect(layout.cell >= Math.min(20, Math.floor((layout.boardAreaWidth - 28) / level.cols))).assertTrue();
+          expect(layout.gridWidth <= layout.boardCardWidth - 24).assertTrue();
+          expect(layout.boardCardWidth <= layout.boardAreaWidth).assertTrue();
+          expect(layout.cell >= Math.min(20, Math.floor((layout.boardAreaWidth - 24) / level.cols))).assertTrue();
           if (!layout.wide) {
             expect(layout.scrolls).assertFalse();
-            expect(layout.boardCardHeight >= layout.gridHeight + 98).assertTrue();
+            expect(layout.boardCardHeight - layout.gridHeight).assertEqual(MineCompactMetrics.cardFrame);
+            expect(layout.boardCardWidth - layout.gridWidth).assertEqual(24);
           }
         });
         [[345, 782], [360, 780], [377, 816], [390, 844], [430, 932]].forEach((size: number[]) => {
           const layout = mineLayout(size[0], size[1], level.rows, level.cols, insets);
-          expect(layout.boardCardHeight + 200 <= layout.bodyHeight).assertTrue();
+          expect(layout.boardCardHeight + MineCompactMetrics.controls + MineCompactMetrics.sectionGap <= layout.bodyHeight).assertTrue();
         });
       });
       const easy = mineLayout(390, 844, 8, 8, insets);
       const normal = mineLayout(390, 844, 13, 10, insets);
       const hard = mineLayout(390, 844, 16, 12, insets);
       expect(easy.cell > normal.cell && normal.cell > hard.cell).assertTrue();
+      // The screenshot regression: hard cells were 26vp at this window size.
+      // Reclaim control height for the board rather than enlarge its empty frame.
+      expect(hard.cell >= 28).assertTrue();
+      const short = mineLayout(320, 568, 16, 12, insets);
+      expect(short.cell).assertEqual(20);
+      expect(short.boardCardHeight + MineCompactMetrics.controls > short.bodyHeight).assertTrue();
+      const landscape = mineLayout(844, 390, 16, 12, insets);
+      expect(landscape.scrollX).assertFalse();
+      expect(landscape.scrollY).assertTrue();
+    });
+
+    it('duplicate_layout_notifications_are_skipped_but_resize_and_fold_changes_are_not', FLAGS, () => {
+      const insets: MineInsets = { top: 28, bottom: 20, left: 0, right: 0 };
+      const phone = mineLayout(390, 844, 16, 12, insets);
+      expect(sameMineLayout(phone, mineLayout(390, 844, 16, 12, insets))).assertTrue();
+      expect(sameMineLayout(phone, mineLayout(391, 844, 16, 12, insets))).assertFalse();
+      expect(sameMineLayout(phone, mineLayout(390, 844, 13, 10, insets))).assertFalse();
+      expect(sameMineLayout(phone, mineLayout(844, 390, 16, 12, insets))).assertFalse();
+      const unfolded = mineLayout(768, 1024, 16, 12, insets);
+      const half = mineLayout(768, 1024, 16, 12, insets, { x: 0, y: 490, width: 768, height: 24 });
+      expect(sameMineLayout(unfolded, half)).assertFalse();
+      expect(sameMineLayout(half, mineLayout(768, 1024, 16, 12, insets,
+        { x: 0, y: 490, width: 768, height: 24 }))).assertTrue();
+      expect(sameMineLayout(phone, mineLayout(390, 844, 16, 12,
+        { top: 29, bottom: 19, left: 0, right: 0 }))).assertFalse();
     });
 
     it('tablet_unfolded_and_trifold_windows_keep_existing_large_cell_sizes', FLAGS, () => {

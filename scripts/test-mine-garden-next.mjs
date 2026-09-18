@@ -43,6 +43,9 @@ for (const effect of ['open','flood','flag','unflag','tap','blocked','win','lose
 }
 for (const theme of ['light', 'dark']) {
   for (const tile of ['open', 'closed', 'flag', 'mine']) assert.ok(existsSync(resolve(assetRoot, `tiles/${tile}_${theme}.svg`)));
+  for (const layer of ['garden', 'contour', 'fern_left', 'fern_right']) {
+    assert.ok(existsSync(resolve(assetRoot, `scene/${layer}_${theme}.svg`)));
+  }
 }
 for (const file of readdirSync(resolve(root, 'entry/src/main/ets/gamesNext/minesweeper'))) {
   const text = readFileSync(resolve(root, 'entry/src/main/ets/gamesNext/minesweeper', file), 'utf8');

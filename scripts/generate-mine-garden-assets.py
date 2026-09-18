@@ -58,14 +58,34 @@ for theme in ['light', 'dark']:
     svg(f'tiles/mine_{theme}.svg', f'''<g stroke="{ink}" stroke-width="2.8" stroke-linecap="round"><path d="M24 7v5m0 24v5M7 24h5m24 0h5M12 12l4 4m16 16 4 4M12 36l4-4m16-16 4-4"/>
 <circle cx="24" cy="24" r="11" fill="{accent}"/></g><circle cx="20" cy="20" r="3" fill="{paper}" opacity=".8"/>
 <circle cx="27" cy="27" r="2" fill="{ink}" opacity=".45"/>''', '0 0 48 48')
-    bg = '#101110' if dark else '#FFF4E4'
     faint = '#20281F' if dark else '#E9EBCF'
-    svg(f'scene/garden_{theme}.svg', f'''<rect width="1200" height="1000" fill="{bg}"/>
-<path d="M0 880Q100 780 260 888T620 928T1200 850V1000H0Z" fill="{faint}"/>
-<g fill="none" stroke="{border}" stroke-width="1.5" opacity=".35"><path d="M900-70c-80 70-20 180 100 170s120 100 200 70M875-80c-95 90-30 210 100 208s130 110 225 74M850-90c-110 115-35 240 100 247s160 120 250 80"/>
-<path d="M-60 280c190-80 235 70 140 110s-90 160 100 150M-60 304c160-66 203 58 111 99s-78 153 116 162"/></g>
-<g fill="{accent}" opacity=".18"><path d="M46 960q-70-100-14-168 47 76 14 168Zm0 0q0-111 96-126-3 98-96 126ZM1130 972q-79-90-58-165 68 38 58 165Zm0 0q-6-92 64-123 19 79-64 123Z"/></g>
-<g fill="{'#D9B87E' if dark else '#C7A86B'}" opacity=".45"><circle cx="128" cy="152" r="3"/><circle cx="1100" cy="315" r="2"/><path d="m1040 780 4 8 8 4-8 4-4 8-4-8-8-4 8-4Z"/></g>''', '0 0 1200 1000')
+    gold = '#D9B87E' if dark else '#B18B4E'
+    # Transparent, independently anchored layers keep the artwork visible in
+    # portrait layouts. Only the soft ground wash stretches with the window.
+    svg(f'scene/garden_{theme}.svg', f'''<defs><linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
+<stop stop-color="{faint}" stop-opacity="0"/><stop offset="1" stop-color="{faint}" stop-opacity=".9"/></linearGradient></defs>
+<rect width="1200" height="240" fill="url(#ground)"/>
+<path d="M0 208Q160 169 320 204T680 219T1200 197" fill="none" stroke="{border}" stroke-opacity=".22" stroke-width="1"/>
+<path d="M0 224Q210 183 420 217T820 229T1200 213" fill="none" stroke="{border}" stroke-opacity=".14" stroke-width="1"/>''', '0 0 1200 240')
+    svg(f'scene/contour_{theme}.svg', f'''<g fill="none" stroke="{accent}" stroke-width="1" opacity=".16">
+<path d="M138-18c-46 52-24 93 42 106s87 38 82 93M156-18c-54 58-30 106 31 122s77 45 79 86M174-18c-60 63-37 119 20 137s67 49 73 80"/>
+<path d="M217 17v18m-9-9h18" stroke-width=".8"/></g>
+<g fill="{gold}" opacity=".38"><circle cx="95" cy="40" r="1.7"/><circle cx="233" cy="154" r="1.4"/>
+<path d="m197 65 2.5 5.5 5.5 2.5-5.5 2.5-2.5 5.5-2.5-5.5-5.5-2.5 5.5-2.5Z"/></g>''', '0 0 260 260')
+    svg(f'scene/fern_left_{theme}.svg', f'''<g fill="{accent}" fill-opacity=".16" stroke="{accent}" stroke-opacity=".26" stroke-width="1.2" stroke-linejoin="round">
+<path d="M25 183C-4 143 0 119 8 103c26 23 30 49 17 80ZM31 154C7 124 11 92 21 78c19 27 21 53 10 76Z"/>
+<path d="M39 126c-8-34 5-62 19-73 8 33 0 58-19 73ZM27 183c8-32 34-47 60-49-8 33-30 47-60 49Z"/>
+<path d="M34 153c13-26 37-33 56-29-15 23-32 32-56 29Z"/>
+<path d="M24 211c-6-54 10-95 35-148M27 183l36-30M34 153l36-18" fill="none"/>
+</g><g fill="none" stroke="{gold}" stroke-opacity=".34" stroke-width="1.1">
+<path d="M57 210c2-5 12-7 18-3s1 9-7 9-13-1-11-6ZM83 217q8-6 14-1"/>
+</g><g fill="{gold}" opacity=".32"><circle cx="103" cy="167" r="1.5"/><circle cx="70" cy="97" r="1.2"/></g>''', '0 0 180 216')
+    svg(f'scene/fern_right_{theme}.svg', f'''<g fill="{accent}" fill-opacity=".14" stroke="{accent}" stroke-opacity=".25" stroke-width="1.2" stroke-linejoin="round">
+<path d="M156 192c-3-48-23-73-46-81-1 38 16 67 46 81ZM145 155c-14-24-40-35-57-28 14 25 33 31 57 28Z"/>
+<path d="M142 130c-4-26 8-49 24-60 11 31 1 51-24 60ZM154 176c21-22 25-45 19-62-20 16-24 39-19 62Z"/>
+<path d="M162 214c-10-52-31-87-36-117M153 186l-29-48M147 160l-36-22M140 132l18-43" fill="none"/>
+</g><path d="M52 196q35-36 65 5" fill="none" stroke="{border}" stroke-width="1" stroke-dasharray="2 6" opacity=".4"/>
+<g fill="{gold}" opacity=".34"><path d="m76 174 2 4 4 2-4 2-2 4-2-4-4-2 4-2Z"/><circle cx="119" cy="91" r="1.4"/></g>''', '0 0 180 216')
     svg(f'scene/action_{theme}.svg', f'''<rect x="1" y="4" width="318" height="47" rx="23" fill="{'#607C56' if dark else '#294D3A'}"/>
 <rect x="1" y="1" width="318" height="46" rx="23" fill="{accent}"/>
 <path d="M15 22q0-13 15-13h250" stroke="{on_accent}" opacity=".22" stroke-width="2" fill="none" stroke-linecap="round"/>''', '0 0 320 52')
