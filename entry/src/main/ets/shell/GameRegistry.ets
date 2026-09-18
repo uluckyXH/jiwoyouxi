@@ -56,6 +56,15 @@ export const GAME_MODULES: GameModule[] = [
     highScoreLabel: '最高分'
   },
   {
+    id: 'tetrisNext',
+    title: '俄罗斯方块',
+    subtitle: '方块工坊 · 暂存、落点预览与轻柔消行音效',
+    icon: '▣',
+    tags: ['消行', '暂存', '多屏'],
+    accent: '#496e41',
+    highScoreLabel: '最高分'
+  },
+  {
     id: 'tetris',
     title: '俄罗斯方块',
     subtitle: '10×20 网格、7 种方块、消行升级',
@@ -110,7 +119,7 @@ export function gameLogoPath(gameId: string): string {
   if (gameId === 'minesweeper' || gameId === 'minesweeperNext') {
     return 'gamesNext/minesweeper/scene/logo.svg';
   }
-  if (gameId === 'tetris') {
+  if (gameId === 'tetris' || gameId === 'tetrisNext') {
     return 'app/game_logos/game_icon_tetris.svg';
   }
   if (gameId === 'chicken2048' || gameId === 'chicken2048Next') {

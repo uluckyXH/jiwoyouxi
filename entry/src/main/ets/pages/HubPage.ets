@@ -15,7 +15,7 @@ import { HubScroll } from './HubScroll';
 import { HubSettingsPanel } from './HubSettingsPanel';
 import { HubStatsPanel } from './HubStatsPanel';
 
-const HOME_GAME_ORDER: string[] = ['suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048Next', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
+const HOME_GAME_ORDER: string[] = ['tetrisNext', 'suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048Next', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 
 // Hide classic entry points on Home while retaining their routes, saves and favorites.
 const HIDDEN_HOME_GAME_IDS: string[] = ['chicken2048', 'minesweeper', 'suika'];
@@ -398,6 +398,7 @@ export struct HubPage {
     if (gameId === 'chicken2048') return '经典版';
     if (gameId === 'minesweeperNext') return '新版 · 庭院探雷';
     if (gameId === 'minesweeper') return '经典版';
+    if (gameId === 'tetrisNext') return '新版 · 方块工坊';
     if (gameId === 'tetris') return '经典版';
     if (gameId === 'freecell') return '纸牌归位';
     return moduleById(gameId).tags.slice(0, 2).join(' · ');

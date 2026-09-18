@@ -1,3 +1,4 @@
+import blockWorkshopNextTest from './BlockWorkshopNext.test';
 import mineGardenNextTest from './MineGardenNext.test';
 import glow2048NextTest from './Glow2048Next.test';
 import fruitMarketNextTest from './FruitMarketNext.test';
@@ -19,6 +20,7 @@ import rpsBattleTraitorSystemTest from './RpsBattleTraitorSystem.test';
 import rpsBattleZoneSystemTest from './RpsBattleZoneSystem.test';
 
 export default function testSuite(): void {
+  blockWorkshopNextTest();
   mineGardenNextTest();
   glow2048NextTest();
   fruitMarketNextTest();

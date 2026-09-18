@@ -1,4 +1,5 @@
 import { HubSession } from '../design/HubSession';
+import { BlockWorkshopPage } from '../gamesNext/blockWorkshop/BlockWorkshopPage';
 import { common } from '@kit.AbilityKit';
 import { AchievementService } from '../app/AchievementService';
 import { CoopStorage } from '../app/CoopStorage';
@@ -53,6 +54,7 @@ struct Index {
   @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
   @State tetrisSession: number = 0;
+  @State blockWorkshopExitRequest: number = 0;
   @State sceneDirection: string = 'push';
   @State sceneTransitioning: boolean = false;
   @State entryBadgeGameId: string = 'rpsBattle';
@@ -97,6 +99,10 @@ struct Index {
     }
     if (this.activeGame === 'minesweeperNext') {
       this.mineGardenExitRequest += 1;
+      return true;
+    }
+    if (this.activeGame === 'tetrisNext') {
+      this.blockWorkshopExitRequest += 1;
       return true;
     }
     if (this.activeGame === 'suikaNext') {
@@ -246,6 +252,19 @@ struct Index {
             reportAchievementEvent: (event: AchievementEvent) => {
               this.reportAchievementEvent(event);
             }
+          })
+        }
+      } else if (this.activeGame === 'tetrisNext') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          BlockWorkshopPage({
+            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            bestScore: this.recordFor('tetrisNext').highScore,
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.blockWorkshopExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('tetrisNext', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })
         }
       } else if (this.activeGame === 'tetris') {
@@ -547,6 +566,7 @@ struct Index {
     this.achievementService.report(context, event).then((result: AchievementApplyResult) => {
       this.achievementState = result.state;
       if (this.activeGame !== event.gameId && !(this.activeGame === 'minesweeperNext' && event.gameId === 'minesweeper') &&
+        !(this.activeGame === 'tetrisNext' && event.gameId === 'tetris') &&
         !(this.activeGame === 'chicken2048Next' && event.gameId === 'chicken2048')) {
         return;
       }
