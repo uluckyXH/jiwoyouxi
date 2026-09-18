@@ -60,11 +60,11 @@ export struct HubStatsPanel {
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
         Column({ space: 8 }) {
-        Image($rawfile(icon))
-          .width(28)
-          .height(28)
-          .objectFit(ImageFit.Contain)
-          .accessibilityLevel('no')
+          Image($rawfile(icon))
+            .width(28)
+            .height(28)
+            .objectFit(ImageFit.Contain)
+            .accessibilityLevel('no')
           AppIcon({ name: 'chevron_right', iconSize: 12, tint: this.mutedColor() })
         }
       }
@@ -74,9 +74,11 @@ export struct HubStatsPanel {
     .width('100%')
     .constraintSize({ minHeight: 94 })
     .padding(14)
-    .borderRadius(22)
     .backgroundColor(this.panelColor())
-    .border({ width: 1, color: this.lineColor() })
+    // Apply the same radius to the painted border and the button's clipping outline.
+    .border({ width: 1, color: this.lineColor(), radius: 22 })
+    .borderRadius(22)
+    .clip(true)
     .shadow(this.cardShadow())
     .accessibilityText(`${label}，${value}${suffix}，点击${label === '连续游玩' ? '查看游玩日历' : '打开成就墙'}`)
     .onClick(action)
@@ -105,17 +107,17 @@ export struct HubStatsPanel {
   private cardShadow(): ShadowOptions {
     if (this.isDarkMode) {
       return {
-        radius: 30,
-        color: 'rgba(0,0,0,0.48)',
+        radius: 14,
+        color: 'rgba(0,0,0,0.32)',
         offsetX: 0,
-        offsetY: 16
+        offsetY: 6
       };
     }
     return {
-      radius: 30,
-      color: 'rgba(112,69,28,0.22)',
+      radius: 14,
+      color: 'rgba(112,69,28,0.14)',
       offsetX: 0,
-      offsetY: 16
+      offsetY: 6
     };
   }
 }
