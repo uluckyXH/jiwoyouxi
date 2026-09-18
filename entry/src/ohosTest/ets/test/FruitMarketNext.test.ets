@@ -1,6 +1,6 @@
 import { describe, expect, it, Level, Size, TestType } from '@ohos/hypium';
 import { MarketEngine } from '../../../main/ets/gamesNext/fruitMarket/MarketEngine';
-import { marketLayout } from '../../../main/ets/gamesNext/fruitMarket/MarketLayout';
+import { MarketInsets, marketLayout } from '../../../main/ets/gamesNext/fruitMarket/MarketLayout';
 import { MarketBody, MARKET_FRUITS, MARKET_STEP, marketMergeScore } from '../../../main/ets/gamesNext/fruitMarket/MarketModel';
 import { achievementPrimaryFavoriteCount } from '../../../main/ets/shell/AchievementRegistry';
 import { favoriteAchievementEventAfterPersist } from '../../../main/ets/shell/AchievementFavoriteEvent';
@@ -361,10 +361,11 @@ export default function fruitMarketNextTest(): void {
     });
 
     it('fits small phones, tablets, landscape and both half-fold orientations', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
-      const widths = [320, 390, 844, 768, 1024, 1280, 720];
-      const heights = [568, 844, 390, 1024, 768, 800, 720];
+      const widths = [320, 320, 390, 568, 844, 768, 1024, 1280, 720];
+      const heights = [480, 568, 844, 320, 390, 1024, 768, 800, 720];
       for (let i = 0; i < widths.length; i += 1) {
         const layout = marketLayout(widths[i], heights[i], { top: 24, bottom: 20, left: 0, right: 0 });
+        expect(layout.limited).assertFalse();
         expect(layout.boardWidth > 0 && layout.boardHeight > 0).assertTrue();
         expect(layout.boardHeight + (layout.wide ? 0 : 108) <= layout.bodyHeight + 0.001).assertTrue();
         expect(layout.boardWidth + (layout.wide ? layout.railWidth + layout.gap : 0) <= layout.width - 2 * layout.gap + 0.001).assertTrue();
@@ -374,10 +375,41 @@ export default function fruitMarketNextTest(): void {
         { x: 0, y: 480, width: 840, height: 20 });
       expect(horizontal.y).assertEqual(500);
       expect(horizontal.height).assertEqual(500);
+      expect(horizontal.halfFoldPane).assertTrue();
+      expect(horizontal.limited).assertFalse();
       const vertical = marketLayout(1000, 840, { top: 0, bottom: 0, left: 0, right: 0 },
         { x: 480, y: 0, width: 20, height: 840 });
       expect(vertical.x).assertEqual(500);
       expect(vertical.width).assertEqual(500);
+      expect(vertical.halfFoldPane).assertTrue();
+      expect(vertical.limited).assertFalse();
+    });
+
+    it('requests more room only for tiny windows or unusably small half-fold panes', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const insets: MarketInsets = { top: 24, bottom: 20, left: 0, right: 0 };
+      const folded = marketLayout(390, 844, insets, { x: 0, y: 412, width: 390, height: 20 });
+      expect(folded.halfFoldPane).assertTrue();
+      expect(folded.limited).assertTrue();
+      expect(folded.y).assertEqual(432);
+      expect(folded.height).assertEqual(392);
+      expect(marketLayout(390, 844, insets).limited).assertFalse();
+      expect(marketLayout(840, 1000, insets, { x: 0, y: 480, width: 840, height: 20 }).limited).assertFalse();
+      expect(marketLayout(500, 840, insets, { x: 240, y: 0, width: 20, height: 840 }).limited).assertTrue();
+      expect(marketLayout(344, 368, insets).limited).assertTrue();
+      expect(marketLayout(240, 600, insets).limited).assertTrue();
+      expect(marketLayout(800, 240, insets).limited).assertTrue();
+    });
+
+    it('does not split a window for a crease that lies on another screen region', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+      const insets: MarketInsets = { top: 24, bottom: 20, left: 0, right: 0 };
+      const normal = marketLayout(390, 844, insets);
+      const elsewhere = marketLayout(390, 844, insets, { x: 600, y: 412, width: 800, height: 20 });
+      const below = marketLayout(390, 844, insets, { x: 180, y: 1000, width: 20, height: 900 });
+      expect(JSON.stringify(elsewhere)).assertEqual(JSON.stringify(normal));
+      expect(JSON.stringify(below)).assertEqual(JSON.stringify(normal));
+      const partial = marketLayout(390, 844, insets, { x: -40, y: 412, width: 450, height: 20 });
+      expect(partial.halfFoldPane).assertTrue();
+      expect(partial.limited).assertTrue();
     });
 
     it('counts both editions as one fruit game in favorite achievements', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {

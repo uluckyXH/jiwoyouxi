@@ -96,6 +96,7 @@ icons={
 'trophy':'<path d="M7 4h10v6a5 5 0 0 1-10 0ZM7 6H3v3q0 4 5 4m9-7h4v3q0 4-5 4m-4 2v5m-4 0h8"/>',
 'leaf':'<path d="M5 19C0 6 11 3 21 3c0 12-5 19-16 16Zm0 0L16 8"/>',
 'arrow':'<path d="M4 12h16m-6-6 6 6-6 6"/>',
+'expand':'<rect x="3" y="4" width="18" height="16" rx="4"/><path d="M12 7v10M9 9l-3 3 3 3m6-6 3 3-3 3"/>',
 'spark':'<path d="m12 2 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/>'}
 for name, paths in icons.items():
     svg(f'icons/{name}.svg',f'<g fill="none" stroke="#000" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{paths}</g>','0 0 24 24')

@@ -10,6 +10,7 @@ import { MarketPalette } from './MarketPalette';
 import { MARKET_PROFILE, MarketPerformance, marketNow } from './MarketPerformance';
 import { MarketDialog, MarketGuide, MarketStats } from './MarketPanels';
 import { createMarketCanvas, MarketRenderer } from './MarketRenderer';
+import { MarketSpacePrompt } from './MarketSpacePrompt';
 import { MarketStorage } from './MarketStorage';
 import { MarketWindow } from './MarketWindow';
 
@@ -89,45 +90,55 @@ export struct FruitMarketPage {
       Image($rawfile(`${MARKET_ASSETS}scene/garden_${this.dark ? 'dark' : 'light'}.svg`))
         .width('100%').height('100%').objectFit(ImageFit.Cover)
         .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
-      Column({ space: this.viewport.gap }) {
-        this.Header()
-        if (this.viewport.wide) {
-          Row({ space: this.viewport.gap }) {
-            this.Board()
-            Scroll() {
-              Column({ space: 14 }) {
-                MarketStats({ dark: this.dark, wide: true, score: this.score, best: this.best,
-                  current: this.current, next: this.next })
-                MarketGuide({ dark: this.dark, highest: this.highest })
-                Text('左右移动，松手投放\n相同相碰，慢慢长大').fontSize(12).lineHeight(21)
-                  .textAlign(TextAlign.Center).fontColor(MarketPalette.muted(this.dark)).width('100%')
-              }.width('100%')
-            }.width(this.viewport.railWidth).height(this.viewport.bodyHeight).scrollBar(BarState.Off)
-          }
-          .width('100%').height(this.viewport.bodyHeight).justifyContent(FlexAlign.Center)
-        } else {
-          Column({ space: 12 }) {
-            MarketStats({ dark: this.dark, score: this.score, best: this.best, current: this.current, next: this.next })
-            this.Board()
-          }.width('100%').height(this.viewport.bodyHeight).justifyContent(FlexAlign.Center)
-        }
-        Text(this.saveFailed ? '进度暂未保存 · 请在暂停页重试' : '左右移动，松手投放 · 相同水果碰出新鲜感')
-          .fontSize(11).fontColor(this.saveFailed ? MarketPalette.danger(this.dark) : MarketPalette.muted(this.dark))
-          .textAlign(TextAlign.Center).maxLines(1).height(30).width('100%')
-      }
-      .padding({ left: this.viewport.gap, right: this.viewport.gap })
-      .width(this.viewport.width).height(this.viewport.height)
-      .position({ x: this.viewport.x, y: this.viewport.y })
-      if (this.dialogMode.length > 0) {
-        MarketDialog({
-          mode: this.dialogMode, dark: this.dark, score: this.score, highest: this.highest,
-          drops: this.drops, merges: this.merges, saveFailed: this.saveFailed,
-          cardWidth: Math.min(380, this.viewport.width - 24), cardHeight: Math.max(100, this.viewport.height - 24),
-          resume: () => this.resume(), restart: () => this.restartRequested(),
-          exitWithoutSave: () => this.exitToHub(),
-          exit: () => this.saveAndExit(), help: () => this.showHelp(), retry: () => this.boot()
+      if (this.viewport.limited) {
+        MarketSpacePrompt({ dark: this.dark, halfFoldPane: this.viewport.halfFoldPane,
+          cardWidth: Math.max(1, Math.min(360, this.viewport.width - 24)),
+          cardHeight: Math.max(1, this.viewport.height - 24),
+          saveFailed: this.saveFailed, saving: this.savingExit,
+          exit: () => this.saveAndExit(), exitWithoutSave: () => this.exitToHub()
         }).width(this.viewport.width).height(this.viewport.height)
           .position({ x: this.viewport.x, y: this.viewport.y })
+      } else {
+        Column({ space: this.viewport.gap }) {
+          this.Header()
+          if (this.viewport.wide) {
+            Row({ space: this.viewport.gap }) {
+              this.Board()
+              Scroll() {
+                Column({ space: 14 }) {
+                  MarketStats({ dark: this.dark, wide: true, score: this.score, best: this.best,
+                    current: this.current, next: this.next })
+                  MarketGuide({ dark: this.dark, highest: this.highest })
+                  Text('左右移动，松手投放\n相同相碰，慢慢长大').fontSize(12).lineHeight(21)
+                    .textAlign(TextAlign.Center).fontColor(MarketPalette.muted(this.dark)).width('100%')
+                }.width('100%')
+              }.width(this.viewport.railWidth).height(this.viewport.bodyHeight).scrollBar(BarState.Off)
+            }
+            .width('100%').height(this.viewport.bodyHeight).justifyContent(FlexAlign.Center)
+          } else {
+            Column({ space: 12 }) {
+              MarketStats({ dark: this.dark, score: this.score, best: this.best, current: this.current, next: this.next })
+              this.Board()
+            }.width('100%').height(this.viewport.bodyHeight).justifyContent(FlexAlign.Center)
+          }
+          Text(this.saveFailed ? '进度暂未保存 · 请在暂停页重试' : '左右移动，松手投放 · 相同水果碰出新鲜感')
+            .fontSize(11).fontColor(this.saveFailed ? MarketPalette.danger(this.dark) : MarketPalette.muted(this.dark))
+            .textAlign(TextAlign.Center).maxLines(1).height(30).width('100%')
+        }
+        .padding({ left: this.viewport.gap, right: this.viewport.gap })
+        .width(this.viewport.width).height(this.viewport.height)
+        .position({ x: this.viewport.x, y: this.viewport.y })
+        if (this.dialogMode.length > 0) {
+          MarketDialog({
+            mode: this.dialogMode, dark: this.dark, score: this.score, highest: this.highest,
+            drops: this.drops, merges: this.merges, saveFailed: this.saveFailed,
+            cardWidth: Math.min(380, this.viewport.width - 24), cardHeight: Math.max(100, this.viewport.height - 24),
+            resume: () => this.resume(), restart: () => this.restartRequested(),
+            exitWithoutSave: () => this.exitToHub(),
+            exit: () => this.saveAndExit(), help: () => this.showHelp(), retry: () => this.boot()
+          }).width(this.viewport.width).height(this.viewport.height)
+            .position({ x: this.viewport.x, y: this.viewport.y })
+        }
       }
     }
     .width('100%').height('100%').backgroundColor(MarketPalette.background(this.dark))
@@ -203,14 +214,14 @@ export struct FruitMarketPage {
     if (this.disposed) return;
     this.sync();
     this.dialogMode = restored && this.engine.round.drops > 0 ? (this.engine.round.ended ? 'result' : 'resume') : '';
-    if (this.backgroundDuringBoot && this.dialogMode === '') this.dialogMode = 'pause';
+    if ((this.backgroundDuringBoot || this.viewport.limited) && this.dialogMode === '') this.dialogMode = 'pause';
     if (this.engine.round.ended) this.finish();
     this.draw();
     if (this.dialogMode === '') this.start();
   }
 
   private start(): void {
-    if (!this.gameReady || this.disposed || this.dialogMode !== '' || this.engine.round.ended) return;
+    if (!this.gameReady || this.disposed || this.viewport.limited || this.dialogMode !== '' || this.engine.round.ended) return;
     this.stop();
     this.lastFrame = Date.now();
     this.lastSave = this.lastFrame;
@@ -224,7 +235,7 @@ export struct FruitMarketPage {
   }
 
   private frame(): void {
-    if (this.disposed || this.dialogMode !== '') return;
+    if (this.disposed || this.viewport.limited || this.dialogMode !== '') return;
     const now = Date.now();
     const oldScore = this.engine.round.score;
     const oldHighest = this.engine.round.highest;
@@ -260,7 +271,7 @@ export struct FruitMarketPage {
   }
 
   private touch(event: TouchEvent): void {
-    if (this.dialogMode !== '' || !this.gameReady || this.canvasWidth <= 0) return;
+    if (this.viewport.limited || this.dialogMode !== '' || !this.gameReady || this.canvasWidth <= 0) return;
     if (event.type === TouchType.Cancel) { this.cancelTouch(); this.draw(); return; }
     if (event.type === TouchType.Down && this.touchId === -1 && event.touches.length > 0) {
       if (!this.engine.canDrop()) return;
@@ -283,7 +294,7 @@ export struct FruitMarketPage {
   private cancelTouch(): void { this.touchId = -1; this.aiming = false; }
 
   private draw(): boolean {
-    if (this.gameReady && !this.disposed) {
+    if (this.gameReady && !this.disposed && !this.viewport.limited) {
       // Layout, touch, source SVG and Canvas all use vp. The canvas itself applies
       // display density; no offscreen bitmap or second px/vp conversion is involved.
       if (MARKET_PROFILE) {
@@ -296,7 +307,17 @@ export struct FruitMarketPage {
 
   private relayout(): void {
     if (this.disposed || this.pageWidth <= 0 || this.pageHeight <= 0) return;
+    const wasLimited = this.viewport.limited;
+    this.cancelTouch();
     this.viewport = marketLayout(this.pageWidth, this.pageHeight, this.insets, this.crease);
+    if (this.viewport.limited) {
+      this.stop();
+      this.sounds.silence();
+      if (this.gameReady && this.dialogMode === '') this.dialogMode = 'pause';
+      if (!wasLimited && this.gameReady) this.save();
+    } else if (wasLimited && this.gameReady && this.dialogMode === '') {
+      this.dialogMode = 'pause';
+    }
     this.draw();
   }
 
@@ -355,6 +376,7 @@ export struct FruitMarketPage {
   }
 
   private exitRequested(): void {
+    if (this.viewport.limited) { this.saveAndExit(); return; }
     if (this.dialogMode === 'help') { this.resume(); return; }
     if (!this.gameReady) { this.exitToHub(); return; }
     this.pause('exit');
