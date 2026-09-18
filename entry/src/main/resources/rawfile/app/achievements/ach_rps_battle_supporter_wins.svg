@@ -1,16 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <ellipse cx="64" cy="99" rx="45" ry="13" fill="#D9B176"/>
-    <ellipse cx="64" cy="92" rx="45" ry="13" fill="#F9DE9D"/>
-    <path d="M45 31c17-13 34 10 56-1l-9 17 9 17c-23 11-39-12-56 1z" fill="#E99B7D"/>
-    <path d="M46 33c17-10 34 10 50 2" fill="none" stroke="#FFD3AF"/>
-    <path d="M43 24v72" fill="none" stroke-width="5"/>
-    <circle cx="43" cy="22" r="5" fill="#F5CA64"/>
-    <path d="m67 36 4 7 8 1-6 6 1 9-7-4-8 4 2-9-6-6 8-1z" fill="#FFF0BA" stroke-width="2.5"/>
-    <circle cx="60" cy="91" r="6" fill="#A4BED4" stroke-width="3"/>
-    <circle cx="80" cy="92" r="6" fill="#A7BF85" stroke-width="3"/>
-    <path d="M29 83C15 80 13 68 21 61c10 5 14 13 8 22z" fill="#8DB48A" stroke-width="3"/>
-    <path d="m29 88-8-17" fill="none" stroke-width="2.5"/>
-    <path d="m103 77 3-6 2 6 6 2-6 2-2 6-3-6-6-2z" fill="#F3CB70" stroke-width="2.5"/>
+  <title>小队首胜</title>
+  <desc>带三色队伍印记的庭院奖杯，表示自己的小队赢得一局，不再使用押注旗帜。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M37 37H20V49Q20 68 41 69M91 37H108V49Q108 68 87 69" fill="#EBCD8B" stroke="#795A43" stroke-width="3"/><path d="M37 24H91V53C91 69 77 78 64 78S37 69 37 53Z" fill="#F2CB78"/><path d="M45 32V48Q45 63 56 66" fill="none" stroke="#FFF0B7" stroke-width="3"/><path d="M64 78V96" fill="none" stroke="#795A43" stroke-width="9"/><path d="M64 79V94" fill="none" stroke="#EDBF6C" stroke-width="5"/><rect x="40" y="96" width="48" height="13" rx="5" fill="#DBB477" /><path d="M64 38Q65 48 75 49Q65 50 64 60Q63 50 53 49Q63 48 64 38Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/><circle cx="45" cy="102" r="4" fill="#8CB6CB" stroke="none"/><circle cx="64" cy="102" r="4" fill="#DE8D76" stroke="none"/><circle cx="83" cy="102" r="4" fill="#A8C591" stroke="none"/><g transform="translate(14 78) rotate(-30) scale(0.74)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g><g transform="translate(102 83) rotate(14) scale(0.65)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g>
   </g>
 </svg>

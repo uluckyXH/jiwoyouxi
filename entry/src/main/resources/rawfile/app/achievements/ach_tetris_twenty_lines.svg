@@ -1,15 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="28" y="74" width="64" height="20" rx="4" fill="#E7A38C"/>
-    <rect x="28" y="52" width="64" height="20" rx="4" fill="#A8BF8A"/>
-    <rect x="28" y="30" width="42" height="20" rx="4" fill="#9AB8D1"/>
-    <rect x="72" y="30" width="20" height="20" rx="4" fill="#F3D38F"/>
-    <rect x="50" y="14" width="20" height="14" rx="4" fill="#AFA6C9" stroke-width="3"/>
-    <path d="M49 76v16m22-16v16M49 54v16m22-16v16M49 32v16" fill="none" stroke-width="2"/>
-    <path d="M17 98h88" fill="none" stroke="#F0C264" stroke-width="7"/>
-    <path d="M22 107h60" fill="none" stroke="#D0A465" stroke-width="3"/>
-    <path d="M88 104c-5-17 3-30 23-34 2 20-5 32-23 34z" fill="#B7C995"/>
-    <path d="m80 114 25-35m-12 19 11-2" fill="none" stroke-width="2.5"/>
-    <path d="M21 57h-6m7 19h-8" fill="none" stroke="#D0A465" stroke-width="3"/>
+  <title>清行不停</title>
+  <desc>五条柔和彩色消行记录和矢量数字5，表示单局累计五行。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="16" y="23" width="80" height="84" rx="12" fill="#F3E9CC" /><rect x="24" y="32" width="59" height="9" rx="3" fill="#8CB6CB" stroke-width="2"/><path d="M40 34v5M60 34v5" fill="none" stroke="#FFF4D9" stroke-width="1.5"/><rect x="24" y="45" width="59" height="9" rx="3" fill="#AAC592" stroke-width="2"/><path d="M40 47v5M60 47v5" fill="none" stroke="#FFF4D9" stroke-width="1.5"/><rect x="24" y="58" width="59" height="9" rx="3" fill="#DE8D76" stroke-width="2"/><path d="M40 60v5M60 60v5" fill="none" stroke="#FFF4D9" stroke-width="1.5"/><rect x="24" y="71" width="59" height="9" rx="3" fill="#EDBF6C" stroke-width="2"/><path d="M40 73v5M60 73v5" fill="none" stroke="#FFF4D9" stroke-width="1.5"/><rect x="24" y="84" width="59" height="9" rx="3" fill="#9DBDAD" stroke-width="2"/><path d="M40 86v5M60 86v5" fill="none" stroke="#FFF4D9" stroke-width="1.5"/><circle cx="95" cy="45" r="20" fill="#F4CF83" /><g transform="translate(86 31) scale(1 0.964286)" ><g transform="translate(0 0)" ><path d="M17 2H3L2 13C8 10 17 11 17 19C17 28 5 28 1 24" fill="none" stroke="#795A43" stroke-width="4.4"/></g></g><path d="M103 9Q104 14 109 15Q104 16 103 21Q102 16 97 15Q102 14 103 9Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

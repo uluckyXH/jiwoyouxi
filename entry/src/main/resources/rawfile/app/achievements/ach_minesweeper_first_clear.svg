@@ -1,12 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="18" y="38" width="88" height="69" rx="10" fill="#D7BC90"/>
-    <path d="M22 85h29V63h28V41h23v44H79v18H22z" fill="#B9CD9A" stroke="none"/>
-    <path d="M48 40v64m29-64v64M20 61h84M20 83h84" fill="none" stroke="#AC8A60" stroke-width="2.5"/>
-    <path d="m30 93 13 1 12-22h22l13-20" fill="none" stroke="#FFF4C8" stroke-width="5"/>
-    <path d="M83 18c-9 0-17 16-17 25a17 17 0 0 0 34 0c0-9-8-25-17-25z" fill="#FFF3D3"/>
-    <path d="M77 29c-3 3-4 7-4 10" fill="none" stroke="#E7CD98" stroke-width="3"/>
-    <path d="m80 45 4 4 8-10" fill="none" stroke="#74986B" stroke-width="3"/>
-    <path d="m31 20 3 7 7 2-7 3-3 7-2-7-7-3 7-2z" fill="#F3C664" stroke-width="2.5"/>
+  <title>平安出窝</title>
+  <desc>庭院石砖中的安全小径与绿色勾记，打开全部安全格。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="14" y="34" width="100" height="76" rx="13" fill="#BBCC9C" /><rect x="22" y="44" width="25" height="25" rx="5" fill="#91B27F" stroke="#71916C" stroke-width="2.2"/><rect x="51" y="44" width="25" height="25" rx="5" fill="#FFF5DE" stroke="#71916C" stroke-width="2.2"/><rect x="80" y="44" width="25" height="25" rx="5" fill="#91B27F" stroke="#71916C" stroke-width="2.2"/><rect x="22" y="73" width="25" height="25" rx="5" fill="#FFF5DE" stroke="#71916C" stroke-width="2.2"/><rect x="51" y="73" width="25" height="25" rx="5" fill="#FFF5DE" stroke="#71916C" stroke-width="2.2"/><rect x="80" y="73" width="25" height="25" rx="5" fill="#91B27F" stroke="#71916C" stroke-width="2.2"/><path d="M34 85H63V56" fill="none" stroke="#D5AD68" stroke-width="5"/><circle cx="93" cy="87" r="15" fill="#35785E" stroke="#D8E5B9" stroke-width="2.5"/><path d="M85.8 87l4.8 4.8 9.75 -10.5" fill="none" stroke="#FFF5DE" stroke-width="3.5"/><g transform="translate(50 18) rotate(-14) scale(0.85)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g><path d="M100 18Q101 24 107 25Q101 26 100 32Q99 26 93 25Q99 24 100 18Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

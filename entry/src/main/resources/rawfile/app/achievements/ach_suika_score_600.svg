@@ -1,16 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M24 48v55m80-55v55" fill="none" stroke-width="5"/>
-    <path d="M29 20h70l12 27H17z" fill="#F5DA9E"/>
-    <path d="m45 20-5 27H25l10-27m37 0 4 27h16l-9-27" fill="#E9A18A" stroke="none"/>
-    <path d="M17 47v5c0 10 16 10 16 0 0 10 16 10 16 0 0 10 15 10 15 0 0 10 16 10 16 0 0 10 15 10 15 0 0 10 16 10 16 0v-5z" fill="#F6DDA6"/>
-    <circle cx="42" cy="75" r="12" fill="#E9A080"/>
-    <path d="M42 63v-4m0 3c7-9 12-3 7 2" fill="#A6BE84" stroke-width="2.5"/>
-    <circle cx="68" cy="75" r="13" fill="#A9C68A"/>
-    <path d="M65 64c-4 7-4 15 0 23m7-22c-3 7-3 15 0 20" fill="none" stroke="#7F9D67" stroke-width="2.5"/>
-    <rect x="19" y="87" width="90" height="23" rx="5" fill="#D6AC78"/>
-    <path d="M29 97h29m-29 6h19" fill="none" stroke="#F9DEAD" stroke-width="3"/>
-    <circle cx="90" cy="96" r="12" fill="#F2CD75"/>
-    <path d="m90 89 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#FFF1BA" stroke-width="1.5"/>
+  <title>瓜摊开张</title>
+  <desc>暖色条纹小摊、葡萄橘子与第一枚金币，表示一百分的开张小目标。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M27 48V104M101 48V104" fill="none" stroke="#A07E52" stroke-width="5"/><path d="M20 46L28 25H100L108 46Z" fill="#F2D9A5"/><path d="M36 25H50L47 46H31ZM76 25H90L96 46H79Z" fill="#DE8D76" stroke="none"/><path d="M20 46Q27 60 35 46Q44 60 53 46Q64 60 75 46Q85 60 93 46Q102 60 108 46" fill="#F2D9A5" stroke="#795A43" stroke-width="3"/><rect x="18" y="88" width="92" height="16" rx="5" fill="#DBB37A" /><circle cx="33" cy="73" r="7" fill="#B095BD" stroke="#857397" stroke-width="2"/><circle cx="44" cy="72" r="7" fill="#B095BD" stroke="#857397" stroke-width="2"/><circle cx="39" cy="82" r="7" fill="#B095BD" stroke="#857397" stroke-width="2"/><circle cx="65" cy="75" r="13" fill="#E8AF66" stroke="#B48751" stroke-width="2.5"/><g transform="translate(61 57) rotate(-10) scale(0.52)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g><circle cx="97" cy="98" r="17" fill="#EDBF6C" /><path d="M97 90Q98 97 105 98Q98 99 97 106Q96 99 89 98Q96 97 97 90Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/><path d="M28 110H76" fill="none" stroke="#AC8A5C" stroke-width="2.5"/>
   </g>
 </svg>

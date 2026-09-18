@@ -1,14 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M40 44C22 43 15 29 19 18c16 0 29 9 21 26z" fill="#ACC6A0"/>
-    <path d="M88 44c18-1 25-15 21-26-16 0-29 9-21 26z" fill="#ACC6A0"/>
-    <path d="M40 84c-18 1-25 15-21 26 16 0 29-9 21-26z" fill="#B1BAD2"/>
-    <path d="M88 84c18 1 25 15 21 26-16 0-29-9-21-26z" fill="#B1BAD2"/>
-    <path d="m25 26 17 20m61-20L86 46m-61 56 17-20m61 20L86 82" fill="none" stroke-width="2.5"/>
-    <rect x="32" y="32" width="64" height="69" rx="13" fill="#C79857"/>
-    <rect x="30" y="27" width="68" height="69" rx="13" fill="#EDC26C"/>
-    <rect x="38" y="35" width="52" height="53" rx="9" fill="#FBE2A2" stroke="#D6AA5E" stroke-width="2"/>
-    <path d="M64 42c-9 0-17 17-17 26a17 17 0 0 0 34 0c0-9-8-26-17-26z" fill="#FFF8E2"/>
-    <path d="m64 49-9 18 9 12 9-12z" fill="#EEC572" stroke="#D1A768" stroke-width="2"/>
+  <title>叠数渐佳</title>
+  <desc>暖金叠起的方块与初生叶片，主方块以矢量笔画标出512。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="19" y="23" width="79" height="78" rx="14" fill="#E9D1A1" transform="rotate(-9 60 62)"/><rect x="29" y="38" width="78" height="72" rx="13" fill="#BC965D" /><rect x="29" y="33" width="78" height="72" rx="13" fill="#EDBC76" /><path d="M38 56V47Q38 41 45 41H83" fill="none" stroke="#FFF1C9" stroke-width="3"/><path d="M97 86Q97 97 83 97H44" fill="none" stroke="#B68F55" stroke-width="2" stroke-opacity=".45"/><g transform="translate(35 44) scale(0.848485 0.857143)" ><g transform="translate(0 0)" ><path d="M17 2H3L2 13C8 10 17 11 17 19C17 28 5 28 1 24" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(24 0)" ><path d="M3 7L10 2V26M3 26H17" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(48 0)" ><path d="M1 7C2 0 17 0 17 7C17 12 10 16 2 25H18" fill="none" stroke="#605137" stroke-width="4.4"/></g></g><g transform="translate(11 84) rotate(-21) scale(0.8)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g><path d="M98 11Q99 16 104 17Q99 18 98 23Q97 18 92 17Q97 16 98 11Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

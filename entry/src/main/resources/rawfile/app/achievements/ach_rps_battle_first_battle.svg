@@ -1,17 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M33 42c10-17 37-21 54-8M103 62c4 21-15 39-33 40M47 101C29 96 18 79 23 60" fill="none" stroke="#D6AB69"/>
-    <path d="m82 26 7 10-12 2m26 59-10 7-3-11M16 68l7-10 7 10" fill="none" stroke="#D6AB69"/>
-    <circle cx="64" cy="33" r="20" fill="#F6CF7D"/>
-    <path d="m52 39-1-10 7-8 12 1 8 10-3 9z" fill="#D4B48D"/>
-    <path d="m56 30 5-4 7 1" fill="none" stroke="#FFF1CC" stroke-width="3"/>
-    <circle cx="92" cy="81" r="20" fill="#A4BED4"/>
-    <path d="m91 80 9-12m-9 12-8-12" fill="none"/>
-    <circle cx="85" cy="87" r="5" fill="#FFF4D4"/>
-    <circle cx="97" cy="87" r="5" fill="#FFF4D4"/>
-    <circle cx="35" cy="81" r="20" fill="#E8A28C"/>
-    <path d="M27 70h13l5 6v17H27z" fill="#FFF4D4"/>
-    <path d="M39 70v7h6m-12 6h6m-6 5h6" fill="none" stroke-width="2.5"/>
-    <path d="m64 57 3 7 8 2-8 3-3 8-3-8-8-3 8-2z" fill="#F5CB63" stroke-width="2.5"/>
+  <title>庭院初见</title>
+  <desc>庭院里相遇的蓝色石头、珊瑚剪刀和绿色布，完成一局即可获得。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M31 54C37 37 84 31 102 64M100 89C83 110 43 111 24 90M19 77C17 68 20 60 25 53" fill="none" stroke="#B7C394" stroke-width="4"/><circle cx="64" cy="36" r="23" fill="#FFF5DE" stroke="#B6B68B" stroke-width="2.5"/><g transform="translate(48 20) scale(1)" ><path d="M1 18L6 6L18 1L28 7L32 20L22 29L7 28Z" fill="#8CB6CB" stroke="#547A88" stroke-width="2.2"/><path d="M6 6L12 14L22 10L28 7M12 14L7 24M22 10L26 20" fill="none" stroke="#DAE6DC" stroke-width="2"/></g><circle cx="33" cy="85" r="23" fill="#FFF5DE" stroke="#B6B68B" stroke-width="2.5"/><g transform="translate(17 69) scale(1)" ><path d="M13 17L7 2M19 17L27 2" fill="none" stroke="#C2B597" stroke-width="5"/><path d="M13 17L7 2M19 17L27 2" fill="none" stroke="#7D7258" stroke-width="1.7"/><circle cx="8" cy="23" r="7" fill="#DE8D76" stroke="#A35F48" stroke-width="2"/><circle cx="24" cy="23" r="7" fill="#DE8D76" stroke="#A35F48" stroke-width="2"/><circle cx="8" cy="23" r="3" fill="#FFF5DE" stroke="none"/><circle cx="24" cy="23" r="3" fill="#FFF5DE" stroke="none"/><circle cx="16" cy="16" r="3" fill="#EDBF6C" stroke-width="1.8"/></g><circle cx="96" cy="85" r="23" fill="#FFF5DE" stroke="#B6B68B" stroke-width="2.5"/><g transform="translate(80 69) scale(1)" ><path d="M3 3Q16 0 28 4L31 27Q17 32 4 28L1 8Z" fill="#ACCB92" stroke="#63866B" stroke-width="2.2"/><path d="M7 7L9 24L25 24" fill="none" stroke="#E4ECCA" stroke-width="2"/><path d="M12 8L14 22M17 8L19 22" fill="none" stroke="#729E7A" stroke-width="1.2" stroke-dasharray="2 3"/></g><g transform="translate(14 20) rotate(-13) scale(0.64)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g><path d="M105 20Q106 25 111 26Q106 27 105 32Q104 27 99 26Q104 25 105 20Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

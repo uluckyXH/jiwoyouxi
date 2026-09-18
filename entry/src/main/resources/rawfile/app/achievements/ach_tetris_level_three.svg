@@ -1,13 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="18" y="83" width="29" height="26" rx="5" fill="#A2BCD1"/>
-    <rect x="48" y="61" width="29" height="48" rx="5" fill="#B2C68D"/>
-    <rect x="78" y="42" width="29" height="67" rx="5" fill="#EFC577"/>
-    <path d="M50 85h24m7-21h23m-23 21h23" fill="none" stroke-width="2.5"/>
-    <path d="M26 91h12m18-22h13m17-19h12" fill="none" stroke="#FFF0CF" stroke-width="3"/>
-    <path d="m76 22 8 6 8-13 9 13 9-6-4 20H80z" fill="#F0BF5E" stroke-width="3"/>
-    <path d="M24 70c6-21 22-33 40-38" fill="none" stroke="#D1AA70" stroke-width="4"/>
-    <path d="m54 27 13 4-7 11" fill="none" stroke="#D1AA70" stroke-width="3"/>
-    <path d="m27 20 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#F3C664" stroke-width="2.5"/>
+  <title>方块进阶</title>
+  <desc>十条分列的消行记录与矢量数字10，无等级数字或皇冠。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="17" y="21" width="94" height="83" rx="13" fill="#EEE4C6" /><rect x="25" y="55" width="33" height="7" rx="3" fill="#8CB6CB" stroke-width="1.8"/><rect x="66" y="55" width="33" height="7" rx="3" fill="#8CB6CB" stroke-width="1.8"/><rect x="25" y="65" width="33" height="7" rx="3" fill="#AFC997" stroke-width="1.8"/><rect x="66" y="65" width="33" height="7" rx="3" fill="#AFC997" stroke-width="1.8"/><rect x="25" y="75" width="33" height="7" rx="3" fill="#DE8D76" stroke-width="1.8"/><rect x="66" y="75" width="33" height="7" rx="3" fill="#DE8D76" stroke-width="1.8"/><rect x="25" y="85" width="33" height="7" rx="3" fill="#EDBF6C" stroke-width="1.8"/><rect x="66" y="85" width="33" height="7" rx="3" fill="#EDBF6C" stroke-width="1.8"/><rect x="25" y="95" width="33" height="7" rx="3" fill="#9FBEA9" stroke-width="1.8"/><rect x="66" y="95" width="33" height="7" rx="3" fill="#9FBEA9" stroke-width="1.8"/><rect x="38" y="17" width="69" height="36" rx="12" fill="#F4CD7D" /><g transform="translate(53 23) scale(0.952381 0.821429)" ><g transform="translate(0 0)" ><path d="M3 7L10 2V26M3 26H17" fill="none" stroke="#795A43" stroke-width="4.4"/></g><g transform="translate(24 0)" ><path d="M9 2C3 2 1 7 1 14S3 26 9 26S17 21 17 14S15 2 9 2Z" fill="none" stroke="#795A43" stroke-width="4.4"/></g></g><path d="M17 94Q18 100 24 101Q18 102 17 108Q16 102 10 101Q16 100 17 94Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

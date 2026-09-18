@@ -1,17 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M43 58C25 57 14 43 18 30c15 0 29 10 25 28z" fill="#F2CF7B"/>
-    <path d="M85 58c18-1 29-15 25-28-15 0-29 10-25 28z" fill="#F2CF7B"/>
-    <path d="M35 77C18 73 13 60 17 50c15 4 24 14 18 27z" fill="#D9B17A"/>
-    <path d="M93 77c17-4 22-17 18-27-15 4-24 14-18 27z" fill="#D9B17A"/>
-    <path d="m25 40 18 20m60-20L85 60" fill="none" stroke-width="2.5"/>
-    <rect x="47" y="94" width="34" height="10" rx="3" fill="#C99B63"/>
-    <rect x="35" y="103" width="58" height="9" rx="4" fill="#F0C46A"/>
-    <ellipse cx="64" cy="68" rx="35" ry="31" fill="#A9C77F"/>
-    <path d="M51 40c-12 16-12 37 0 56m13-57c-8 18-8 39 0 59m13-58c-5 18-5 37 0 55" fill="none" stroke="#70965D" stroke-width="4.5"/>
-    <path d="M43 52c-3 5-4 9-5 14" fill="none" stroke="#D8E4AD" stroke-width="4"/>
-    <path d="m42 21 11 8 11-15 11 15 11-8-5 23H47z" fill="#F2C869"/>
-    <path d="M51 37h26" fill="none" stroke="#FFE8A9" stroke-width="3"/>
-    <path d="m64 24 4 6-4 6-4-6z" fill="#DE977D" stroke-width="2"/>
+  <title>西瓜上桌</title>
+  <desc>深绿色普通西瓜与木托盘上的果肉切片，对应等级七，不再画最终巨瓜或皇冠。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <ellipse cx="65" cy="104" rx="47" ry="10" fill="#D6B880"/><path d="M30 104H102" fill="none" stroke="#F1DFB5" stroke-width="2"/><circle cx="70" cy="63" r="41" fill="#6BA681" stroke="#397754" stroke-width="3"/><path d="M50.32 27.33C38.02 48.65 61.8 74.07 50.32 99.08" fill="none" stroke="#397754" stroke-width="4"/><path d="M70 27.33C57.7 48.65 81.48 74.07 70 99.08" fill="none" stroke="#397754" stroke-width="4"/><path d="M89.68 27.33C77.38 48.65 101.16 74.07 89.68 99.08" fill="none" stroke="#397754" stroke-width="4"/><path d="M44.99 46.6Q50.32 36.35 61.8 33.48" fill="none" stroke="#EDF5C5" stroke-width="3"/><circle cx="59.75" cy="67.1" r="2.4" fill="#405440" stroke="none"/><circle cx="80.25" cy="67.1" r="2.4" fill="#405440" stroke="none"/><path d="M65 75.3Q70 80.22 75 75.3" fill="none" stroke="#405440" stroke-width="2"/><path d="M70 31Q66 20 73 14" fill="none" stroke="#A27A4C" stroke-width="3"/><g transform="translate(72 17) rotate(-10) scale(0.65)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g><path d="M20 80H78A29 29 0 0 1 20 80Z" fill="#6FA67C" stroke="#527D59" stroke-width="2.5"/><path d="M25 83H73A24 24 0 0 1 25 83Z" fill="#F9E9BA" stroke="none"/><path d="M29 84H69A20 20 0 0 1 29 84Z" fill="#E99A80" stroke="none"/><path d="M39 91L41 94M49 94V98M60 91L58 94" fill="none" stroke="#805440" stroke-width="2.5"/><path d="M20 41Q21 46 26 47Q21 48 20 53Q19 48 14 47Q19 46 20 41Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

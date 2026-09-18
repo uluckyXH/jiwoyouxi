@@ -1,14 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="31" y="49" width="68" height="60" rx="13" fill="#D49B54"/>
-    <rect x="29" y="42" width="70" height="60" rx="13" fill="#EDBD63"/>
-    <rect x="37" y="50" width="54" height="44" rx="9" fill="#FFF0C0" stroke="#D49B54" stroke-width="2.5"/>
-    <path d="m40 22 12 10 12-17 12 17 12-10-5 25H45z" fill="#F4C85F"/>
-    <path d="M48 40h32" fill="none" stroke="#FFE7A3" stroke-width="3"/>
-    <circle cx="64" cy="34" r="3" fill="#DE9076" stroke="none"/>
-    <path d="m64 57 5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z" fill="#F0BD58" stroke-width="3"/>
-    <path d="m22 52 2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#F3D078" stroke-width="2.5"/>
-    <path d="m106 53 2 6 6 2-6 2-2 6-2-6-6-2 6-2z" fill="#F3D078" stroke-width="2.5"/>
-    <path d="M21 84v7m87-3v7" fill="none" stroke="#D6AC6C" stroke-width="3"/>
+  <title>千格暖光</title>
+  <desc>拱形暖光照亮1024方块，无2048字样或终点皇冠。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M14 82V58A50 50 0 0 1 114 58V82" fill="none" stroke="#CFBA7F" stroke-width="3"/><path d="M64 9V15M28 22L32 27M100 22L96 27" fill="none" stroke="#C4A163" stroke-width="3"/><rect x="20" y="39" width="88" height="72" rx="13" fill="#BC965D" /><rect x="20" y="34" width="88" height="72" rx="13" fill="#E8AC76" /><path d="M29 57V48Q29 42 36 42H84" fill="none" stroke="#FFF1C9" stroke-width="3"/><path d="M98 87Q98 98 84 98H35" fill="none" stroke="#B68F55" stroke-width="2" stroke-opacity=".45"/><g transform="translate(26 45) scale(0.733333 0.857143)" ><g transform="translate(0 0)" ><path d="M3 7L10 2V26M3 26H17" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(24 0)" ><path d="M9 2C3 2 1 7 1 14S3 26 9 26S17 21 17 14S15 2 9 2Z" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(48 0)" ><path d="M1 7C2 0 17 0 17 7C17 12 10 16 2 25H18" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(72 0)" ><path d="M14 26V2L1 18H18" fill="none" stroke="#605137" stroke-width="4.4"/></g></g><path d="M109 95Q110 102 117 103Q110 104 109 111Q108 104 101 103Q108 102 109 95Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/><path d="M16 20Q17 24 21 25Q17 26 16 30Q15 26 11 25Q15 24 16 20Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

@@ -1,13 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="17" y="22" width="32" height="32" rx="8" fill="#F5DEAD" stroke-width="3"/>
-    <rect x="79" y="22" width="32" height="32" rx="8" fill="#F5DEAD" stroke-width="3"/>
-    <path d="m56 37 8 8 8-8m-8-10v18" fill="none" stroke="#BA9669" stroke-width="3"/>
-    <rect x="34" y="53" width="60" height="59" rx="13" fill="#DAA85E"/>
-    <rect x="32" y="47" width="64" height="59" rx="13" fill="#F4C976"/>
-    <path d="M44 57h39" fill="none" stroke="#FFE9B4" stroke-width="4"/>
-    <path d="M64 63c-8 0-15 13-15 21a15 15 0 0 0 30 0c0-8-7-21-15-21z" fill="#FFF4D7" stroke-width="3"/>
-    <path d="m52 85 6-5 6 5 6-5 6 5" fill="none" stroke="#D5AC65" stroke-width="2.5"/>
-    <path d="m104 70 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#F3C664" stroke-width="2.5"/>
+  <title>合成小能手</title>
+  <desc>两块向内合并的方块，主方块以矢量笔画标出256。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="15" y="14" width="26" height="22" rx="7" fill="#F4E7C5" /><rect x="87" y="14" width="26" height="22" rx="7" fill="#F4E7C5" /><path d="M47 21L59 30M81 21L69 30M57 23L59 30L51 30M71 23L69 30L77 30" fill="none" stroke="#AE8954" stroke-width="3"/><rect x="24" y="41" width="78" height="72" rx="13" fill="#BC965D" /><rect x="24" y="36" width="78" height="72" rx="13" fill="#F2CD81" /><path d="M33 59V50Q33 44 40 44H78" fill="none" stroke="#FFF1C9" stroke-width="3"/><path d="M92 89Q92 100 78 100H39" fill="none" stroke="#B68F55" stroke-width="2" stroke-opacity=".45"/><g transform="translate(30 47) scale(0.848485 0.857143)" ><g transform="translate(0 0)" ><path d="M1 7C2 0 17 0 17 7C17 12 10 16 2 25H18" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(24 0)" ><path d="M17 2H3L2 13C8 10 17 11 17 19C17 28 5 28 1 24" fill="none" stroke="#605137" stroke-width="4.4"/></g><g transform="translate(48 0)" ><path d="M16 3C4-2 0 9 1 19C2 29 17 29 17 19C17 10 5 10 1 17" fill="none" stroke="#605137" stroke-width="4.4"/></g></g><path d="M111 61Q112 66 117 67Q112 68 111 73Q110 68 105 67Q110 66 111 61Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

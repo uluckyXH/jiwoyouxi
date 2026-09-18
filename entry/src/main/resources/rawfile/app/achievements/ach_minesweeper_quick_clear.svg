@@ -1,15 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="26" y="78" width="78" height="31" rx="7" fill="#B0C799"/>
-    <path d="M52 80v27m25-27v27M28 94h74" fill="none" stroke="#819A71" stroke-width="2.5"/>
-    <path d="M92 93V55l20 6-20 9" fill="#E4947C" stroke-width="3"/>
-    <rect x="53" y="15" width="22" height="10" rx="4" fill="#D4A56B" stroke-width="3"/>
-    <path d="M64 25v7m22 7 6-6" fill="none"/>
-    <circle cx="62" cy="60" r="31" fill="#F2C56D"/>
-    <circle cx="62" cy="60" r="23" fill="#FFF3D7" stroke-width="3"/>
-    <path d="M62 43v17l12 7" fill="none"/>
-    <circle cx="62" cy="60" r="3" fill="#895A39" stroke="none"/>
-    <path d="M27 46H16m8 14H13m13 14h-9" fill="none" stroke="#CBA770" stroke-width="3"/>
-    <path d="m97 20 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#F3C664" stroke-width="2.5"/>
+  <title>迅捷排雷</title>
+  <desc>暖色时钟与庭院格子，任意难度三分钟内通关。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="16" y="64" width="72" height="45" rx="10" fill="#ACC392" /><rect x="24" y="74" width="15" height="25" rx="4" fill="#E8EDCF" stroke="#76916C" stroke-width="2"/><rect x="43" y="74" width="15" height="25" rx="4" fill="#E8EDCF" stroke="#76916C" stroke-width="2"/><rect x="62" y="74" width="15" height="25" rx="4" fill="#E8EDCF" stroke="#76916C" stroke-width="2"/><path d="M14 44H28M10 56H23" fill="none" stroke="#B69B69" stroke-width="3"/><rect x="68" y="14" width="18" height="9" rx="3" fill="#D6B478" /><circle cx="77" cy="51" r="29" fill="#F5D99C" /><circle cx="77" cy="51" r="23" fill="#FFF5DE" stroke="#CCB787" stroke-width="2"/><path d="M77 32V51L89 59" fill="none" stroke="#35785E" stroke-width="4"/><circle cx="77" cy="51" r="3" fill="#35785E" stroke="none"/><path d="M77 28V31M97 51H100M77 71V74M54 51H57" fill="none" stroke="#AF9A71" stroke-width="2.2"/><g transform="translate(91 93) rotate(-17) scale(0.8)" ><path d="M0 17C-3 5 6-3 20-3C19 10 12 20 0 17Z" fill="#ADC892" stroke="#62866B" stroke-width="2.5"/><path d="M-2 21L13 3" fill="none" stroke="#62866B" stroke-width="2"/></g>
   </g>
 </svg>

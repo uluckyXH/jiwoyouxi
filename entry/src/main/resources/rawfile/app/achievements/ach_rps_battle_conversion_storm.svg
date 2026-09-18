@@ -1,17 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M33 39c16-18 42-19 59-5l8 10" fill="none" stroke="#D6AC6C" stroke-width="6"/>
-    <path d="m87 41 15 5-1-15" fill="none" stroke="#D6AC6C"/>
-    <path d="M106 67c0 22-18 40-39 41l-12-1" fill="none" stroke="#D6AC6C" stroke-width="6"/>
-    <path d="m61 97-10 9 11 9" fill="none" stroke="#D6AC6C"/>
-    <path d="M35 100C17 89 12 64 22 47" fill="none" stroke="#D6AC6C" stroke-width="6"/>
-    <path d="m14 53 8-12 7 13" fill="none" stroke="#D6AC6C"/>
-    <path d="M42 49c14-10 35-7 39 9 4 15-8 26-20 24-11-2-16-13-10-20 5-7 13-5 15 1" fill="none" stroke="#FFF0CA" stroke-width="10"/>
-    <path d="M42 49c14-10 35-7 39 9 4 15-8 26-20 24-11-2-16-13-10-20 5-7 13-5 15 1" fill="none" stroke-width="3"/>
-    <circle cx="54" cy="28" r="12" fill="#E89D83"/>
-    <circle cx="96" cy="78" r="12" fill="#9AB9D2"/>
-    <circle cx="35" cy="83" r="12" fill="#A3BC7D"/>
-    <path d="M51 23h5M92 73h5M31 78h5" fill="none" stroke="#FFF0D3" stroke-width="3"/>
-    <path d="m94 16 2 5 5 2-5 2-2 5-2-5-5-2 5-2z" fill="#F1C55E" stroke-width="2"/>
+  <title>热闹开场</title>
+  <desc>三种庭院棋子沿循环箭头转阵，轻快星点呼应十二次转阵。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M34 27C60 7 97 23 106 47M101 83C86 111 46 119 24 94M18 66C14 56 18 44 24 37" fill="none" stroke="#D1AC65" stroke-width="5"/><path d="M98 43L107 49L109 38M29 87L22 96L34 97M16 40L25 35L28 46" fill="none" stroke="#AA8551" stroke-width="3"/><circle cx="37" cy="45" r="19" fill="#FFF5DE" stroke="#B7B18A" stroke-width="2"/><g transform="translate(24 32) scale(0.82)" ><path d="M1 18L6 6L18 1L28 7L32 20L22 29L7 28Z" fill="#8CB6CB" stroke="#547A88" stroke-width="2.2"/><path d="M6 6L12 14L22 10L28 7M12 14L7 24M22 10L26 20" fill="none" stroke="#DAE6DC" stroke-width="2"/></g><circle cx="86" cy="59" r="19" fill="#FFF5DE" stroke="#B7B18A" stroke-width="2"/><g transform="translate(73 46) scale(0.82)" ><path d="M13 17L7 2M19 17L27 2" fill="none" stroke="#C2B597" stroke-width="5"/><path d="M13 17L7 2M19 17L27 2" fill="none" stroke="#7D7258" stroke-width="1.7"/><circle cx="8" cy="23" r="7" fill="#DE8D76" stroke="#A35F48" stroke-width="2"/><circle cx="24" cy="23" r="7" fill="#DE8D76" stroke="#A35F48" stroke-width="2"/><circle cx="8" cy="23" r="3" fill="#FFF5DE" stroke="none"/><circle cx="24" cy="23" r="3" fill="#FFF5DE" stroke="none"/><circle cx="16" cy="16" r="3" fill="#EDBF6C" stroke-width="1.8"/></g><circle cx="56" cy="94" r="19" fill="#FFF5DE" stroke="#B7B18A" stroke-width="2"/><g transform="translate(43 81) scale(0.82)" ><path d="M3 3Q16 0 28 4L31 27Q17 32 4 28L1 8Z" fill="#ACCB92" stroke="#63866B" stroke-width="2.2"/><path d="M7 7L9 24L25 24" fill="none" stroke="#E4ECCA" stroke-width="2"/><path d="M12 8L14 22M17 8L19 22" fill="none" stroke="#729E7A" stroke-width="1.2" stroke-dasharray="2 3"/></g><path d="M81 13Q82 17 86 18Q82 19 81 23Q80 19 76 18Q80 17 81 13Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/><path d="M110 98Q111 103 116 104Q111 105 110 110Q109 105 104 104Q109 103 110 98Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>

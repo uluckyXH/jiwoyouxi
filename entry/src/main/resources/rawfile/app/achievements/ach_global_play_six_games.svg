@@ -1,15 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <g stroke="#895A39" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M64 45C50 39 49 21 64 14c15 7 14 25 0 31z" fill="#F3C760"/>
-    <path d="M80 54c-2-16 12-27 25-19 2 17-12 26-25 19z" fill="#ECA088"/>
-    <path d="M80 74c13-9 29 0 25 18-14 8-27-3-25-18z" fill="#8EACD0"/>
-    <path d="M64 83c14 6 15 24 0 31-15-7-14-25 0-31z" fill="#B1A1CB"/>
-    <path d="M48 74c2 16-12 27-25 19-2-17 12-26 25-19z" fill="#81B29A"/>
-    <path d="M48 54c-13 9-29 0-25-18 14-8 27 3 25 18z" fill="#B5C87C"/>
-    <path d="M64 42V26m19 27 13-9M83 77l13 8M64 86v16M45 77l-13 9M45 53l-13-9" fill="none" stroke-width="2.5"/>
-    <circle cx="64" cy="64" r="25" fill="#F5D491"/>
-    <circle cx="64" cy="64" r="20" fill="#FFF2CE" stroke="#E2B05B" stroke-width="2"/>
-    <path d="M64 47c-7 0-13 13-13 20a13 13 0 0 0 26 0c0-7-6-20-13-20z" fill="#FFFCED" stroke-width="3"/>
-    <path d="M59 55c-2 2-3 5-4 8" fill="none" stroke="#EFD592" stroke-width="3"/>
+  <title>六边形鸡仔</title>
+  <desc>六枚不同颜色的游戏印记围成六边形，中心是星星蛋，对应六款重构游戏。</desc>
+  <g stroke="#795A43" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M64 21L102 43V86L64 108L26 86V43Z" fill="#E5E6C0" stroke="#92A77D" stroke-width="3"/><circle cx="64" cy="21" r="12" fill="#8CB6CB" stroke="#A28B65" stroke-width="2.5"/><path d="M60 17L64 15L68 17" fill="none" stroke="#FFF5DE" stroke-width="2"/><circle cx="102" cy="43" r="12" fill="#DE8D76" stroke="#A28B65" stroke-width="2.5"/><path d="M98 39L102 37L106 39" fill="none" stroke="#FFF5DE" stroke-width="2"/><circle cx="102" cy="86" r="12" fill="#96BD8B" stroke="#A28B65" stroke-width="2.5"/><path d="M98 82L102 80L106 82" fill="none" stroke="#FFF5DE" stroke-width="2"/><circle cx="64" cy="108" r="12" fill="#EDBF6C" stroke="#A28B65" stroke-width="2.5"/><path d="M60 104L64 102L68 104" fill="none" stroke="#FFF5DE" stroke-width="2"/><circle cx="26" cy="86" r="12" fill="#B5A0C1" stroke="#A28B65" stroke-width="2.5"/><path d="M22 82L26 80L30 82" fill="none" stroke="#FFF5DE" stroke-width="2"/><circle cx="26" cy="43" r="12" fill="#C6B08B" stroke="#A28B65" stroke-width="2.5"/><path d="M22 39L26 37L30 39" fill="none" stroke="#FFF5DE" stroke-width="2"/><path d="M64 40C52 40 44 63 46 75C49 95 79 95 82 75C84 63 76 40 64 40Z" fill="#FFF5DE"/><path d="M64 58Q65 67 74 68Q65 69 64 78Q63 69 54 68Q63 67 64 58Z" fill="#EDBF6C" stroke="#A57C46" stroke-width="2"/>
   </g>
 </svg>
