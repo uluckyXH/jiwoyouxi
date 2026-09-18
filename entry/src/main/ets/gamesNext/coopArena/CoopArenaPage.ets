@@ -17,6 +17,7 @@ import { arenaSave, arenaApplyResult, arenaProfileValid } from './ArenaProgress'
 import { ArenaAction, ArenaIcon, ArenaSkill, ArenaTeam, ArenaRuleStrip } from './ArenaControls';
 import { ArenaSetup } from './ArenaSetup';
 import { ArenaHelp } from './ArenaHelp';
+import { ArenaDialogFrame } from './ArenaDialogFrame';
 import { ArenaReport } from './ArenaReport';
 import { arenaSceneLabel, arenaLiveNotice } from './ArenaGuide';
 
@@ -235,11 +236,13 @@ export struct CoopArenaPage {
     }.width('100%')
   }
   @Builder Dialog() {
-    Scroll() {
-      Column({space:14}) {
+    ArenaDialogFrame({dark:this.dark,availableWidth:this.viewport.pane.width,availableHeight:this.viewport.pane.height,
+      paneX:this.viewport.pane.x,paneY:this.viewport.pane.y,contentKey:this.dialog,
+      estimatedHeight:this.dialog==='loading' ? 240 : 480}) {
+      Column({space:10}) {
         Image($rawfile(P.scene(this.viewport.limited&&this.hasRound ? 'unfold' : 'mark',this.dark)))
-          .width(100).height(84).objectFit(ImageFit.Contain).draggable(false).accessibilityLevel('no')
-        Text(this.dialogTitle()).fontSize(24).fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark)).textAlign(TextAlign.Center)
+          .width(80).height(64).objectFit(ImageFit.Contain).draggable(false).accessibilityLevel('no')
+        Text(this.dialogTitle()).fontSize(20).lineHeight(26).fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark)).textAlign(TextAlign.Center)
         Text(this.dialogBody()).fontSize(13).lineHeight(22).fontColor(P.muted(this.dark)).textAlign(TextAlign.Center)
         if (this.dialog === 'loading') {
           LoadingProgress().width(36).height(36).color(P.accent(this.dark))
@@ -266,9 +269,7 @@ export struct CoopArenaPage {
             active:!this.saving,action:() => this.leave()})
         }
       }.width('100%').padding(20)
-    }.width(this.sheetWidth(460)).height(this.sheetHeight()).scrollBar(BarState.Off)
-      .backgroundColor(P.surface(this.dark)).borderRadius(28).border({width:1,color:P.line(this.dark),radius:28})
-      .position({x:this.sheetX(460),y:this.viewport.pane.y+8})
+    }
   }
 
   private async boot(): Promise<void> {
