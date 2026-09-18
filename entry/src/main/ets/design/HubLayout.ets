@@ -37,7 +37,10 @@ export function hubInsets(): HubInsets {
 }
 
 export function hubCardStacked(cardWidth: number, textScale: number): boolean {
-  return cardWidth < 240 * Math.max(1, textScale);
+  // A phone tile only needs room for five title characters beside its artwork.
+  // Reserve the taller layout for genuinely constrained / large-type windows.
+  const logoSize = cardWidth < 200 ? 44 : 52;
+  return cardWidth - 24 - 8 - logoSize < 70 * Math.max(1, textScale);
 }
 
 function positive(value: number, fallback: number): number {

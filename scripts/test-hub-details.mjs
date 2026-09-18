@@ -78,9 +78,10 @@ for (const width of [320, 360, 390, 420, 600, 820, 1440]) {
   for (const scale of [1, 1.3, 1.6, 2]) {
     const layout = a.hubLayout(width, 844, undefined, [], scale);
     const stacked = a.hubCardStacked(layout.cardWidth, scale);
-    const textWidth = layout.cardWidth - (stacked ? 28 : 132);
-    assert.ok(textWidth >= 90 * scale, `readable card text at ${width} vp / ${scale}x`);
+    const logoSize = layout.cardWidth < 200 ? 44 : 52;
+    const textWidth = layout.cardWidth - (stacked ? 24 : 24 + 8 + logoSize);
+    assert.ok(textWidth >= 70 * scale, `five readable title characters at ${width} vp / ${scale}x`);
   }
 }
-assert.equal(a.hubCardStacked(a.hubLayout(390, 844).cardWidth, 1), true, 'two-column phone cards stack artwork above text');
+assert.equal(a.hubCardStacked(a.hubLayout(390, 844).cardWidth, 1), false, 'phone cards keep compact artwork beside the title');
 console.log(`Hub details (${process.env.TZ ?? 'local'}): play-day persistence/migration, calendar/DST, streaks, global filters, render keys and card text room passed.`);

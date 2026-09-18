@@ -18,7 +18,7 @@ export struct HubHeroBanner {
   @State private buttonPressed: boolean = false;
 
   build() {
-    if (this.availableWidth < 340 || this.textScale > 1.25) {
+    if (this.textScale > 1.25) {
       Column({ space: 12 }) {
         Image($rawfile(this.isDarkMode ? 'app/home/home_illustration_dark.svg' : 'app/home/home_illustration_light.svg'))
           .width(120).height(94).objectFit(ImageFit.Contain).accessibilityLevel('no')

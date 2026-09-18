@@ -104,17 +104,6 @@ export struct HubPage {
       .width(this.layout.frame.width)
       .height(this.layout.frame.height)
       .position({ x: this.layout.frame.x, y: this.layout.frame.y })
-      if (this.layout.navigation === 'bottom') {
-        // Blend the scrolling edge into the bar instead of clipping shadows above a fixed empty strip.
-        Row()
-          .width(this.layout.frame.width).height(14)
-          .position({ x: this.layout.frame.x,
-            y: this.layout.frame.y + this.layout.frame.height - this.layout.navigationHeight - 14 })
-          .linearGradient({ direction: GradientDirection.Bottom,
-            colors: [[this.isDarkMode() ? '#00171613' : '#00FFF7EA', 0],
-              [hubNavigationSurface(this.isDarkMode()), 1]] })
-          .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
-      }
       if (this.feedback.length > 0) {
         Text(this.feedback)
           .fontSize(13).fontColor(this.inkColor())
@@ -422,12 +411,12 @@ export struct HubPage {
 
   private homeTag(gameId: string): string {
     if (gameId === 'rpsBattle') return '鸡窝乱斗';
-    if (gameId === 'rpsBattleNext') return '新版 · 庭院擂台';
+    if (gameId === 'rpsBattleNext') return '庭院擂台';
     if (gameId === 'suikaNext') return '重构中';
     if (gameId === 'suika') return '经典版';
-    if (gameId === 'chicken2048Next') return '新版 · 暖光叠数';
+    if (gameId === 'chicken2048Next') return '暖光叠数';
     if (gameId === 'chicken2048') return '经典版';
-    if (gameId === 'minesweeperNext') return '新版 · 庭院探雷';
+    if (gameId === 'minesweeperNext') return '庭院探雷';
     if (gameId === 'minesweeper') return '经典版';
     if (gameId === 'tetrisNext') return '方块工坊';
     if (gameId === 'tetris') return '经典版';
