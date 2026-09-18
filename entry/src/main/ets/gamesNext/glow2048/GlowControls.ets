@@ -105,16 +105,57 @@ struct GlowScoreFloat {
 }
 
 @Component
+struct GlowDirectionButton {
+  @Prop dark: boolean = false;
+  @Prop heading: GlowDirection = 'up';
+  @Prop label: string = '';
+  @Prop active: boolean = true;
+  move: (direction: GlowDirection) => void = () => {};
+  build() {
+    Button({ type: ButtonType.Normal }) {
+      Image($rawfile(P.icon(this.heading, this.dark, 'accent')))
+        .width(29).height(29).draggable(false).accessibilityLevel('no')
+    }.width(60).height(60).padding(0).borderRadius(20)
+    .backgroundColor(P.paper(this.dark)).border({ width: 1.5, color: P.line(this.dark) })
+    .shadow({ radius: 4, offsetY: 3, color: this.dark ? '#38000000' : '#1C777D54' })
+    .enabled(this.active).opacity(this.active ? 1 : .45).accessibilityText(this.label)
+    .onClick(() => this.move(this.heading))
+  }
+}
+
+@Component
+export struct GlowUtilityButton {
+  @Prop dark: boolean = false;
+  @Prop icon: string = 'help';
+  @Prop label: string = '';
+  action: () => void = () => {};
+  build() {
+    Button({ type: ButtonType.Normal }) {
+      Column({ space: 7 }) {
+        Image($rawfile(P.icon(this.icon, this.dark, 'accent'))).width(24).height(24).accessibilityLevel('no')
+        Text(this.label).fontSize(11).maxLines(1).fontColor(P.ink(this.dark))
+      }.width('100%')
+    }.width('100%').height(76).padding(4).borderRadius(20)
+    .backgroundColor(P.paper(this.dark)).border({ width: 1, color: P.line(this.dark) })
+    .accessibilityText(this.label).onClick(this.action)
+  }
+}
+
+@Component
 export struct GlowDirectionPad {
   @Prop dark: boolean = false;
   @Prop active: boolean = true;
   move: (direction: GlowDirection) => void = () => {};
   build() {
-    Row({ space: 10 }) {
-      GlowIconButton({ dark: this.dark, icon: 'left', label: '向左移动', active: this.active, action: () => this.move('left') })
-      GlowIconButton({ dark: this.dark, icon: 'up', label: '向上移动', active: this.active, action: () => this.move('up') })
-      GlowIconButton({ dark: this.dark, icon: 'down', label: '向下移动', active: this.active, action: () => this.move('down') })
-      GlowIconButton({ dark: this.dark, icon: 'right', label: '向右移动', active: this.active, action: () => this.move('right') })
-    }.width('100%').justifyContent(FlexAlign.Center)
+    Column({ space: 4 }) {
+      GlowDirectionButton({ dark: this.dark, heading: 'up', label: '向上移动', active: this.active, move: this.move })
+      Row({ space: 4 }) {
+        GlowDirectionButton({ dark: this.dark, heading: 'left', label: '向左移动', active: this.active, move: this.move })
+        Image($rawfile(P.scene('compass', this.dark))).width(60).height(60)
+          .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
+        GlowDirectionButton({ dark: this.dark, heading: 'right', label: '向右移动', active: this.active, move: this.move })
+      }
+      GlowDirectionButton({ dark: this.dark, heading: 'down', label: '向下移动', active: this.active, move: this.move })
+    }.width(188).height(188)
   }
 }

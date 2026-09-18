@@ -1,3 +1,4 @@
+import { GlowRenderTile, glowReconcileTiles } from '../../../main/ets/gamesNext/glow2048/GlowRenderTile';
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { GlowEngine, glowCanMove, glowSlide } from '../../../main/ets/gamesNext/glow2048/GlowEngine';
 import { GlowDirection, GlowSave, GlowTile, glowMax } from '../../../main/ets/gamesNext/glow2048/GlowModel';
@@ -47,6 +48,36 @@ export default function glow2048NextTest(): void {
       expect(glowSlide(vertical, 'up').tiles[0].index).assertEqual(0);
       expect(glowSlide(vertical, 'down').tiles[0].index).assertEqual(12);
       expect(glowSlide(vertical, 'down').gain).assertEqual(4);
+    });
+    it('downward_pairs_compress_gaps_and_merge_once_at_the_bottom', GLOW_FLAGS, () => {
+      const input = glowTestTiles([2,2,2,2, 0,2,2,0, 0,0,0,0, 0,2,0,0]);
+      const result = glowSlide(input, 'down');
+      expect(glowTestValues(result.tiles).join(',')).assertEqual('0,0,0,0,0,0,0,0,0,2,0,0,2,4,4,2');
+      expect(result.gain).assertEqual(8);
+    });
+    it('stable_render_ids_keep_live_values_and_positions_across_merge_phases', GLOW_FLAGS, () => {
+      const input = glowTestTiles([2,0,0,0, 2,0,0,0, 4,0,0,0, 4]);
+      let live = glowReconcileTiles([], input);
+      const lower = live[3];
+      const upper = live[1];
+      const result = glowSlide(input, 'down');
+      const sliding = result.motions.map((motion): GlowTile => ({ id: motion.id, value: motion.value, index: motion.to }));
+      live = glowReconcileTiles(live, sliding);
+      expect(upper.index).assertEqual(8);
+      expect(upper.value).assertEqual(2);
+      live = glowReconcileTiles(live, result.tiles);
+      expect(live.find((tile: GlowRenderTile) => tile.id === lower.id) === lower).assertTrue();
+      expect(live.find((tile: GlowRenderTile) => tile.id === upper.id) === upper).assertTrue();
+      expect(lower.value).assertEqual(8);
+      expect(lower.index).assertEqual(12);
+      expect(upper.value).assertEqual(4);
+      expect(live.length).assertEqual(2);
+      expect(input[3].value).assertEqual(4);
+      const born: GlowTile = { id: 14, value: 2, index: 0 };
+      live = glowReconcileTiles(live, result.tiles.concat([born]));
+      expect(live[2].id).assertEqual(14);
+      expect(live[2] === lower).assertFalse();
+      expect(glowReconcileTiles([], input)[3] === lower).assertFalse();
     });
     it('a_newly_merged_tile_cannot_merge_twice_in_one_turn', GLOW_FLAGS, () => {
       expect(glowTestValues(glowSlide(glowTestTiles([2, 2, 2, 2]), 'left').tiles).slice(0, 4).join(',')).assertEqual('4,4,0,0');
@@ -182,7 +213,7 @@ export default function glow2048NextTest(): void {
         });
       [[345,782], [360,780], [390,844], [430,932]].forEach((size: number[]) => {
         const layout = glowLayout(size[0], size[1], insets);
-        expect(layout.board + 280 <= layout.body).assertTrue();
+        expect(layout.board + 368 <= layout.body).assertTrue();
       });
       const horizontal = glowLayout(768, 1024, insets, { x: 0, y: 490, width: 768, height: 24 });
       expect(horizontal.y >= 514 || horizontal.y + horizontal.height <= 490).assertTrue();

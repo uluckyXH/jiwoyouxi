@@ -53,6 +53,54 @@ for theme in ('light', 'dark'):
 <path d="M27 165h38m-19-19v38M177 138h14m-7-7v14"/></g>
 <path d="m124 117 4 9 9 4-9 4-4 9-4-9-9-4 9-4Z" fill="{'#EBC581' if dark else '#CFA66A'}" fill-opacity=".3"/>
 <circle cx="75" cy="210" r="2" fill="{accent}" fill-opacity=".2"/>''', 240, 260)
+    # Transparent scene layers: no rectangular ground band or cropped cover art.
+    gold = '#D5AF6B' if dark else '#D3A267'
+    leaf = '#526C4A' if dark else '#AFC494'
+    clay = '#82624B' if dark else '#D6AD86'
+    svg(f'scene/atmosphere_{theme}.svg', f'''<defs>
+<radialGradient id="sun" gradientUnits="userSpaceOnUse" cx="710" cy="180" r="570"><stop stop-color="{gold}" stop-opacity="{'.09' if dark else '.15'}"/><stop offset="100%" stop-color="{gold}" stop-opacity="0"/></radialGradient>
+<radialGradient id="moss" gradientUnits="userSpaceOnUse" cx="140" cy="980" r="520"><stop stop-color="{leaf}" stop-opacity="{'.20' if dark else '.26'}"/><stop offset="100%" stop-color="{leaf}" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="1000" fill="url(#sun)"/><rect width="800" height="1000" fill="url(#moss)"/>
+<g fill="none" stroke="{accent}" stroke-opacity=".09" stroke-width="1.4">
+<path d="M-40 898Q140 826 364 914T850 900M-40 914Q154 846 370 931T850 918M-40 952Q208 893 431 962T850 960"/>
+<path d="M-20 194Q90 164 138 227T243 288" stroke-dasharray="3 13"/></g>
+<g fill="{gold}" fill-opacity=".38"><circle cx="58" cy="367" r="2.5"/><circle cx="751" cy="484" r="2"/><circle cx="724" cy="746" r="2.5"/>
+<path d="m92 772 4 9 9 4-9 4-4 9-4-9-9-4 9-4ZM670 286l3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></g>''', 800, 1000)
+    svg(f'scene/window_{theme}.svg', f'''<defs><linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="160" y1="170" x2="160" y2="430">
+<stop stop-color="{gold}" stop-opacity=".16"/><stop offset="100%" stop-color="{gold}" stop-opacity="0"/></linearGradient></defs>
+<path d="M95 220 26 430h117l37-210Zm102 0-31 210h135l-19-210Z" fill="url(#beam)"/>
+<path d="M90 223V113a92 92 0 0 1 184 0v110Z" fill="{gold}" fill-opacity=".09" stroke="{accent}" stroke-opacity=".18" stroke-width="2"/>
+<path d="M101 213V113a81 81 0 0 1 162 0v100Z" fill="none" stroke="{gold}" stroke-opacity=".35" stroke-width="1.5"/>
+<path d="M182 32v181m-81-93h162M81 230h202" stroke="{accent}" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>
+<circle cx="217" cy="81" r="20" fill="{gold}" fill-opacity=".2"/>
+<path d="M119 95q8-8 16 0m0 0q8-8 16 0" fill="none" stroke="{accent}" stroke-opacity=".24" stroke-width="1.5" stroke-linecap="round"/>
+<g fill="{gold}" fill-opacity=".5"><path d="m50 166 4 10 10 4-10 4-4 10-4-10-10-4 10-4Z"/><circle cx="296" cy="266" r="2.5"/><circle cx="73" cy="303" r="2"/></g>''', 320, 440)
+    svg(f'scene/garden_{theme}.svg', f'''<ellipse cx="94" cy="275" rx="79" ry="12" fill="{accent}" fill-opacity=".06"/>
+<g stroke="{accent}" stroke-opacity=".28" stroke-width="1.7" stroke-linejoin="round">
+<path d="M93 215Q67 136 105 41Q151 99 98 153" fill="{leaf}" fill-opacity=".5"/>
+<path d="M87 186Q26 169 35 104Q100 110 96 176M93 208Q104 133 166 126Q162 193 96 214" fill="{leaf}" fill-opacity=".6"/>
+<path d="M90 208Q47 186 26 205Q44 243 91 229M97 228Q125 184 181 192Q149 238 98 238" fill="{leaf}" fill-opacity=".4"/>
+<path d="M96 242Q80 148 105 63M92 194l-43-72M96 218l53-71M91 228l-49-16m57 23 65-33" fill="none"/>
+<path d="M65 226h64l-9 44q-27 12-47 0Z" fill="{clay}" fill-opacity=".5"/><path d="M61 224q33-7 72 0l-2 9q-35 5-68 0Z" fill="{clay}" fill-opacity=".6"/>
+<path d="m79 241 3 22m15-22v25m16-25-3 22" stroke-opacity=".2"/>
+</g><g fill="none" stroke="{gold}" stroke-opacity=".4" stroke-width="1.5"><ellipse cx="169" cy="273" rx="13" ry="6" transform="rotate(-13 169 273)"/><path d="M186 272q13-13 25-4"/></g>
+<g fill="{gold}" fill-opacity=".5"><circle cx="182" cy="89" r="2"/><path d="m208 182 3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></g>''', 260, 300)
+    svg(f'scene/stilllife_{theme}.svg', f'''<ellipse cx="202" cy="170" rx="100" ry="13" fill="{accent}" fill-opacity=".06"/>
+<g stroke="{accent}" stroke-opacity=".24" stroke-width="1.5">
+<rect x="134" y="110" width="66" height="58" rx="15" fill="{leaf}" fill-opacity=".45"/>
+<rect x="203" y="102" width="72" height="66" rx="17" fill="{clay}" fill-opacity=".4"/>
+<rect x="176" y="40" width="65" height="62" rx="16" fill="{gold}" fill-opacity=".28" transform="rotate(9 208 71)"/>
+<path d="M142 126q0-9 9-9h21m40 4q0-9 9-9h24M185 57l23 4" fill="none" stroke="#FFF4DC" stroke-opacity=".4"/>
+</g><g fill="{accent}" fill-opacity=".25"><circle cx="160" cy="139" r="3"/><circle cx="177" cy="139" r="3"/>
+<circle cx="231" cy="127" r="2.5"/><circle cx="247" cy="127" r="2.5"/><circle cx="231" cy="143" r="2.5"/><circle cx="247" cy="143" r="2.5"/>
+<path d="m209 60 4 9 9 4-9 4-4 9-4-9-9-4 9-4Z"/></g>
+<g fill="none" stroke="{gold}" stroke-opacity=".38" stroke-width="1.5" stroke-linecap="round"><circle cx="98" cy="97" r="18"/><path d="M98 69v-5m0 66v-5M70 97h-5m66 0h-5M78 77l-4-4m44 44 4 4m-44-4-4 4m44-44 4-4"/></g>
+<path d="M296 163q-13-49 7-92m-4 46q-24-4-20-25 18 3 20 25m1 20q19-6 16-25-17 8-16 25" fill="{leaf}" fill-opacity=".4" stroke="{accent}" stroke-opacity=".2"/>
+<circle cx="145" cy="65" r="2" fill="{gold}" fill-opacity=".5"/>''', 320, 200)
+    svg(f'scene/compass_{theme}.svg', f'''<circle cx="30" cy="30" r="24" fill="{accent}" fill-opacity=".06"/>
+<circle cx="30" cy="30" r="17" fill="none" stroke="{accent}" stroke-opacity=".22" stroke-dasharray="1 5" stroke-linecap="round"/>
+<path d="m30 19 3.5 7.5L41 30l-7.5 3.5L30 41l-3.5-7.5L19 30l7.5-3.5Z" fill="{gold}" fill-opacity=".65"/>
+<circle cx="30" cy="30" r="2.5" fill="{accent}" fill-opacity=".45"/>''', 60, 60)
     svg(f'scene/burst_{theme}.svg', f'''<g fill="none" stroke="{'#F6D99C' if dark else '#CB974F'}" stroke-width="2" stroke-linecap="round">
 <path d="M48 3v10m0 70v10M3 48h10m70 0h10M16 16l7 7m50 50 7 7M16 80l7-7m50-50 7-7"/>
 <circle cx="48" cy="48" r="32" stroke-opacity=".25" stroke-width="1"/></g>''', 96, 96)

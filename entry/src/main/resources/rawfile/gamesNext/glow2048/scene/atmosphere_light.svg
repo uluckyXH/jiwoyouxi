@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="1000" viewBox="0 0 800 1000"><defs>
+<radialGradient id="sun" gradientUnits="userSpaceOnUse" cx="710" cy="180" r="570"><stop stop-color="#D3A267" stop-opacity=".15"/><stop offset="100%" stop-color="#D3A267" stop-opacity="0"/></radialGradient>
+<radialGradient id="moss" gradientUnits="userSpaceOnUse" cx="140" cy="980" r="520"><stop stop-color="#AFC494" stop-opacity=".26"/><stop offset="100%" stop-color="#AFC494" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="1000" fill="url(#sun)"/><rect width="800" height="1000" fill="url(#moss)"/>
+<g fill="none" stroke="#34664D" stroke-opacity=".09" stroke-width="1.4">
+<path d="M-40 898Q140 826 364 914T850 900M-40 914Q154 846 370 931T850 918M-40 952Q208 893 431 962T850 960"/>
+<path d="M-20 194Q90 164 138 227T243 288" stroke-dasharray="3 13"/></g>
+<g fill="#D3A267" fill-opacity=".38"><circle cx="58" cy="367" r="2.5"/><circle cx="751" cy="484" r="2"/><circle cx="724" cy="746" r="2.5"/>
+<path d="m92 772 4 9 9 4-9 4-4 9-4-9-9-4 9-4ZM670 286l3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></g></svg>

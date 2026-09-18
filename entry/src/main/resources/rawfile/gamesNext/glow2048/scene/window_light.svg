@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="440" viewBox="0 0 320 440"><defs><linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="160" y1="170" x2="160" y2="430">
+<stop stop-color="#D3A267" stop-opacity=".16"/><stop offset="100%" stop-color="#D3A267" stop-opacity="0"/></linearGradient></defs>
+<path d="M95 220 26 430h117l37-210Zm102 0-31 210h135l-19-210Z" fill="url(#beam)"/>
+<path d="M90 223V113a92 92 0 0 1 184 0v110Z" fill="#D3A267" fill-opacity=".09" stroke="#34664D" stroke-opacity=".18" stroke-width="2"/>
+<path d="M101 213V113a81 81 0 0 1 162 0v100Z" fill="none" stroke="#D3A267" stroke-opacity=".35" stroke-width="1.5"/>
+<path d="M182 32v181m-81-93h162M81 230h202" stroke="#34664D" stroke-opacity=".18" stroke-width="2" stroke-linecap="round"/>
+<circle cx="217" cy="81" r="20" fill="#D3A267" fill-opacity=".2"/>
+<path d="M119 95q8-8 16 0m0 0q8-8 16 0" fill="none" stroke="#34664D" stroke-opacity=".24" stroke-width="1.5" stroke-linecap="round"/>
+<g fill="#D3A267" fill-opacity=".5"><path d="m50 166 4 10 10 4-10 4-4 10-4-10-10-4 10-4Z"/><circle cx="296" cy="266" r="2.5"/><circle cx="73" cy="303" r="2"/></g></svg>

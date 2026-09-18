@@ -29,7 +29,9 @@ export function glowLayout(width: number, height: number, insets: GlowInsets,
   const maxWidth = Math.max(1, w - gap * 2 - (wide ? rail + gap : 0));
   // Keep the board usable in a short fold pane and let the surrounding Scroll
   // expose the remainder. Normal phones use the full width unless height binds.
-  const preferredHeight = body - (wide ? 82 : 280);
+  // Portrait: stats 78 + journey 48 + board caption 24 + D-pad 188 + gaps 30.
+  // Landscape puts all controls beside the board, leaving only its caption.
+  const preferredHeight = body - (wide ? 24 : 368);
   const board = Math.floor(Math.min(560, maxWidth, Math.max(Math.min(272, maxWidth), preferredHeight)));
   const tileGap = board >= 420 ? 12 : board >= 300 ? 9 : 6;
   const tilePad = tileGap + 3;

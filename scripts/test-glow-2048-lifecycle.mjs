@@ -9,12 +9,12 @@ import vm from 'node:vm';
 
 const root = resolve(import.meta.dirname, '..');
 const folder = 'entry/src/main/ets/gamesNext/glow2048/';
-const clean = text => text.replace(/^import[\s\S]*?;\s*$/gm, '').replace(/^export /gm, '');
+const clean = text => text.replace(/^import[\s\S]*?;\s*$/gm, '').replace(/^export /gm, '').replace(/^@Observed\s*/gm, '');
 let page = readFileSync(resolve(root, folder, 'GlowPage.ets'), 'utf8');
 page = page.slice(0, page.indexOf('  build() {')) + page.slice(page.indexOf('  private async boot()'));
 page = clean(page).replace('@Component\nstruct GlowPage', 'class GlowPage')
   .replace(/@(Prop|State)(?:\s+@Watch\('[^']+'\))?\s*/g, '');
-const core = ['GlowModel.ets', 'GlowEngine.ets', 'GlowLayout.ets'].map(file =>
+const core = ['GlowModel.ets', 'GlowEngine.ets', 'GlowRenderTile.ets', 'GlowLayout.ets'].map(file =>
   clean(readFileSync(resolve(root, folder, file), 'utf8'))).join('\n');
 const timers = new Map();
 let nextTimer = 1;
@@ -72,6 +72,28 @@ await test('rapid_input_has_one_pending_direction_and_stale_completions_cannot_r
   finishes.shift()();
   assert.equal(p.busy, false);
   assert.equal(rendered(p), board(p.engine.tiles));
+});
+
+await test('downward_merges_update_the_same_objects_used_by_existing_tile_views', async () => {
+  const { controller: p, finishes } = await make([2,0,0,0, 2,0,0,0, 4,0,0,0, 4]);
+  // A stable-key ForEach keeps these view bindings across both animation phases.
+  const bindings = new Map(p.tiles.map(tile => [tile.id, tile]));
+  p.move('down');
+  for (const motion of p.currentTurn.motions) {
+    assert.equal(bindings.get(motion.id).index, motion.to);
+  }
+  finishes.shift()();
+  assert.equal(bindings.get(13).value, 8);
+  assert.equal(bindings.get(5).value, 4);
+  assert.equal(bindings.get(5).index, 8);
+  assert.strictEqual(p.tiles.find(tile => tile.id === 13), bindings.get(13));
+  assert.strictEqual(p.tiles.find(tile => tile.id === 5), bindings.get(5));
+  assert.equal(p.score, 12);
+  assert.equal(p.maxTile, 8);
+  assert.equal(rendered(p), board(p.engine.tiles));
+  const saved = p.engine.serialize();
+  p.relayout();
+  assert.equal(p.engine.serialize(), saved);
 });
 
 await test('pause_during_slide_displays_and_saves_the_committed_result', async () => {

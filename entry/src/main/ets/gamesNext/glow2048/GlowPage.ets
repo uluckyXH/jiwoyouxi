@@ -2,12 +2,14 @@ import { common } from '@kit.AbilityKit';
 import { AchievementEvent } from '../../shell/AchievementModule';
 import { GlowAudio } from './GlowAudio';
 import { GlowBoard } from './GlowBoard';
-import { GlowActionButton, GlowDirectionPad, GlowIconButton, GlowStats } from './GlowControls';
+import { GlowActionButton, GlowDirectionPad, GlowIconButton, GlowStats, GlowUtilityButton } from './GlowControls';
+import { GlowBackdrop } from './GlowBackdrop';
 import { GlowDialog } from './GlowDialog';
 import { GlowEngine } from './GlowEngine';
 import { GlowCrease, GlowInsets, GlowLayout, glowLayout } from './GlowLayout';
-import { GLOW_LOGO, GlowDirection, GlowMotion, GlowTile, GlowTurn, glowClone, glowMax, glowTarget } from './GlowModel';
+import { GLOW_LOGO, GlowDirection, GlowMotion, GlowTile, GlowTurn, glowMax, glowTarget } from './GlowModel';
 import { GlowPalette as P } from './GlowPalette';
+import { GlowRenderTile, glowReconcileTiles } from './GlowRenderTile';
 import { GlowStorage } from './GlowStorage';
 import { GlowWindow } from './GlowWindow';
 
@@ -41,7 +43,7 @@ export struct GlowPage {
   private insets: GlowInsets = { top: 24, bottom: 16, left: 0, right: 0 };
   private crease: GlowCrease = { x: 0, y: 0, width: 0, height: 0 };
   @State layout: GlowLayout = glowLayout(390, 844, { top: 24, bottom: 16, left: 0, right: 0 });
-  @State tiles: GlowTile[] = [];
+  @State tiles: GlowRenderTile[] = [];
   @State sessionKey: string = '';
   @State score: number = 0;
   @State moves: number = 0;
@@ -80,10 +82,8 @@ export struct GlowPage {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      Image($rawfile(P.scene('corner', this.dark)))
-        .width(Math.min(280, this.layout.width * .48)).height(Math.min(304, this.layout.width * .52))
-        .position({ x: this.layout.x + this.layout.width - Math.min(280, this.layout.width * .48), y: this.layout.y })
-        .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
+      GlowBackdrop({ dark: this.dark, canvasWidth: this.layout.width, canvasHeight: this.layout.height })
+        .position({ x: this.layout.x, y: this.layout.y })
       Column({ space: 10 }) {
         this.Header()
         Scroll() {
@@ -95,7 +95,7 @@ export struct GlowPage {
                 GlowStats({ dark: this.dark, score: this.score, best: this.bestScore,
                   moves: this.moves, gain: this.gain, turn: this.turnKey })
                 this.Journey()
-                this.Actions()
+                this.ControlDeck()
                 Column({ space: 9 }) {
                   Text('留一点空白，等下一次相遇').fontSize(16).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
                   Text('让大数字靠在一角，\n给新数字留出移动的空间。')
@@ -109,7 +109,7 @@ export struct GlowPage {
                 moves: this.moves, gain: this.gain, turn: this.turnKey })
               this.Journey()
               this.BoardPanel()
-              this.Actions()
+              this.ControlDeck()
             }.width('100%')
           }
         }.width('100%').height(this.layout.body).scrollBar(BarState.Auto).align(Alignment.Top)
@@ -170,26 +170,39 @@ export struct GlowPage {
   @Builder
   BoardPanel() {
     Column({ space: 8 }) {
-      GlowBoard({ dark: this.dark, tiles: this.tiles, session: this.sessionKey, edge: this.layout.board, cell: this.layout.cell,
+      GlowBoard({ dark: this.dark, tiles: $tiles, session: this.sessionKey, edge: this.layout.board, cell: this.layout.cell,
         gap: this.layout.tileGap, tileInset: this.layout.tilePad, spawned: this.spawned,
         merged: this.merged, turn: this.turnKey, active: this.dialog.length === 0 && !this.ended,
         move: (direction: GlowDirection) => this.move(direction)
       }).translate({ x: this.boardNudge }).opacity(this.dialog.length > 0 ? .25 : 1)
-      GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
-        move: (direction: GlowDirection) => this.move(direction) })
       Text(this.saveFailed ? '进度未保存 · 暂停后可重试' : this.hint).fontSize(11).maxLines(1)
         .fontColor(this.saveFailed ? P.danger(this.dark) : P.muted(this.dark)).height(16)
     }.width(this.layout.board).geometryTransition('glow-board')
   }
 
   @Builder
-  Actions() {
-    Row({ space: 8 }) {
-      GlowIconButton({ dark: this.dark, icon: 'restart', label: '重新开局', action: () => this.requestRestart() })
-      Text('重新开局').fontSize(12).fontColor(P.muted(this.dark)).layoutWeight(1)
-      Text('游玩指南').fontSize(12).fontColor(P.muted(this.dark))
-      GlowIconButton({ dark: this.dark, icon: 'help', label: '游玩指南', action: () => this.present('help') })
-    }.width('100%').height(44)
+  ControlDeck() {
+    if (this.layout.wide) {
+      Column({ space: 12 }) {
+        GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
+          move: (direction: GlowDirection) => this.move(direction) })
+        Row({ space: 8 }) {
+          GlowActionButton({ dark: this.dark, icon: 'restart', label: '重新开局', primary: false,
+            action: () => this.requestRestart() }).layoutWeight(1)
+          GlowActionButton({ dark: this.dark, icon: 'help', label: '游玩指南', primary: false,
+            action: () => this.present('help') }).layoutWeight(1)
+        }.width('100%')
+      }.width('100%').geometryTransition('glow-pad')
+    } else {
+      Row({ space: 10 }) {
+        GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
+          move: (direction: GlowDirection) => this.move(direction) })
+        Column({ space: 10 }) {
+          GlowUtilityButton({ dark: this.dark, icon: 'restart', label: '重新开局', action: () => this.requestRestart() })
+          GlowUtilityButton({ dark: this.dark, icon: 'help', label: '游玩指南', action: () => this.present('help') })
+        }.layoutWeight(1)
+      }.width('100%').height(188).geometryTransition('glow-pad')
+    }
   }
 
   private async boot(): Promise<void> {
@@ -232,7 +245,8 @@ export struct GlowPage {
     this.getUIContext().animateTo({ duration: 140, curve: Curve.EaseOut,
       onFinish: () => { if (!this.disposed && token === this.animationToken) this.finishMotion(true); }
     }, () => {
-      this.tiles = turn.motions.map((motion: GlowMotion): GlowTile => ({ id: motion.id, value: motion.value, index: motion.to }));
+      this.tiles = glowReconcileTiles(this.tiles,
+        turn.motions.map((motion: GlowMotion): GlowTile => ({ id: motion.id, value: motion.value, index: motion.to })));
     });
     // Ensure input unlocks even when the OS suppresses an animation callback.
     this.settleTimer = setTimeout(() => {
@@ -278,8 +292,9 @@ export struct GlowPage {
   }
 
   private sync(): void {
+    if (this.sessionKey !== this.engine.session) this.tiles = [];
     this.sessionKey = this.engine.session;
-    this.tiles = glowClone(this.engine.tiles);
+    this.tiles = glowReconcileTiles(this.tiles, this.engine.tiles);
     this.score = this.engine.score;
     this.moves = this.engine.moves;
     this.maxTile = glowMax(this.engine.tiles);

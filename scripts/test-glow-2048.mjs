@@ -13,11 +13,12 @@ const files = [
   'entry/src/main/ets/shell/AchievementRegistry.ets',
   'entry/src/main/ets/gamesNext/glow2048/GlowModel.ets',
   'entry/src/main/ets/gamesNext/glow2048/GlowEngine.ets',
+  'entry/src/main/ets/gamesNext/glow2048/GlowRenderTile.ets',
   'entry/src/main/ets/gamesNext/glow2048/GlowLayout.ets',
   'entry/src/ohosTest/ets/test/Glow2048Next.test.ets'
 ];
 const source = files.map(file => readFileSync(resolve(root, file), 'utf8')).join('\n')
-  .replace(/^import[\s\S]*?;\s*$/gm, '').replace(/^export default /gm, '').replace(/^export /gm, '');
+  .replace(/^import[\s\S]*?;\s*$/gm, '').replace(/^export default /gm, '').replace(/^export /gm, '').replace(/^@Observed\s*/gm, '');
 let passed = 0;
 const context = {
   console,
@@ -43,7 +44,7 @@ for (const effect of ['slide','merge','bright','tap','blocked','milestone','win'
 }
 for (const theme of ['light', 'dark']) {
   for (let rank=1; rank<=11; rank++) assert.ok(existsSync(resolve(assetRoot, `tiles/${rank}_${theme}.svg`)));
-  for (const layer of ['corner','burst','medal']) assert.ok(existsSync(resolve(assetRoot, `scene/${layer}_${theme}.svg`)));
+  for (const layer of ['corner','burst','medal','atmosphere','window','garden','stilllife','compass']) assert.ok(existsSync(resolve(assetRoot, `scene/${layer}_${theme}.svg`)));
 }
 for (const file of readdirSync(resolve(root, 'entry/src/main/ets/gamesNext/glow2048'))) {
   const text = readFileSync(resolve(root, 'entry/src/main/ets/gamesNext/glow2048', file), 'utf8');
