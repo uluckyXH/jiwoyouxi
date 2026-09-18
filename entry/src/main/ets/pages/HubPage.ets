@@ -17,6 +17,9 @@ import { HubStatsPanel } from './HubStatsPanel';
 
 const HOME_GAME_ORDER: string[] = ['suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048Next', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 
+// Hide classic entry points on Home while retaining their routes, saves and favorites.
+const HIDDEN_HOME_GAME_IDS: string[] = ['chicken2048', 'minesweeper', 'suika'];
+
 @Component
 export struct HubPage {
   @Prop @Watch('appearanceChanged') snapshot: CoopAppSnapshot;
@@ -360,7 +363,7 @@ export struct HubPage {
     GAME_MODULES.forEach((game: GameModule) => {
       if (!HOME_GAME_ORDER.includes(game.id)) ordered.push(game);
     });
-    return ordered;
+    return ordered.filter((game: GameModule) => !HIDDEN_HOME_GAME_IDS.includes(game.id));
   }
   private favoriteModules(): GameModule[] {
     const favorites: GameModule[] = [];
@@ -375,7 +378,7 @@ export struct HubPage {
       .sort((a: GameModule, b: GameModule) => this.snapshot.recent.indexOf(a.id) - this.snapshot.recent.indexOf(b.id))
       .slice(0, 2);
   }
-  private heroGameId(): string { return this.recentGames().length > 0 ? this.recentGames()[0].id : 'suika'; }
+  private heroGameId(): string { return this.recentGames().length > 0 ? this.recentGames()[0].id : 'suikaNext'; }
   private heroTitle(): string { return `${moduleById(this.heroGameId()).title} · ${this.homeTag(this.heroGameId())}`; }
   private isFavorite(id: string): boolean { return this.snapshot.favorites.includes(id); }
   private isVisibleGameId(id: string): boolean { return GAME_MODULES.some((game: GameModule) => game.id === id); }
