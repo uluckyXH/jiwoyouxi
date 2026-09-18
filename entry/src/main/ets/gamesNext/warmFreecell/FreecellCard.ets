@@ -12,6 +12,10 @@ export class FCCardView {
   height: number = 57;
   layer: number = 0;
   visible: boolean = true;
+  movable: boolean = false;
+  enterX: number = 0;
+  enterY: number = 0;
+  enterOpacity: number = 1;
   selected: boolean = false;
   hinted: boolean = false;
   constructor(id: number) { this.id = id; }
@@ -22,6 +26,7 @@ export struct FCCard {
   @ObjectLink card: FCCardView;
   @Prop dark: boolean = false;
   @Prop active: boolean = true;
+  @Prop dragEnabled: boolean = true;
   tap: (id: number) => void = () => {};
   dragStart: (id: number) => void = () => {};
   dragUpdate: (dx: number, dy: number) => void = () => {};
@@ -48,17 +53,22 @@ export struct FCCard {
     .id(`freecell-card-${this.card.id}`)
     .border({ width: this.card.selected || this.card.hinted ? 2 : 0,
       color: this.card.hinted ? P.gold(this.dark) : P.accent(this.dark), radius: this.card.width * .11 })
-    .position({ x: this.card.x + this.card.dx, y: this.card.y + this.card.dy - (this.card.selected ? 3 : 0) })
-    .zIndex(this.card.layer + (this.card.selected ? 100 : 0)).opacity(this.card.visible ? 1 : 0)
+    .position({ x: this.card.x + this.card.dx + this.card.enterX,
+      y: this.card.y + this.card.dy + this.card.enterY - (this.card.selected ? 3 : 0) })
+    .zIndex(this.card.layer + (this.card.selected ? 100 : 0)).opacity(this.card.visible ? this.card.enterOpacity : 0)
     .hitTestBehavior(this.card.visible && this.active ? HitTestMode.Default : HitTestMode.None)
     .accessibilityLevel(this.card.visible ? 'yes' : 'no').accessibilityText(fcName(this.card.id))
     .onClick(() => this.tap(this.card.id))
-    .gesture(GestureGroup(GestureMode.Sequence,
-      LongPressGesture({ repeat: false, duration: 180 }),
-      PanGesture({ direction: PanDirection.All, distance: 3 })
-        .onActionStart(() => this.dragStart(this.card.id))
+    .priorityGesture(PanGesture({ fingers: 1, direction: PanDirection.All, distance: 5 }).tag('freecell-drag')
+        .onActionStart((event: GestureEvent) => { this.dragStart(this.card.id); this.dragUpdate(event.offsetX, event.offsetY); })
         .onActionUpdate((event: GestureEvent) => this.dragUpdate(event.offsetX, event.offsetY))
-        .onActionEnd(() => this.dragEnd())
-    ).onCancel(() => this.dragCancel()))
+        .onActionEnd((event: GestureEvent) => { this.dragUpdate(event.offsetX, event.offsetY); this.dragEnd(); })
+        .onActionCancel(() => this.dragCancel()))
+    .onGestureJudgeBegin((gesture: GestureInfo, _event: BaseGestureEvent): GestureJudgeResult => {
+      // A covered, unordered stack remains a scroll surface; movable cards own
+      // their pan immediately, without requiring a stationary long press first.
+      return gesture.tag === 'freecell-drag' && (!this.active || !this.dragEnabled || !this.card.movable) ?
+        GestureJudgeResult.REJECT : GestureJudgeResult.CONTINUE;
+    })
   }
 }

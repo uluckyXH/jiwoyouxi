@@ -1,6 +1,6 @@
 export const FC_ASSETS: string = 'gamesNext/warmFreecell/';
 export const FC_LOGO: string = `${FC_ASSETS}scene/logo.svg`;
-export const FC_HINT: string = '点选后再点目标 · 长按可拖动纸牌';
+export const FC_HINT: string = '按住纸牌即可拖动 · 也可点选后点目标';
 export interface FCLocation { pile: number; index: number; }
 export interface FCMove { card: number; target: number; }
 export interface FCFrame { piles: number[][]; moves: number; }

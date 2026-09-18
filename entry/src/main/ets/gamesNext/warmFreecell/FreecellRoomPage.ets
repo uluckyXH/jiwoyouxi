@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { AchievementEvent } from '../../shell/AchievementModule';
 import { FreecellAudio } from './FreecellAudio';
 import { FreecellBoard } from './FreecellBoard';
+import { FreecellFrame } from './FreecellFrame';
 import { FCCardView } from './FreecellCard';
 import { FCButton, FCStats } from './FreecellControls';
 import { FCCrease, FCInsets, FCLayout, fcCardY, fcLayout, fcPileX, fcTarget } from './FreecellLayout';
@@ -36,10 +37,13 @@ export struct FreecellRoomPage {
   private started: boolean = false;
   private motionTimer: number = -1;
   private motionEpoch: number = 0;
+  private dealEpoch: number = 0;
+  private dealing: boolean = false;
+  private dealWaiting: boolean = false;
   private autoTimer: number = -1;
   private autoVisited: string[] = [];
   private moving: number[] = [];
-  private dragging: boolean = false;
+  @State dragging: boolean = false;
   private lastDrag: number = 0;
   private lastTap: number = 0;
   private lastCard: number = -1;
@@ -104,8 +108,10 @@ export struct FreecellRoomPage {
           this.PlayArea()
         }.width(this.layout.width).height(Math.max(1, this.layout.frame.height - 64))
           .scrollable(ScrollDirection.Vertical).scrollBar(BarState.Auto).align(Alignment.TopStart)
+          .enableScrollInteraction(!this.dragging)
       }.width(Math.min(this.layout.frame.width, this.layout.width)).height(Math.max(1, this.layout.frame.height - 64))
         .scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Auto).align(Alignment.TopStart)
+        .enableScrollInteraction(!this.dragging)
         .position({ x: this.layout.frame.x + Math.max(0, (this.layout.frame.width - this.layout.width) / 2), y: this.layout.frame.y + 62 })
         .enabled(this.dialog === '').accessibilityLevel(this.dialog === '' ? 'auto' : 'no-hide-descendants')
       if (this.dialog !== '') {
@@ -147,7 +153,7 @@ export struct FreecellRoomPage {
       FCStats({ dark: this.dark, collected: this.collected, moves: this.moves, elapsed: this.elapsed })
         .width(this.layout.stats.width).position({ x: this.layout.stats.x, y: this.layout.stats.y })
       FreecellBoard({ cards: $cards, dark: this.dark, layout: this.layout, surfaceHeight: this.surfaceHeight,
-        session: this.session, revision: this.revision, hintTarget: this.hintTarget, active: this.dialog === '',
+        session: this.session, revision: this.revision, hintTarget: this.hintTarget, active: this.dialog === '', dragEnabled: !this.busy,
         tap: (id: number) => this.tap(id), target: (pile: number) => this.target(pile),
         dragStart: (id: number) => this.beginDrag(id), dragUpdate: (dx: number, dy: number) => this.drag(dx, dy),
         dragEnd: (id: number, dx: number, dy: number) => this.drop(id, dx, dy), dragCancel: () => this.cancelDrag()
@@ -199,7 +205,7 @@ export struct FreecellRoomPage {
       this.note = raw.length > 0 && !restored ? '上次进度无法恢复，已准备新的牌局' : FC_HINT;
       this.dialog = this.backgroundPaused ? 'pause' : this.engine.won() ? 'win' : restored && this.started ? 'resume' : '';
       if (this.engine.won()) this.reportWin();
-      else if (!restored && !this.backgroundPaused) this.deal();
+      else if (!this.started && !this.backgroundPaused) this.deal();
     } catch (_) { if (!this.disposed) this.dialog = 'loadError'; }
     finally { this.loading = false; }
   }
@@ -213,8 +219,10 @@ export struct FreecellRoomPage {
       card.x = fcPileX(this.layout, where.pile); card.y = fcCardY(this.layout, where.pile, where.index);
       card.layer = where.index + 1 + (this.moving.includes(card.id) ? 150 : 0);
       card.visible = where.pile < 12 || where.index === this.engine.piles[where.pile].length - 1;
+      card.movable = this.engine.selected(card.id).length > 0;
       card.selected = selected.includes(card.id); card.hinted = card.id === this.hintCard;
       card.dx = 0; card.dy = 0;
+      if (!this.dealing) { card.enterX = 0; card.enterY = 0; card.enterOpacity = 1; }
     });
     const longest = Math.max(...this.engine.piles.slice(0, 8).map((p: number[]) => p.length));
     this.surfaceHeight = Math.max(this.layout.board.height, this.layout.tableY + Math.max(0, longest - 1) * this.layout.fan + this.layout.cardHeight + 16);
@@ -277,6 +285,7 @@ export struct FreecellRoomPage {
     }, ms);
   }
   private finishMotion(): void {
+    this.dealEpoch++; this.dealing = false; this.dealWaiting = false;
     this.motionEpoch++;
     if (this.motionTimer >= 0) clearTimeout(this.motionTimer);
     if (this.busy) this.hintTarget = -1;
@@ -310,6 +319,7 @@ export struct FreecellRoomPage {
     if (this.automatic) { this.stopAuto(); this.note = '自动整理已停止，轮到你了'; return; }
     if (!this.canPlay() || this.busy || this.engine.won()) return;
     this.automatic = true; this.autoVisited = [this.engine.key()]; this.selected = -1;
+    this.note = '先收安全牌，再尝试整理牌列 · 点牌或再点按钮即可停止';
     this.scheduleAuto();
   }
   private scheduleAuto(): void {
@@ -345,13 +355,41 @@ export struct FreecellRoomPage {
       this.getUIContext().animateTo({ duration: 150, curve: Curve.EaseOut }, () => this.sync());
     }
   }
-  private cancelDrag(): void { this.dragging = false; if (this.loaded) this.sync(); }
+  private cancelDrag(): void {
+    // Failed/unstarted gestures must not rewrite positions during a deal/move.
+    if (!this.dragging) return;
+    this.dragging = false; this.lastDrag = Date.now(); if (this.loaded) this.sync();
+  }
   private deal(): void {
-    this.busy = true;
-    this.cards.forEach((card: FCCardView) => { card.x = this.layout.surfaceWidth * .45; card.y = this.layout.tableY + 20; });
-    this.audio.play('deal');
-    this.getUIContext().animateTo({ duration: 620, curve: Curve.EaseOut }, () => this.sync());
-    this.scheduleFinish(650);
+    this.dealing = true; this.dealWaiting = true; this.busy = true;
+    const epoch = ++this.dealEpoch;
+    this.cards.forEach((card: FCCardView) => {
+      card.enterX = this.layout.surfaceWidth * .45 - card.x;
+      card.enterY = this.layout.tableY + 20 - card.y;
+      card.enterOpacity = 0;
+    });
+    // First paint the starting positions, then let the App's entry transition
+    // clear before dealing. Tokens make both frame callbacks safe to invalidate.
+    this.getUIContext().postFrameCallback(new FreecellFrame(() => {
+      if (!this.validDeal(epoch)) return;
+      this.getUIContext().postDelayedFrameCallback(new FreecellFrame(() => this.runDeal(epoch)), 280);
+    }));
+  }
+  private validDeal(epoch: number): boolean {
+    return !this.disposed && this.dealing && epoch === this.dealEpoch && this.dialog === '' && !this.backgroundPaused;
+  }
+  private runDeal(epoch: number): void {
+    if (!this.validDeal(epoch)) return;
+    this.dealWaiting = false; this.audio.play('deal');
+    for (let column = 0; column < 8; column++) {
+      const ids = this.engine.piles[column];
+      this.getUIContext().animateTo({ duration: 300, delay: column * 38, curve: Curve.EaseOut }, () => {
+        ids.forEach((id: number) => {
+          const card = this.cards[id]; card.enterX = 0; card.enterY = 0; card.enterOpacity = 1;
+        });
+      });
+    }
+    this.scheduleFinish(590);
   }
   private newGame(same: boolean): void {
     if (!this.loaded || this.saving) return;
@@ -390,11 +428,13 @@ export struct FreecellRoomPage {
   private relayout(): void {
     const next = fcLayout(this.pageWidth, this.pageHeight, this.insets, this.folds);
     if (JSON.stringify(next) === JSON.stringify(this.layout)) return;
+    const restartDeal = this.dealing && this.dealWaiting;
     this.stopAuto(); this.clearIntent(); this.finishMotion(); this.cancelDrag();
     this.layout = next; this.revision++; if (this.loaded) this.sync();
     // A fold can cancel the last card's animation after its move has committed.
     // Keep the result reachable even when that animation callback never runs.
     if (this.loaded && this.engine.won() && this.dialog === '') this.dialog = 'win';
+    else if (restartDeal && this.loaded && this.dialog === '' && !this.backgroundPaused) this.deal();
   }
   themeChanged(): void { this.host.setDark(this.dark); }
   soundChanged(): void { this.audio.setEnabled(this.soundEnabled); }

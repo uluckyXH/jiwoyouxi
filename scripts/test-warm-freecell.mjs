@@ -127,9 +127,10 @@ const runTimers=ms=>{now+=ms;for(const [id,task] of [...timers])if(task.at<=now)
 const harnessContext=vm.createContext({console, Curve:{EaseOut:'easeOut'}, Date:class extends Date {static now(){return now;}},
   setTimeout:(fn,ms)=>{const id=++nextTimer;timers.set(id,{fn,at:now+ms});return id;},clearTimeout:id=>timers.delete(id),
   Scroller:class{},FreecellAudio:class{play(){}silence(){}setEnabled(){}},FreecellWindow:class{setDark(){}},
+  FreecellFrame:class {constructor(run){this.run=run;}onIdle(){this.run();}},
   FreecellStorage:class{async save(){return true;}async load(){return '';}}
 });
-const harnessSource = `${source}\n${view}\nclass PageHarness {${fields.replace(/@State /g,'')}\n${methods}\ngetUIContext(){return {animateTo:(_options,run)=>run()};}\n}\n({PageHarness,FreecellSession,fcValidPiles})`;
+const harnessSource = `${source}\n${view}\nclass PageHarness {${fields.replace(/@State /g,'')}\n${methods}\ngetUIContext(){return {animateTo:(_options,run)=>run(),postFrameCallback:frame=>setTimeout(()=>frame.onIdle(0),16),postDelayedFrameCallback:(frame,delay)=>setTimeout(()=>frame.onIdle(0),delay)};}\n}\n({PageHarness,FreecellSession,fcValidPiles})`;
 const {PageHarness}=vm.runInContext(stripTypeScriptTypes(clean(harnessSource)),harnessContext);
 const createPage=()=>{const p=new PageHarness();p.context={};p.loaded=true;p.dialog='';p.sync();p.recordScore=()=>{};p.reportAchievementEvent=async()=>true;return p;};
 test('pause and resize during movement discard stale callbacks without losing the move',()=>{
@@ -161,7 +162,38 @@ test('new round invalidates a queued tap and auto timer',()=>{
   const p=createPage();const m=p.engine.suggestions()[0];p.move(m.card,m.target);p.queuedCard=9;p.automatic=true;p.scheduleAuto();
   const old=p.engine.session;p.newGame(false);runTimers(2000);assert.notEqual(p.engine.session,old);assert.equal(p.engine.moves,0);assert.equal(p.queuedCard,-1);assert(!p.automatic);
 });
+test('fresh deal paints its starting pose before spreading cards and unlocks when finished',()=>{
+  const p=createPage();p.deal();assert(p.busy);assert(p.cards.every(c=>c.enterOpacity===0));
+  assert(p.cards.some(c=>c.enterX!==0||c.enterY!==0));runTimers(16);
+  assert(p.cards.every(c=>c.enterOpacity===0));runTimers(280);
+  assert(p.cards.every(c=>c.enterOpacity===1&&c.enterX===0&&c.enterY===0));assert(p.busy);
+  runTimers(590);assert(!p.busy);assert(!p.dealing);
+});
+test('unstarted gesture cancellation cannot erase the deal starting pose',()=>{
+  const p=createPage();p.deal();const poses=p.cards.map(c=>[c.enterX,c.enterY,c.enterOpacity]);p.cancelDrag();
+  assert.deepEqual(p.cards.map(c=>[c.enterX,c.enterY,c.enterOpacity]),poses);p.present('pause');
+});
+test('late initial layout restages the deal; pause invalidates all delayed frame callbacks',()=>{
+  const p=createPage();p.deal();const old=p.dealEpoch;p.pageWidth=707;p.pageHeight=773;p.relayout();
+  assert(p.dealEpoch>old);assert(p.dealing);assert(p.cards.every(c=>c.enterOpacity===0));
+  runTimers(16);p.present('pause');runTimers(280);runTimers(590);
+  assert(!p.busy);assert(!p.dealing);assert.equal(p.dialog,'pause');assert(p.cards.every(c=>c.enterOpacity===1));
+});
+test('dragging a movable card commits its drop and a late cancel cannot undo the result',()=>{
+  const p=createPage();const m=p.engine.suggestions().find(m=>m.target>=12);assert(m);
+  assert(p.cards[m.card].movable);const card=p.cards[m.card];assert(p.beginDrag(m.card));
+  const dx=fcPileX(p.layout,m.target)-card.x;const dy=22-card.y;p.drag(dx,dy);p.drop(m.card,dx,dy);
+  const key=p.engine.key();assert.equal(p.engine.moves,1);assert(p.busy);p.cancelDrag();
+  assert.equal(p.engine.key(),key);assert(p.busy);runTimers(210);assert(!p.busy);
+});
 const asyncTest = async (name, action) => { await action(); count++; console.log(`PASS ${name}`); };
+await asyncTest('restoring an untouched hand still deals, while an active save offers resume',async()=>{
+  const p=createPage();const raw=p.engine.serialize();p.storage.load=async()=>raw;await p.boot();
+  assert(p.dealing);assert.equal(p.dialog,'');p.present('pause');
+  const q=createPage();const m=q.engine.suggestions()[0];q.engine.move(m.card,m.target);
+  const moved=q.engine.serialize();q.storage.load=async()=>moved;await q.boot();
+  assert.equal(q.dialog,'resume');assert(!q.dealing);assert.equal(q.engine.moves,1);
+});
 const wonPage = () => {
   const p=createPage();
   p.engine.piles=Array.from({length:16}, (_,pile)=>pile>=12 ? Array.from({length:13},(_,rank)=>(pile-12)*13+rank) : []);

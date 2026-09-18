@@ -11,6 +11,7 @@ export struct FreecellBoard {
   @Prop session: string = '';
   @Prop hintTarget: number = -1;
   @Prop active: boolean = true;
+  @Prop dragEnabled: boolean = true;
   @Prop @Watch('cancel') revision: number = 0;
   tap: (id: number) => void = () => {};
   target: (pile: number) => void = () => {};
@@ -21,7 +22,7 @@ export struct FreecellBoard {
   private vertical: Scroller = new Scroller();
   private horizontal: Scroller = new Scroller();
   private slots: number[] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
-  private dragging: number = -1;
+  @State dragging: number = -1;
   private dx: number = 0;
   private dy: number = 0;
   private startX: number = 0;
@@ -29,9 +30,10 @@ export struct FreecellBoard {
   private originX: number = 0;
   private originY: number = 0;
   private scrollTimer: number = -1;
-  aboutToDisappear(): void { this.stopScroll(); }
+  aboutToDisappear(): void { this.cancel(); }
   cancel(): void {
     this.stopScroll();
+    if (this.dragging < 0) return;
     this.dragging = -1;
     this.dragCancel();
   }
@@ -88,15 +90,19 @@ export struct FreecellBoard {
             .position({ x: fcPileX(this.layout, 12), y: 5 })
           ForEach(this.slots, (pile: number) => { this.Slot(pile) }, (pile: number) => `${pile}`)
           ForEach(this.cards, (card: FCCardView) => {
-            FCCard({ card: card, dark: this.dark, active: this.active, tap: this.tap,
-              dragStart: (id: number) => this.begin(id), dragUpdate: (dx: number, dy: number) => this.update(dx, dy),
-              dragEnd: () => this.end(), dragCancel: () => { this.stopScroll(); this.dragging = -1; this.dragCancel(); } })
+            FCCard({ card: card, dark: this.dark, active: this.active, dragEnabled: this.dragEnabled, tap: this.tap,
+              dragStart: (id: number) => this.begin(id),
+              dragUpdate: (dx: number, dy: number) => { if (this.dragging === card.id) this.update(dx, dy); },
+              dragEnd: () => { if (this.dragging === card.id) this.end(); },
+              dragCancel: () => { if (this.dragging === card.id) this.cancel(); } })
           }, (card: FCCardView) => `${this.session}:${card.id}`)
         }.width(this.layout.surfaceWidth).height(this.surfaceHeight)
       }.width(this.layout.surfaceWidth).height(this.layout.board.height).scrollable(ScrollDirection.Vertical)
+      .enableScrollInteraction(this.dragging < 0)
       .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
       .scrollBar(this.surfaceHeight > this.layout.board.height + 1 ? BarState.Auto : BarState.Off).align(Alignment.TopStart)
     }.width(this.layout.board.width).height(this.layout.board.height).scrollable(ScrollDirection.Horizontal)
+    .enableScrollInteraction(this.dragging < 0)
     .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
     .scrollBar(this.layout.surfaceWidth > this.layout.board.width + 1 ? BarState.Auto : BarState.Off)
     .align(Alignment.TopStart).clip(true).borderRadius(20)
