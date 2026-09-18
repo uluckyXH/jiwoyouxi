@@ -62,8 +62,17 @@ for theme in ['light', 'dark']:
     gold = '#D9B87E' if dark else '#B18B4E'
     # Transparent, independently anchored layers keep the artwork visible in
     # portrait layouts. Only the soft ground wash stretches with the window.
-    svg(f'scene/garden_{theme}.svg', f'''<defs><linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-<stop stop-color="{faint}" stop-opacity="0"/><stop offset="1" stop-color="{faint}" stop-opacity=".9"/></linearGradient></defs>
+    # Use explicit viewBox coordinates rather than a unitless 0..1 vector.
+    # Fade both edges into the page so the layer's rectangle and safe-area end
+    # cannot become a visible band. The middle is a subtle wash behind the leaves.
+    svg(f'scene/garden_{theme}.svg', f'''<defs><linearGradient id="ground" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="240">
+<stop offset="0%" stop-color="{faint}" stop-opacity="0"/>
+<stop offset="22%" stop-color="{faint}" stop-opacity=".04"/>
+<stop offset="45%" stop-color="{faint}" stop-opacity=".22"/>
+<stop offset="65%" stop-color="{faint}" stop-opacity=".44"/>
+<stop offset="82%" stop-color="{faint}" stop-opacity=".26"/>
+<stop offset="94%" stop-color="{faint}" stop-opacity=".06"/>
+<stop offset="100%" stop-color="{faint}" stop-opacity="0"/></linearGradient></defs>
 <rect width="1200" height="240" fill="url(#ground)"/>
 <path d="M0 208Q160 169 320 204T680 219T1200 197" fill="none" stroke="{border}" stroke-opacity=".22" stroke-width="1"/>
 <path d="M0 224Q210 183 420 217T820 229T1200 213" fill="none" stroke="{border}" stroke-opacity=".14" stroke-width="1"/>''', '0 0 1200 240')

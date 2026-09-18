@@ -1,5 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="240" viewBox="0 0 1200 240"><defs><linearGradient id="ground" x1="0" y1="0" x2="0" y2="1">
-<stop stop-color="#E9EBCF" stop-opacity="0"/><stop offset="1" stop-color="#E9EBCF" stop-opacity=".9"/></linearGradient></defs>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="240" viewBox="0 0 1200 240"><defs><linearGradient id="ground" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="240">
+<stop offset="0%" stop-color="#E9EBCF" stop-opacity="0"/>
+<stop offset="22%" stop-color="#E9EBCF" stop-opacity=".04"/>
+<stop offset="45%" stop-color="#E9EBCF" stop-opacity=".22"/>
+<stop offset="65%" stop-color="#E9EBCF" stop-opacity=".44"/>
+<stop offset="82%" stop-color="#E9EBCF" stop-opacity=".26"/>
+<stop offset="94%" stop-color="#E9EBCF" stop-opacity=".06"/>
+<stop offset="100%" stop-color="#E9EBCF" stop-opacity="0"/></linearGradient></defs>
 <rect width="1200" height="240" fill="url(#ground)"/>
 <path d="M0 208Q160 169 320 204T680 219T1200 197" fill="none" stroke="#D6DEBF" stroke-opacity=".22" stroke-width="1"/>
 <path d="M0 224Q210 183 420 217T820 229T1200 213" fill="none" stroke="#D6DEBF" stroke-opacity=".14" stroke-width="1"/></svg>
