@@ -171,7 +171,8 @@ export struct HubPage {
       Column() {
       HubScroll({ session: this.session, slot: 3 }) {
         HubSettingsPanel({ appearanceMode: this.snapshot.appearanceMode, isDarkMode: this.isDarkMode(),
-          roomy: this.layout.contentWidth >= 700, resetAchievements: this.resetAchievements,
+          roomy: this.layout.contentWidth >= 700,
+          stackedAppearance: this.layout.contentWidth < 320 * this.layout.textScale,
           updateAppearanceMode: this.updateAppearanceMode })
       }
       }.width(Math.min(900, this.layout.contentWidth)).height('100%')

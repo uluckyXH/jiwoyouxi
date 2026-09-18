@@ -6,12 +6,8 @@ export struct HubSettingsPanel {
   @Prop appearanceMode: string = APPEARANCE_SYSTEM;
   @Prop isDarkMode: boolean = false;
   @Prop roomy: boolean = false;
+  @Prop stackedAppearance: boolean = false;
   updateAppearanceMode: (appearanceMode: string) => void = () => {};
-  resetAchievements: () => Promise<boolean> = async (): Promise<boolean> => false;
-  @State private developerExpanded: boolean = false;
-  @State private resetPresented: boolean = false;
-  @State private resetting: boolean = false;
-  @State private resetMessage: string = '';
 
   build() {
     Column({ space: 24 }) {
@@ -21,23 +17,33 @@ export struct HubSettingsPanel {
       }.width('100%').alignItems(HorizontalAlign.Start)
       Column({ space: 16 }) {
         Row({ space: 9 }) {
-          AppIcon({ name: 'sun', iconSize: 21, tint: this.accent() })
+          AppIcon({ name: 'theme_auto', iconSize: 21, tint: this.accent() })
           Text('外观').fontSize(17).fontWeight(FontWeight.Bold).fontColor(this.ink())
           Blank()
-          Text(`${this.appearanceMode === APPEARANCE_SYSTEM ? '自动' : '手动'} · ${this.dark() ? '深色' : '浅色'}`)
-            .fontSize(11).fontColor(this.muted())
+          Text(`当前${this.dark() ? '深色' : '浅色'}`)
+            .fontSize(10).fontColor(this.muted())
+            .padding({ left: 9, right: 9, top: 5, bottom: 5 })
+            .backgroundColor(this.dark() ? '#302B23' : '#F6EAD7').borderRadius(12)
         }.width('100%')
-        this.SystemAppearanceOption()
-        Row({ space: this.roomy ? 20 : 12 }) {
-          this.AppearanceOption(APPEARANCE_LIGHT)
-          this.AppearanceOption(APPEARANCE_DARK)
-        }.width('100%').alignItems(VerticalAlign.Top)
+        if (this.stackedAppearance) {
+          Column({ space: 10 }) {
+            this.AppearanceOption(APPEARANCE_SYSTEM)
+            this.AppearanceOption(APPEARANCE_LIGHT)
+            this.AppearanceOption(APPEARANCE_DARK)
+          }.width('100%')
+        } else {
+          Row({ space: this.roomy ? 12 : 8 }) {
+            Column() { this.AppearanceOption(APPEARANCE_SYSTEM) }.layoutWeight(1)
+            Column() { this.AppearanceOption(APPEARANCE_LIGHT) }.layoutWeight(1)
+            Column() { this.AppearanceOption(APPEARANCE_DARK) }.layoutWeight(1)
+          }.width('100%').alignItems(VerticalAlign.Top)
+        }
         Text(this.appearanceMode === APPEARANCE_SYSTEM ? '日光与月色，随设备自然切换。' : '已固定当前外观，选择「跟随系统」可恢复自动切换。')
-          .fontSize(12).fontColor(this.muted()).width('100%')
+          .fontSize(11).lineHeight(18).fontColor(this.muted()).width('100%')
       }
       .width('100%').padding(this.roomy ? 24 : 16)
-      .backgroundColor(this.surface()).borderRadius(24)
-      .border({ width: 1, color: this.line() })
+      .backgroundColor(this.surface())
+      .border({ width: 1, radius: 24, color: this.line() }).borderRadius(24).clip(true)
       Row({ space: 14 }) {
         Image($rawfile('app/ui/chicken.svg')).width(52).height(52).objectFit(ImageFit.Contain)
           .accessibilityLevel('no')
@@ -47,122 +53,75 @@ export struct HubSettingsPanel {
         }.alignItems(HorizontalAlign.Start).layoutWeight(1)
         AppIcon({ name: 'heart', iconSize: 20, tint: this.accent() })
       }.width('100%').padding(18).backgroundColor(this.surface()).borderRadius(20)
-      Column({ space: 12 }) {
-        Button({ type: ButtonType.Normal }) {
-          Row() {
-            Text('开发与调试').fontSize(13).fontColor(this.muted())
-            Blank()
-            AppIcon({ name: 'chevron_right', iconSize: 18, tint: this.muted() })
-              .rotate({ angle: this.developerExpanded ? 90 : 0 })
-          }.width('100%')
-        }.width('100%').height(44).padding({ left: 4, right: 4 })
-        .backgroundColor(Color.Transparent)
-        .accessibilityText(`开发与调试，${this.developerExpanded ? '收起' : '展开'}`)
-        .onClick(() => { this.developerExpanded = !this.developerExpanded; })
-        if (this.developerExpanded) {
-          Text('仅用于测试成就反馈，游戏存档不会被清除。')
-            .fontSize(12).fontColor(this.muted()).width('100%')
-          Button('清除本机成就', { type: ButtonType.Normal })
-            .width('100%').height(46).fontSize(13).borderRadius(14)
-            .fontColor(this.dark() ? '#FFD0C4' : '#A33E30')
-            .backgroundColor(this.dark() ? '#382622' : '#FBE9E2')
-            .enabled(!this.resetting)
-            .onClick(() => { this.resetMessage = ''; this.resetPresented = true; })
-          if (this.resetMessage.length > 0) {
-            Text(this.resetMessage).fontSize(12).fontColor(this.muted()).width('100%')
-          }
-        }
-      }.width('100%')
     }
     .width('100%').alignItems(HorizontalAlign.Start)
-    .bindSheet($$this.resetPresented, this.ResetSheet(), {
-      height: SheetSize.FIT_CONTENT, showClose: true, dragBar: true
-    })
-  }
-
-  @Builder
-  SystemAppearanceOption() {
-    Button({ type: ButtonType.Normal }) {
-      Row({ space: 12 }) {
-        AppIcon({ name: 'theme_auto', iconSize: 24, tint: this.accent() })
-        Column({ space: 5 }) {
-          Text('跟随系统').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink())
-          Text('随设备自动切换浅色与深色').fontSize(12).fontColor(this.muted())
-        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-        AppIcon({ name: this.appearanceMode === APPEARANCE_SYSTEM ? 'check' : 'circle',
-          iconSize: 18, tint: this.appearanceMode === APPEARANCE_SYSTEM ? this.accent() : this.muted() })
-      }.width('100%')
-    }
-    .width('100%').padding(16).borderRadius(18)
-    .backgroundColor(this.dark() ? '#2C2922' : '#FFF3DC')
-    .border({ width: this.appearanceMode === APPEARANCE_SYSTEM ? 2 : 1,
-      color: this.appearanceMode === APPEARANCE_SYSTEM ? this.accent() : this.line() })
-    .accessibilityText(`跟随系统，${this.appearanceMode === APPEARANCE_SYSTEM ? '已选择' : '未选择'}`)
-    .onClick(() => this.updateAppearanceMode(APPEARANCE_SYSTEM))
   }
 
   @Builder
   AppearanceOption(mode: string) {
-    Column() {
     Button({ type: ButtonType.Normal }) {
-      Column({ space: 12 }) {
-        Image($rawfile(mode === APPEARANCE_DARK ? 'app/home/home_poster_dark.svg' : 'app/home/home_poster_light.svg'))
-          .width('100%').aspectRatio(720 / 448).objectFit(ImageFit.Contain)
-          .borderRadius(12).clip(true).draggable(false).accessibilityLevel('no')
-        Row({ space: 6 }) {
-          AppIcon({ name: mode === APPEARANCE_DARK ? 'moon' : 'sun', iconSize: 18,
-            tint: mode === APPEARANCE_DARK ? '#FFD083' : '#895A27' })
-          Text(mode === APPEARANCE_DARK ? '月色 · 深色' : '暖阳 · 浅色')
-            .fontSize(13).fontWeight(FontWeight.Medium)
-            .fontColor(mode === APPEARANCE_DARK ? '#FFF0D2' : '#634226').layoutWeight(1)
-          if (this.appearanceMode === mode) {
-            AppIcon({ name: 'check', iconSize: 16, tint: mode === APPEARANCE_DARK ? '#FFD083' : '#895A27' })
-          }
-        }.width('100%')
-      }.width('100%').padding(this.roomy ? 16 : 10)
+      if (this.stackedAppearance) {
+        Row({ space: 12 }) {
+          Image($rawfile(`app/appearance/${mode}.svg`))
+            .width(64).height(48).objectFit(ImageFit.Contain)
+            .draggable(false).accessibilityLevel('no')
+          Column({ space: 4 }) {
+            Text(this.modeTitle(mode)).fontSize(13).lineHeight(18)
+              .fontWeight(600).fontColor(this.ink()).width('100%')
+            Text(this.modeDescription(mode)).fontSize(11).lineHeight(16)
+              .fontColor(this.muted()).width('100%')
+          }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+          this.SelectionMark(mode)
+        }.width('100%').padding(12)
+      } else {
+        Column({ space: 10 }) {
+          Image($rawfile(`app/appearance/${mode}.svg`))
+            .width('100%').height(this.roomy ? 84 : 62).objectFit(ImageFit.Contain)
+            .draggable(false).accessibilityLevel('no')
+          Row({ space: 4 }) {
+            Text(this.modeTitle(mode)).fontSize(12).lineHeight(16).fontWeight(600)
+              .fontColor(this.ink()).layoutWeight(1).maxLines(1)
+            this.SelectionMark(mode)
+          }.width('100%')
+        }.width('100%').padding(this.roomy ? 12 : 8)
+      }
     }
-    .width('100%').padding(0).borderRadius(18)
-    .backgroundColor(Color.Transparent)
-    .accessibilityText(`${mode === APPEARANCE_DARK ? '深色' : '浅色'}模式，${this.appearanceMode === mode ? '已选择' : '未选择'}`)
+    .width('100%').padding(0)
+    .backgroundColor(this.optionSurface(mode))
+    .border({ width: 1.5, radius: 18, color: this.appearanceMode === mode ? this.accent() : this.line() })
+    .borderRadius(18).clip(true)
+    .accessibilityText(`${this.modeTitle(mode)}，${this.appearanceMode === mode ? '已选择' : '未选择'}，${this.modeDescription(mode)}`)
     .onClick(() => this.updateAppearanceMode(mode))
-    }
-    .layoutWeight(1).borderRadius(18).clip(true)
-    .backgroundColor(mode === APPEARANCE_DARK ? '#302C27' : '#FFF0D5')
-    .border({ width: this.appearanceMode === mode ? 2 : 1, radius: 18,
-      color: this.appearanceMode === mode ? this.accent() : this.line() })
   }
 
   @Builder
-  ResetSheet() {
-    Column({ space: 16 }) {
-      Text('清除本机成就？').fontSize(22).fontWeight(FontWeight.Bold).fontColor(this.ink())
-      Text('会清空成就进度和已处理事件；游戏存档、最高分、收藏和设置不会受影响。')
-        .fontSize(14).lineHeight(23).fontColor(this.muted()).width('100%')
-      if (this.resetMessage.length > 0) {
-        Text(this.resetMessage).fontSize(12).fontColor(this.muted())
+  SelectionMark(mode: string) {
+    Stack() {
+      if (this.appearanceMode === mode) {
+        AppIcon({ name: 'check', iconSize: 10, tint: this.dark() ? '#39291E' : '#FFFAF2' })
       }
-      Row({ space: 12 }) {
-        Button('取消').layoutWeight(1).height(46).fontColor(this.ink()).backgroundColor(this.surface())
-          .enabled(!this.resetting).onClick(() => { this.resetPresented = false; })
-        Button(this.resetting ? '清除中…' : '确认清除').layoutWeight(1).height(46)
-          .fontColor('#FFFFFF').backgroundColor('#B64D3B').enabled(!this.resetting)
-          .onClick(() => this.confirmReset())
-      }.width('100%')
-    }.width('100%').padding({ left: 24, right: 24, top: 20, bottom: 28 })
-    .backgroundColor(this.surface())
+    }
+    .width(16).height(16)
+    .backgroundColor(this.appearanceMode === mode ? this.accent() : Color.Transparent)
+    .border({ width: 1.5, radius: 8, color: this.appearanceMode === mode ? this.accent() :
+      (this.dark() ? '#82725F' : '#CBB799') })
+    .borderRadius(8)
+    .accessibilityLevel('no')
   }
 
-  private async confirmReset(): Promise<void> {
-    if (this.resetting) return;
-    this.resetting = true;
-    try {
-      const saved = await this.resetAchievements();
-      this.resetMessage = saved ? '已清除本机成就进度，可重新测试。' : '未能保存更改，请重试。';
-      if (saved) this.resetPresented = false;
-    } catch (_) {
-      this.resetMessage = '未能保存更改，请重试。';
-    }
-    this.resetting = false;
+  private modeTitle(mode: string): string {
+    if (mode === APPEARANCE_SYSTEM) return '跟随系统';
+    return mode === APPEARANCE_DARK ? '深色' : '浅色';
+  }
+
+  private modeDescription(mode: string): string {
+    if (mode === APPEARANCE_SYSTEM) return '随设备自动切换';
+    return mode === APPEARANCE_DARK ? '温柔月色，安静陪伴' : '奶油暖阳，明亮轻松';
+  }
+
+  private optionSurface(mode: string): string {
+    if (this.appearanceMode === mode) return this.dark() ? '#352D22' : '#FFF0D5';
+    return this.dark() ? '#292620' : '#FFFDF8';
   }
 
   private dark(): boolean { return this.isDarkMode; }
