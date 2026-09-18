@@ -5,7 +5,7 @@ import { HubSession } from '../design/HubSession';
 import { HubWindow } from '../design/HubWindow';
 import { achievementSummaryForState } from '../shell/AchievementEngine';
 import { AchievementState } from '../shell/AchievementModule';
-import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, GameModule, GameRecord } from '../shell/GameModule';
+import { APPEARANCE_DARK, APPEARANCE_LIGHT, APPEARANCE_SYSTEM, CoopAppSnapshot, GameModule, GameRecord } from '../shell/GameModule';
 import { GAME_MODULES, moduleById, gameLogoPath } from '../shell/GameRegistry';
 import { AchievementWall } from './AchievementWall';
 import { HubGameCard } from './HubGameCard';
@@ -14,6 +14,8 @@ import { HubNavigation, hubNavigationSurface } from './HubNavigation';
 import { HubScroll } from './HubScroll';
 import { HubSettingsPanel } from './HubSettingsPanel';
 import { HubStatsPanel } from './HubStatsPanel';
+import { PlayStreakSheet } from './PlayStreakSheet';
+import { currentPlayStreak } from '../design/PlayActivity';
 
 const HOME_GAME_ORDER: string[] = ['tetrisNext', 'suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048Next', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 
@@ -22,8 +24,11 @@ const HIDDEN_HOME_GAME_IDS: string[] = ['chicken2048', 'minesweeper', 'suika', '
 
 @Component
 export struct HubPage {
-  @Prop @Watch('appearanceChanged') snapshot: CoopAppSnapshot;
+  @Prop snapshot: CoopAppSnapshot;
+  @Prop @Watch('appearanceChanged') dark: boolean = false;
   @Prop achievementState: AchievementState;
+  @Prop playDays: number[] = [];
+  @State private streakPresented: boolean = false;
   @ObjectLink session: HubSession;
   openGame: (gameId: string) => void = () => {};
   resetAchievements: () => Promise<boolean> = async (): Promise<boolean> => false;
@@ -136,6 +141,14 @@ export struct HubPage {
         this.windowObserver.measure();
       }
     })
+    .bindSheet($$this.streakPresented, this.StreakSheet(), {
+      height: SheetSize.FIT_CONTENT, dragBar: true, showClose: true
+    })
+  }
+
+  @Builder
+  StreakSheet() {
+    PlayStreakSheet({ days: this.playDays, dark: this.isDarkMode() })
   }
 
   @Builder
@@ -166,7 +179,7 @@ export struct HubPage {
     } else {
       Column() {
       HubScroll({ session: this.session, slot: 3 }) {
-        HubSettingsPanel({ appearanceMode: this.snapshot.appearanceMode,
+        HubSettingsPanel({ appearanceMode: this.snapshot.appearanceMode, isDarkMode: this.isDarkMode(),
           roomy: this.layout.contentWidth >= 700, resetAchievements: this.resetAchievements,
           updateAppearanceMode: this.updateAppearanceMode })
       }
@@ -180,21 +193,23 @@ export struct HubPage {
       this.WelcomeHeader()
       if (this.layout.showOverview) {
         Row({ space: 20 }) {
-          HubHeroBanner({ isDarkMode: this.isDarkMode(), gameTitle: this.heroTitle(), spacious: true,
+          HubHeroBanner({ isDarkMode: this.isDarkMode(), availableWidth: this.layout.contentWidth - 304,
+            textScale: this.layout.textScale, gameTitle: this.heroTitle(), spacious: true,
             bannerHeight: 252, startGame: () => this.launchGame(this.heroGameId()) }).layoutWeight(1)
           this.Overview()
         }.width('100%').alignItems(VerticalAlign.Top)
       } else {
-        HubHeroBanner({ isDarkMode: this.isDarkMode(), gameTitle: this.heroTitle(),
+        HubHeroBanner({ isDarkMode: this.isDarkMode(), availableWidth: this.layout.contentWidth,
+          textScale: this.layout.textScale, gameTitle: this.heroTitle(),
           spacious: this.layout.contentWidth >= 500, compact: this.layout.short,
           bannerHeight: this.layout.heroHeight, startGame: () => this.launchGame(this.heroGameId()) })
       }
       this.SectionTitle(false)
       this.GameGrid(false)
-      if (!this.layout.showOverview) {
-        HubStatsPanel({ playStreak: this.playStreak(), unlockedBadges: this.unlockedBadges(),
-          badgeTotal: this.badgeTotal(), isDarkMode: this.isDarkMode() })
-      }
+      HubStatsPanel({ playStreak: this.playStreak(), unlockedBadges: this.unlockedBadges(),
+        stacked: this.layout.contentWidth < 280 * this.layout.textScale,
+        badgeTotal: this.badgeTotal(), isDarkMode: this.isDarkMode(),
+        openStreak: () => { this.streakPresented = true; }, openAchievements: () => this.openAchievementWall() })
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
@@ -207,12 +222,17 @@ export struct HubPage {
         Text('今天玩什么呢？').fontSize(13).fontColor(this.mutedColor())
       }.alignItems(HorizontalAlign.Start).layoutWeight(1)
       Button({ type: ButtonType.Circle }) {
-        AppIcon({ name: this.isDarkMode() ? 'sun' : 'moon', iconSize: 22, tint: this.activeColor() })
+        AppIcon({ name: this.snapshot.appearanceMode === APPEARANCE_SYSTEM ? 'theme_auto' :
+          this.isDarkMode() ? 'moon' : 'sun', iconSize: 22, tint: this.activeColor() })
       }
       .width(44).height(44).backgroundColor(this.panelColor())
       .border({ width: 1, color: this.lineColor() })
-      .accessibilityText(this.isDarkMode() ? '切换到浅色模式' : '切换到深色模式')
-      .onClick(() => this.updateAppearanceMode(this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK))
+      .accessibilityText(`选择外观，当前${this.snapshot.appearanceMode === APPEARANCE_SYSTEM ? '跟随系统，' : ''}${this.isDarkMode() ? '深色' : '浅色'}`)
+      .bindMenu([
+        { value: this.appearanceMenuLabel(APPEARANCE_SYSTEM, '跟随系统'), action: () => this.updateAppearanceMode(APPEARANCE_SYSTEM) },
+        { value: this.appearanceMenuLabel(APPEARANCE_LIGHT, '浅色'), action: () => this.updateAppearanceMode(APPEARANCE_LIGHT) },
+        { value: this.appearanceMenuLabel(APPEARANCE_DARK, '深色'), action: () => this.updateAppearanceMode(APPEARANCE_DARK) }
+      ])
       if (this.layout.navigation === 'bottom' && this.layout.frame.width >= 360) {
         Image($rawfile('app/ui/chicken.svg')).width(42).height(42)
           .objectFit(ImageFit.Contain).accessibilityLevel('no')
@@ -236,7 +256,7 @@ export struct HubPage {
       ForEach(favorites ? this.favoriteModules() : this.homeModules(), (game: GameModule, index: number) => {
         HubGameCard({ game: game, subtitle: this.homeTag(game.id),
           detail: favorites ? this.favoriteRecordText(game) : '', favorite: this.isFavorite(game.id),
-          dark: this.isDarkMode(), textScale: this.layout.textScale,
+          dark: this.isDarkMode(), textScale: this.layout.textScale, cardWidth: this.layout.cardWidth,
           launch: (id: string) => this.launchGame(id), toggleFavorite: (id: string) => this.changeFavorite(id) })
           .width(this.layout.cardWidth)
           .margin({ right: (index + 1) % this.layout.columns === 0 ? 0 : this.layout.gap,
@@ -283,7 +303,7 @@ export struct HubPage {
           AppIcon({ name: 'chevron_right', iconSize: 16, tint: this.mutedColor() })
         }.width('100%')
       }.width('100%').height(42).padding(0).backgroundColor(Color.Transparent)
-      .onClick(() => this.switchTab(2))
+      .onClick(() => this.openAchievementWall())
     }
     .width(284).height(252).padding(18).borderRadius(24)
     .alignItems(HorizontalAlign.Start)
@@ -345,6 +365,13 @@ export struct HubPage {
     if (tab === 2) this.refreshAchievements();
   }
 
+  private openAchievementWall(): void {
+    this.session.achievementFilter = 'all';
+    this.session.detailOpen = false;
+    this.session.scrollOffsets[2] = 0;
+    this.switchTab(2);
+  }
+
   private changeFavorite(id: string): void {
     const removing = this.isFavorite(id);
     this.toggleFavorite(id);
@@ -382,7 +409,10 @@ export struct HubPage {
   private heroTitle(): string { return `${moduleById(this.heroGameId()).title} · ${this.homeTag(this.heroGameId())}`; }
   private isFavorite(id: string): boolean { return this.snapshot.favorites.includes(id); }
   private isVisibleGameId(id: string): boolean { return GAME_MODULES.some((game: GameModule) => game.id === id); }
-  private isDarkMode(): boolean { return this.snapshot.appearanceMode === APPEARANCE_DARK; }
+  private appearanceMenuLabel(mode: string, label: string): string {
+    return this.snapshot.appearanceMode === mode ? `${label} · 已选择` : label;
+  }
+  private isDarkMode(): boolean { return this.dark; }
   private homeBgColor(): string { return this.isDarkMode() ? '#101110' : '#FFF4E4'; }
   private inkColor(): string { return this.isDarkMode() ? '#FFF2DF' : '#39291E'; }
   private mutedColor(): string { return this.isDarkMode() ? '#C8B7A2' : '#806A54'; }
@@ -438,29 +468,6 @@ export struct HubPage {
   }
 
   private playStreak(): number {
-    const days: number[] = [];
-    this.snapshot.records.forEach((item: GameRecord) => {
-      if (this.isVisibleGameId(item.gameId) && item.lastPlayedAt > 0) {
-        const day = Math.floor(item.lastPlayedAt / 86400000);
-        if (!days.includes(day)) {
-          days.push(day);
-        }
-      }
-    });
-    if (days.length === 0) {
-      return 0;
-    }
-    const today = Math.floor(Date.now() / 86400000);
-    let streak = 0;
-    for (let offset = 0; offset < 30; offset += 1) {
-      if (days.includes(today - offset)) {
-        streak += 1;
-      } else if (offset === 0) {
-        continue;
-      } else {
-        break;
-      }
-    }
-    return streak;
+    return currentPlayStreak(this.playDays, Date.now());
   }
 }

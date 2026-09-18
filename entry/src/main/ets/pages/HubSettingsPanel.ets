@@ -1,9 +1,10 @@
 import { AppIcon } from '../components/AppIcon';
-import { APPEARANCE_DARK, APPEARANCE_LIGHT } from '../shell/GameModule';
+import { APPEARANCE_DARK, APPEARANCE_LIGHT, APPEARANCE_SYSTEM } from '../shell/GameModule';
 
 @Component
 export struct HubSettingsPanel {
-  @Prop appearanceMode: string = APPEARANCE_LIGHT;
+  @Prop appearanceMode: string = APPEARANCE_SYSTEM;
+  @Prop isDarkMode: boolean = false;
   @Prop roomy: boolean = false;
   updateAppearanceMode: (appearanceMode: string) => void = () => {};
   resetAchievements: () => Promise<boolean> = async (): Promise<boolean> => false;
@@ -23,13 +24,15 @@ export struct HubSettingsPanel {
           AppIcon({ name: 'sun', iconSize: 21, tint: this.accent() })
           Text('外观').fontSize(17).fontWeight(FontWeight.Bold).fontColor(this.ink())
           Blank()
-          Text(this.dark() ? '深色已开启' : '浅色已开启').fontSize(11).fontColor(this.muted())
+          Text(`${this.appearanceMode === APPEARANCE_SYSTEM ? '自动' : '手动'} · ${this.dark() ? '深色' : '浅色'}`)
+            .fontSize(11).fontColor(this.muted())
         }.width('100%')
+        this.SystemAppearanceOption()
         Row({ space: this.roomy ? 20 : 12 }) {
           this.AppearanceOption(APPEARANCE_LIGHT)
           this.AppearanceOption(APPEARANCE_DARK)
         }.width('100%').alignItems(VerticalAlign.Top)
-        Text('温暖的日光，或安静的月色，随心切换。')
+        Text(this.appearanceMode === APPEARANCE_SYSTEM ? '日光与月色，随设备自然切换。' : '已固定当前外观，选择「跟随系统」可恢复自动切换。')
           .fontSize(12).fontColor(this.muted()).width('100%')
       }
       .width('100%').padding(this.roomy ? 24 : 16)
@@ -75,6 +78,27 @@ export struct HubSettingsPanel {
     .bindSheet($$this.resetPresented, this.ResetSheet(), {
       height: SheetSize.FIT_CONTENT, showClose: true, dragBar: true
     })
+  }
+
+  @Builder
+  SystemAppearanceOption() {
+    Button({ type: ButtonType.Normal }) {
+      Row({ space: 12 }) {
+        AppIcon({ name: 'theme_auto', iconSize: 24, tint: this.accent() })
+        Column({ space: 5 }) {
+          Text('跟随系统').fontSize(15).fontWeight(FontWeight.Medium).fontColor(this.ink())
+          Text('随设备自动切换浅色与深色').fontSize(12).fontColor(this.muted())
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        AppIcon({ name: this.appearanceMode === APPEARANCE_SYSTEM ? 'check' : 'circle',
+          iconSize: 18, tint: this.appearanceMode === APPEARANCE_SYSTEM ? this.accent() : this.muted() })
+      }.width('100%')
+    }
+    .width('100%').padding(16).borderRadius(18)
+    .backgroundColor(this.dark() ? '#2C2922' : '#FFF3DC')
+    .border({ width: this.appearanceMode === APPEARANCE_SYSTEM ? 2 : 1,
+      color: this.appearanceMode === APPEARANCE_SYSTEM ? this.accent() : this.line() })
+    .accessibilityText(`跟随系统，${this.appearanceMode === APPEARANCE_SYSTEM ? '已选择' : '未选择'}`)
+    .onClick(() => this.updateAppearanceMode(APPEARANCE_SYSTEM))
   }
 
   @Builder
@@ -141,7 +165,7 @@ export struct HubSettingsPanel {
     this.resetting = false;
   }
 
-  private dark(): boolean { return this.appearanceMode === APPEARANCE_DARK; }
+  private dark(): boolean { return this.isDarkMode; }
   private ink(): string { return this.dark() ? '#FFF2DF' : '#39291E'; }
   private muted(): string { return this.dark() ? '#C8B7A2' : '#806A54'; }
   private accent(): string { return this.dark() ? '#FFD083' : '#A76720'; }

@@ -1,6 +1,5 @@
 import { AchievementTheme } from '../design/AchievementTheme';
 import { AchievementViewItem } from '../shell/AchievementModule';
-import { AppIcon } from './AppIcon';
 
 /** Shared artwork and state treatment for the wall and its detail sheet. */
 @Component
@@ -24,14 +23,11 @@ export struct AchievementBadge {
           .objectFit(ImageFit.Contain)
       }
       if (this.item.status === 'unlocked') {
-        Stack({ alignContent: Alignment.Center }) {
-          AppIcon({ name: 'check', iconSize: this.checkSize() * 0.8, tint: '#4E3020' })
-        }
+        Image($rawfile(`app/achievements/unlocked_mark_${this.isDarkMode ? 'dark' : 'light'}.svg`))
           .width(this.checkSize())
           .height(this.checkSize())
-          .backgroundColor(this.isDarkMode ? AchievementTheme.goldDark : AchievementTheme.goldLight)
-          .borderRadius(this.checkSize() / 2)
-          .position({ x: this.badgeSize - this.checkSize() + 2, y: this.badgeSize - this.checkSize() + 2 })
+          .objectFit(ImageFit.Contain).accessibilityLevel('no')
+          .position({ x: this.badgeSize - this.checkSize() - 3, y: this.badgeSize - this.checkSize() - 3 })
       }
     }
     .width(this.badgeSize)
@@ -42,7 +38,7 @@ export struct AchievementBadge {
   }
 
   private checkSize(): number {
-    return this.badgeSize > AchievementTheme.badgeSize ? 24 : 17;
+    return this.badgeSize > AchievementTheme.badgeSize ? 26 : 19;
   }
 
   private surfaceColor(): string {

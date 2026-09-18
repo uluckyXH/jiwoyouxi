@@ -36,6 +36,10 @@ export function hubInsets(): HubInsets {
   return { top: 24, right: 0, bottom: 16, left: 0 };
 }
 
+export function hubCardStacked(cardWidth: number, textScale: number): boolean {
+  return cardWidth < 240 * Math.max(1, textScale);
+}
+
 function positive(value: number, fallback: number): number {
   return Number.isFinite(value) && value > 0 ? value : fallback;
 }

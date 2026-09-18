@@ -1,4 +1,4 @@
-import { AbilityConstant, UIAbility, Want } from '@kit.AbilityKit';
+import { AbilityConstant, Configuration, ConfigurationConstant, UIAbility, Want } from '@kit.AbilityKit';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { window } from '@kit.ArkUI';
 
@@ -6,6 +6,7 @@ const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
+    this.syncSystemAppearance(this.context.config);
     hilog.info(DOMAIN, 'WorldOfRPSNative', 'EntryAbility created');
   }
 
@@ -37,10 +38,24 @@ export default class EntryAbility extends UIAbility {
   }
 
   onForeground(): void {
+    // Refresh after returning from system Settings, even if a background callback was missed.
+    this.syncSystemAppearance(this.context.config);
     hilog.info(DOMAIN, 'WorldOfRPSNative', 'App foreground');
   }
 
   onBackground(): void {
     hilog.info(DOMAIN, 'WorldOfRPSNative', 'App background');
+  }
+
+  onConfigurationUpdate(newConfig: Configuration): void {
+    this.syncSystemAppearance(newConfig);
+  }
+
+  private syncSystemAppearance(config: Configuration): void {
+    if (config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK ||
+      config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT) {
+      AppStorage.setOrCreate<boolean>('coop.systemDark',
+        config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK);
+    }
   }
 }

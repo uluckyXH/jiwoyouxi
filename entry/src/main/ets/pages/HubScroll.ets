@@ -4,8 +4,14 @@ import { HubSession } from '../design/HubSession';
 export struct HubScroll {
   @ObjectLink session: HubSession;
   @Prop slot: number = 0;
+  @Prop @Watch('resetScroll') resetKey: string = '';
   @BuilderParam content: () => void = this.Empty;
   private scroller: Scroller = new Scroller();
+
+  private resetScroll(): void {
+    this.session.scrollOffsets[this.slot] = 0;
+    this.scroller.scrollTo({ xOffset: 0, yOffset: 0 });
+  }
 
   build() {
     Scroll(this.scroller) {

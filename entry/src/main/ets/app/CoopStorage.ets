@@ -1,11 +1,11 @@
 import { common } from '@kit.AbilityKit';
 import { preferences } from '@kit.ArkData';
+import { normalizePlayDays } from '../design/PlayActivity';
 import {
-  APPEARANCE_DARK,
-  APPEARANCE_LIGHT,
   CoopAppSnapshot,
   emptySnapshot,
-  GameRecord
+  GameRecord,
+  normalizeAppearanceMode
 } from '../shell/GameModule';
 import { AchievementState, LegacyAchievementProgress } from '../shell/AchievementModule';
 import { emptyAchievementState, normalizeAchievementState } from '../shell/AchievementEngine';
@@ -15,6 +15,33 @@ const SNAPSHOT_KEY: string = 'snapshot';
 const ACHIEVEMENT_STATE_KEY: string = 'achievement_state';
 
 export class CoopStorage {
+  static async loadPlayDays(context: common.Context): Promise<number[]> {
+    try {
+      const store = await preferences.getPreferences(context, { name: STORE_NAME });
+      const raw = await store.get('play_days', '[]');
+      return typeof raw === 'string' ? normalizePlayDays(JSON.parse(raw) as number[]) : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static async savePlayDays(context: common.Context, days: number[]): Promise<boolean> {
+    try {
+      const store = await preferences.getPreferences(context, { name: STORE_NAME });
+      const raw = await store.get('play_days', '[]');
+      let previous: number[] = [];
+      try {
+        if (typeof raw === 'string') previous = normalizePlayDays(JSON.parse(raw) as number[]);
+      } catch (_) {}
+      // Daily activity is append-only, including after a temporary startup read failure.
+      await store.put('play_days', JSON.stringify(normalizePlayDays(previous.concat(days))));
+      await store.flush();
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static async load(context: common.Context): Promise<CoopAppSnapshot> {
     try {
       const store = await preferences.getPreferences(context, { name: STORE_NAME });
@@ -87,15 +114,11 @@ export class CoopStorage {
       recent: CoopStorage.stringArray(snapshot.recent),
       soundEnabled: snapshot.soundEnabled !== false,
       hapticEnabled: snapshot.hapticEnabled !== false,
-      appearanceMode: CoopStorage.appearanceMode(snapshot.appearanceMode),
+      appearanceMode: normalizeAppearanceMode(snapshot.appearanceMode),
       achievementSchemaVersion: CoopStorage.schemaVersion(snapshot.achievementSchemaVersion),
       achievements: CoopStorage.achievementProgresses(snapshot.achievements),
       recentAchievementEventIds: CoopStorage.stringArray(snapshot.recentAchievementEventIds).slice(0, 32)
     };
-  }
-
-  private static appearanceMode(value: string): string {
-    return value === APPEARANCE_DARK ? APPEARANCE_DARK : APPEARANCE_LIGHT;
   }
 
   private static stringArray(value: string[]): string[] {

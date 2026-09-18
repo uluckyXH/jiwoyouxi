@@ -1,4 +1,5 @@
 import { HubSession } from '../design/HubSession';
+import { localPlayDay, normalizePlayDays, playDaysWithLegacyRecords } from '../design/PlayActivity';
 import { BlockWorkshopPage } from '../gamesNext/blockWorkshop/BlockWorkshopPage';
 import { common } from '@kit.AbilityKit';
 import { AchievementService } from '../app/AchievementService';
@@ -19,7 +20,7 @@ import {
   AchievementState
 } from '../shell/AchievementModule';
 import { achievementNoticeItemsForUnlocks, emptyAchievementNoticeItem } from '../shell/AchievementNotice';
-import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, emptySnapshot, GameRecord } from '../shell/GameModule';
+import { CoopAppSnapshot, emptySnapshot, GameRecord, isDarkAppearance, normalizeAppearanceMode } from '../shell/GameModule';
 import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
 import { HubPage } from './HubPage';
@@ -51,7 +52,10 @@ struct Index {
   private snapshotRevision: number = 0;
   private favoriteAchievementEventSequence: number = 0;
   private startupActive: boolean = false;
+  private playDaysSaveQueue: Promise<boolean> = Promise.resolve(true);
+  @State private playDays: number[] = [];
   @State private startupReady: boolean = false;
+  @StorageProp('coop.systemDark') private systemDark: boolean = false;
   @State private hubSession: HubSession = new HubSession();
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State achievementState: AchievementState = emptyAchievementState();
@@ -77,7 +81,7 @@ struct Index {
     if (context !== undefined) {
       const appContext = context as common.Context;
       this.appContext = appContext;
-      // Restore both stores before mounting the hub, avoiding empty favorites/theme flashes.
+      // Restore local UI data before mounting the hub.
       Promise.all([
         CoopStorage.load(appContext).then((snapshot: CoopAppSnapshot) => {
           if (this.startupActive) {
@@ -85,6 +89,9 @@ struct Index {
           }
         }).catch(() => {
           console.warn('Unable to restore the app snapshot during startup');
+        }),
+        CoopStorage.loadPlayDays(appContext).then((days: number[]) => {
+          if (this.startupActive) this.playDays = days;
         }),
         this.achievementService.initialize(appContext).then((state: AchievementState) => {
           if (this.startupActive) {
@@ -95,6 +102,8 @@ struct Index {
         })
       ]).then(() => {
         if (this.startupActive) {
+          this.playDays = playDaysWithLegacyRecords(this.playDays, this.snapshot.records);
+          this.persistPlayDays();
           this.startupReady = true;
         }
       });
@@ -155,6 +164,8 @@ struct Index {
         GameSceneTransition({ role: 'hub', sceneDirection: this.sceneDirection }) {
           HubPage({
             session: this.hubSession,
+            playDays: this.playDays,
+            dark: this.isDarkMode(),
             snapshot: this.snapshot,
             achievementState: this.achievementState,
             openGame: (gameId: string) => {
@@ -224,7 +235,7 @@ struct Index {
       } else if (this.activeGame === 'minesweeperNext') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           MineGardenPage({
-            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            dark: this.isDarkMode(),
             bestScore: this.recordFor('minesweeperNext').highScore,
             soundEnabled: this.snapshot.soundEnabled,
             exitRequest: this.mineGardenExitRequest,
@@ -253,7 +264,7 @@ struct Index {
       } else if (this.activeGame === 'chicken2048Next') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           GlowPage({
-            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            dark: this.isDarkMode(),
             bestScore: this.recordFor('chicken2048Next').highScore,
             soundEnabled: this.snapshot.soundEnabled,
             exitRequest: this.glow2048ExitRequest,
@@ -281,7 +292,7 @@ struct Index {
       } else if (this.activeGame === 'tetrisNext') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           BlockWorkshopPage({
-            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            dark: this.isDarkMode(),
             bestScore: this.recordFor('tetrisNext').highScore,
             soundEnabled: this.snapshot.soundEnabled,
             exitRequest: this.blockWorkshopExitRequest,
@@ -310,7 +321,7 @@ struct Index {
       } else if (this.activeGame === 'suikaNext') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           FruitMarketPage({
-            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            dark: this.isDarkMode(),
             bestScore: this.recordFor('suikaNext').highScore,
             soundEnabled: this.snapshot.soundEnabled,
             exitRequest: this.fruitMarketExitRequest,
@@ -341,7 +352,7 @@ struct Index {
         GameEntryBadge({
           gameId: this.entryBadgeGameId,
           badgeVisible: this.entryBadgeVisible,
-          isDarkMode: this.snapshot.appearanceMode === APPEARANCE_DARK
+          isDarkMode: this.isDarkMode()
         })
       }
 
@@ -349,13 +360,13 @@ struct Index {
         AchievementUnlockNotice({
           notice: this.achievementNotice,
           noticeVisible: this.achievementNoticeVisible,
-          isDarkMode: this.snapshot.appearanceMode === APPEARANCE_DARK
+          isDarkMode: this.isDarkMode()
         })
       }
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(this.snapshot.appearanceMode === APPEARANCE_DARK ? '#101110' : '#FFF4E4')
+    .backgroundColor(this.isDarkMode() ? '#101110' : '#FFF4E4')
   }
 
   private openGame(gameId: string): void {
@@ -363,6 +374,7 @@ struct Index {
       return;
     }
     this.clearAchievementNotices();
+    this.recordPlayDay();
     if (gameId === 'tetris') {
       this.tetrisSession += 1;
     }
@@ -461,6 +473,24 @@ struct Index {
     });
   }
 
+  private isDarkMode(): boolean {
+    return isDarkAppearance(this.snapshot.appearanceMode, this.systemDark);
+  }
+
+  private persistPlayDays(): void {
+    const context = this.appContext;
+    if (context === undefined) return;
+    const days = this.playDays.slice();
+    this.playDaysSaveQueue = this.playDaysSaveQueue.then(() => CoopStorage.savePlayDays(context, days));
+  }
+
+  private recordPlayDay(): void {
+    const day = localPlayDay(Date.now());
+    if (this.playDays.includes(day)) return;
+    this.playDays = normalizePlayDays(this.playDays.concat([day]));
+    this.persistPlayDays();
+  }
+
   private updateAppearanceMode(appearanceMode: string): void {
     this.saveSnapshot({
       records: this.snapshot.records.slice(),
@@ -468,7 +498,7 @@ struct Index {
       recent: this.snapshot.recent.slice(),
       soundEnabled: this.snapshot.soundEnabled,
       hapticEnabled: this.snapshot.hapticEnabled,
-      appearanceMode: appearanceMode === APPEARANCE_DARK ? APPEARANCE_DARK : APPEARANCE_LIGHT,
+      appearanceMode: normalizeAppearanceMode(appearanceMode),
       achievementSchemaVersion: this.snapshot.achievementSchemaVersion,
       achievements: this.snapshot.achievements.slice(),
       recentAchievementEventIds: this.snapshot.recentAchievementEventIds.slice()
@@ -476,6 +506,8 @@ struct Index {
   }
 
   private recordGameResult(gameId: string, score: number): void {
+    // A session can continue beyond midnight without entering the game again.
+    this.recordPlayDay();
     const records = this.snapshot.records.slice();
     const index = records.findIndex((item: GameRecord) => item.gameId === gameId);
     const now = Date.now();

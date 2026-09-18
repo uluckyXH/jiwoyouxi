@@ -3,6 +3,7 @@ import { AchievementDetail } from './AchievementDetail';
 import { HubSession } from '../design/HubSession';
 import { HubScroll } from './HubScroll';
 import { AchievementTheme } from '../design/AchievementTheme';
+import { achievementGroupCountLabel, achievementGroupRenderKey } from '../design/AchievementPresentation';
 import { CoopMotion } from '../design/CoopMotion';
 import { CoopTheme } from '../design/CoopTheme';
 import {
@@ -36,14 +37,14 @@ export struct AchievementWall {
       this.FilterBar()
       Row({ space: 24 }) {
         Column() {
-        HubScroll({ session: this.session, slot: 2 }) {
+        HubScroll({ session: this.session, slot: 2, resetKey: this.session.achievementFilter }) {
           Column({ space: 20 }) {
             if (this.visibleGroups().length === 0) {
               this.FilterEmptyPanel()
             } else {
               ForEach(this.visibleGroups(), (group: AchievementGroupView) => {
                 this.AchievementGroup(group)
-              }, (group: AchievementGroupView) => group.definition.id)
+              }, (group: AchievementGroupView) => achievementGroupRenderKey(group, this.session.achievementFilter))
             }
           }.width('100%')
         }
@@ -202,7 +203,7 @@ export struct AchievementWall {
         .fontColor(this.inkColor())
         .maxLines(1)
         .textOverflow({ overflow: TextOverflow.Ellipsis })
-      Text(this.groupProgressText(group.definition.id))
+      Text(achievementGroupCountLabel(group, this.session.achievementFilter))
         .fontSize(12)
         .fontWeight(FontWeight.Bold)
         .fontColor(this.mutedColor())
@@ -376,21 +377,6 @@ export struct AchievementWall {
     };
   }
 
-  private groupProgressText(groupId: string): string {
-    const group = achievementGroupsForState(this.achievementState, 'all')
-      .find((item: AchievementGroupView) => item.definition.id === groupId);
-    if (group === undefined) {
-      return '0 / 0';
-    }
-    let unlocked = 0;
-    group.items.forEach((item: AchievementViewItem) => {
-      if (item.status === 'unlocked') {
-        unlocked += 1;
-      }
-    });
-    return `${unlocked} / ${group.items.length}`;
-  }
-
   private collectionProgressPercent(): number {
     const summary = this.summary();
     if (summary.total <= 0) {
@@ -471,6 +457,7 @@ export struct AchievementWall {
       curve: Curve.EaseOut
     }, () => {
       this.session.achievementFilter = filter;
+      this.session.detailOpen = false;
     });
   }
 
@@ -488,10 +475,6 @@ export struct AchievementWall {
 
   private goldColor(): string {
     return this.isDarkMode ? AchievementTheme.goldDark : AchievementTheme.goldLight;
-  }
-
-  private unlockCheckColor(): string {
-    return this.isDarkMode ? '#21160A' : '#FFFFFF';
   }
 
   private inkColor(): string {

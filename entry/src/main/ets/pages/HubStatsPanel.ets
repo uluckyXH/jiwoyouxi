@@ -1,4 +1,5 @@
 import { CoopTheme } from '../design/CoopTheme';
+import { AppIcon } from '../components/AppIcon';
 
 @Component
 export struct HubStatsPanel {
@@ -6,52 +7,79 @@ export struct HubStatsPanel {
   @Prop unlockedBadges: number = 0;
   @Prop badgeTotal: number = 0;
   @Prop isDarkMode: boolean = false;
+  @Prop stacked: boolean = false;
+  openStreak: () => void = () => {};
+  openAchievements: () => void = () => {};
 
   build() {
-    Row({ space: 10 }) {
-      this.StatCard('连续游玩', String(this.playStreak), '天', 'app/ui/streak.svg')
-      this.StatCard('鸡窝徽章', String(this.unlockedBadges), '/ ' + String(this.badgeTotal),
-        'app/achievements/achievement_wall_logo.svg')
+    if (this.stacked) {
+      Column({ space: 10 }) {
+        this.StreakCard()
+        this.BadgeCard()
+      }.width('100%')
+    } else {
+      Row({ space: 10 }) {
+        Column() { this.StreakCard() }.layoutWeight(1)
+        Column() { this.BadgeCard() }.layoutWeight(1)
+      }.width('100%')
     }
-    .width('100%')
   }
 
   @Builder
-  StatCard(label: string, value: string, suffix: string, icon: string) {
-    Stack({ alignContent: Alignment.TopEnd }) {
-      Column({ space: 6 }) {
-        Text(label)
-          .fontSize(12)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.mutedColor())
-        Row({ space: 3 }) {
-          Text(value)
-            .fontSize(24)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.inkColor())
-          Text(suffix)
-            .fontSize(13)
-            .fontWeight(FontWeight.Bold)
-            .fontColor(this.brandDarkColor())
+  StreakCard() {
+    this.StatCard('连续游玩', String(this.playStreak), '天', 'app/ui/streak.svg', this.openStreak)
+  }
+
+  @Builder
+  BadgeCard() {
+    this.StatCard('鸡窝徽章', String(this.unlockedBadges), '/ ' + String(this.badgeTotal),
+      'app/achievements/achievement_wall_logo.svg', this.openAchievements)
+  }
+
+  @Builder
+  StatCard(label: string, value: string, suffix: string, icon: string, action: () => void) {
+    Button({ type: ButtonType.Normal }) {
+      Row({ space: 4 }) {
+        Column({ space: 6 }) {
+          Text(label)
+            .fontSize(12)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.mutedColor())
+            .maxLines(2)
+          Row({ space: 3 }) {
+            Text(value)
+              .fontSize(24)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.inkColor())
+            Text(suffix)
+              .fontSize(13)
+              .fontWeight(FontWeight.Bold)
+              .fontColor(this.brandDarkColor())
+          }
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        Column({ space: 8 }) {
+        Image($rawfile(icon))
+          .width(28)
+          .height(28)
+          .objectFit(ImageFit.Contain)
+          .accessibilityLevel('no')
+          AppIcon({ name: 'chevron_right', iconSize: 12, tint: this.mutedColor() })
         }
       }
-      .alignItems(HorizontalAlign.Start)
       .width('100%')
-      Image($rawfile(icon))
-        .width(32)
-        .height(32)
-        .objectFit(ImageFit.Contain)
-        .align(Alignment.TopEnd)
-        .margin({ top: 8 })
-        .accessibilityLevel('no')
+      .constraintSize({ minHeight: 64 })
     }
-    .layoutWeight(1)
-    .constraintSize({ minHeight: 84 })
+    .width('100%')
+    .constraintSize({ minHeight: 94 })
     .padding(14)
     .borderRadius(22)
     .backgroundColor(this.panelColor())
     .border({ width: 1, color: this.lineColor() })
     .shadow(this.cardShadow())
+    .accessibilityText(`${label}，${value}${suffix}，点击${label === '连续游玩' ? '查看游玩日历' : '打开成就墙'}`)
+    .onClick(action)
   }
 
   private inkColor(): string {

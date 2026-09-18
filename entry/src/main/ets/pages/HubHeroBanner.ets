@@ -12,11 +12,24 @@ export struct HubHeroBanner {
   @Prop spacious: boolean = false;
   @Prop compact: boolean = false;
   @Prop bannerHeight: number = 218;
+  @Prop availableWidth: number = 390;
+  @Prop textScale: number = 1;
   startGame: () => void = () => {};
   @State private buttonPressed: boolean = false;
 
   build() {
-    if (this.spacious || this.compact) {
+    if (this.availableWidth < 340 || this.textScale > 1.25) {
+      Column({ space: 12 }) {
+        Image($rawfile(this.isDarkMode ? 'app/home/home_illustration_dark.svg' : 'app/home/home_illustration_light.svg'))
+          .width(120).height(94).objectFit(ImageFit.Contain).accessibilityLevel('no')
+        Text('没网也能玩一窝').fontSize(22).fontWeight(FontWeight.Bold)
+          .fontColor(this.isDarkMode ? '#FFF0D2' : '#634226').textAlign(TextAlign.Center)
+        Text(this.gameTitle).fontSize(12).fontColor(this.secondaryColor()).textAlign(TextAlign.Center)
+        this.StartButton()
+      }.width('100%').padding(20).borderRadius(24)
+      .backgroundColor(this.isDarkMode ? '#302C27' : '#FFF0D5')
+      .border({ width: 1, color: this.isDarkMode ? '#584A36' : '#DFC197' })
+    } else if (this.spacious || this.compact) {
       Row({ space: 20 }) {
         Image($rawfile(this.isDarkMode ? 'app/home/home_illustration_dark.svg' : 'app/home/home_illustration_light.svg'))
           .width(this.compact ? 104 : '34%')
