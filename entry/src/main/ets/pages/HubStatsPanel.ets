@@ -40,26 +40,29 @@ export struct HubStatsPanel {
   StatCard(label: string, value: string, suffix: string, icon: string, action: () => void) {
     Button({ type: ButtonType.Normal }) {
       Row({ space: 4 }) {
-        Column({ space: 6 }) {
+        Column({ space: 4 }) {
           Text(label)
             .fontSize(12)
+            .lineHeight(16)
             .fontWeight(FontWeight.Medium)
             .fontColor(this.mutedColor())
             .maxLines(2)
           Row({ space: 3 }) {
             Text(value)
               .fontSize(24)
+              .lineHeight(28)
               .fontWeight(FontWeight.Bold)
               .fontColor(this.inkColor())
             Text(suffix)
               .fontSize(13)
+              .lineHeight(18)
               .fontWeight(FontWeight.Bold)
               .fontColor(this.brandDarkColor())
           }
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)
-        Column({ space: 8 }) {
+        Column({ space: 4 }) {
           Image($rawfile(icon))
             .width(28)
             .height(28)
@@ -69,11 +72,11 @@ export struct HubStatsPanel {
         }
       }
       .width('100%')
-      .constraintSize({ minHeight: 64 })
+      .constraintSize({ minHeight: 54 })
     }
     .width('100%')
-    .constraintSize({ minHeight: 94 })
-    .padding(14)
+    .constraintSize({ minHeight: 80 })
+    .padding({ left: 14, right: 14, top: 12, bottom: 12 })
     .backgroundColor(this.panelColor())
     // Apply the same radius to the painted border and the button's clipping outline.
     .border({ width: 1, color: this.lineColor(), radius: 22 })
@@ -107,17 +110,17 @@ export struct HubStatsPanel {
   private cardShadow(): ShadowOptions {
     if (this.isDarkMode) {
       return {
-        radius: 14,
+        radius: 12,
         color: 'rgba(0,0,0,0.32)',
         offsetX: 0,
-        offsetY: 6
+        offsetY: 4
       };
     }
     return {
-      radius: 14,
+      radius: 12,
       color: 'rgba(112,69,28,0.14)',
       offsetX: 0,
-      offsetY: 6
+      offsetY: 4
     };
   }
 }
