@@ -524,6 +524,7 @@ export function isAchievementEventTypeAllowed(gameId: string, eventType: Achieve
 
 export function achievementCanonicalGameId(gameId: string): string {
   if (gameId === 'minesweeperNext') return 'minesweeper';
+  if (gameId === 'chicken2048Next') return 'chicken2048';
   return gameId === 'suikaNext' ? 'suika' : gameId;
 }
 

@@ -1,0 +1,388 @@
+import { common } from '@kit.AbilityKit';
+import { AchievementEvent } from '../../shell/AchievementModule';
+import { GlowAudio } from './GlowAudio';
+import { GlowBoard } from './GlowBoard';
+import { GlowActionButton, GlowDirectionPad, GlowIconButton, GlowStats } from './GlowControls';
+import { GlowDialog } from './GlowDialog';
+import { GlowEngine } from './GlowEngine';
+import { GlowCrease, GlowInsets, GlowLayout, glowLayout } from './GlowLayout';
+import { GLOW_LOGO, GlowDirection, GlowMotion, GlowTile, GlowTurn, glowClone, glowMax, glowTarget } from './GlowModel';
+import { GlowPalette as P } from './GlowPalette';
+import { GlowStorage } from './GlowStorage';
+import { GlowWindow } from './GlowWindow';
+
+@Component
+export struct GlowPage {
+  @Prop @Watch('themeChanged') dark: boolean = false;
+  @Prop bestScore: number = 0;
+  @Prop @Watch('soundChanged') soundEnabled: boolean = true;
+  @Prop @Watch('exitRequested') exitRequest: number = 0;
+  exitToHub: () => void = () => {};
+  recordScore: (score: number) => void = () => {};
+  updateSound: (enabled: boolean) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
+  private engine: GlowEngine = new GlowEngine();
+  private audio: GlowAudio = new GlowAudio();
+  private storage: GlowStorage = new GlowStorage();
+  private host: GlowWindow = new GlowWindow();
+  private context: common.Context | undefined = undefined;
+  private loaded: boolean = false;
+  private loading: boolean = false;
+  private disposed: boolean = false;
+  private skipSave: boolean = false;
+  private backgroundPaused: boolean = false;
+  private animationToken: number = 0;
+  private currentTurn: GlowTurn | undefined = undefined;
+  private queued: GlowDirection | undefined = undefined;
+  private settleTimer: number = -1;
+  private returnDialog: string = '';
+  private pageWidth: number = 390;
+  private pageHeight: number = 844;
+  private insets: GlowInsets = { top: 24, bottom: 16, left: 0, right: 0 };
+  private crease: GlowCrease = { x: 0, y: 0, width: 0, height: 0 };
+  @State layout: GlowLayout = glowLayout(390, 844, { top: 24, bottom: 16, left: 0, right: 0 });
+  @State tiles: GlowTile[] = [];
+  @State sessionKey: string = '';
+  @State score: number = 0;
+  @State moves: number = 0;
+  @State maxTile: number = 2;
+  @State streak: number = 0;
+  @State gain: number = 0;
+  @State spawned: number = 0;
+  @State merged: number[] = [];
+  @State busy: boolean = false;
+  @State turnKey: number = 0;
+  @State boardNudge: number = 0;
+  @State dialog: string = 'loading';
+  @State saving: boolean = false;
+  @State saveFailed: boolean = false;
+  @State ended: boolean = false;
+  @State hint: string = '滑动棋盘，合出第一束暖光';
+
+  aboutToAppear(): void {
+    this.context = this.getUIContext().getHostContext() as common.Context;
+    if (this.context === undefined) { this.dialog = 'loadError'; return; }
+    this.audio.setEnabled(this.soundEnabled);
+    this.audio.init(this.context);
+    this.host.setDark(this.dark);
+    this.host.attach(this.context, (px: number): number => this.getUIContext().px2vp(px),
+      (insets: GlowInsets, crease: GlowCrease) => { this.insets = insets; this.crease = crease; this.relayout(); },
+      () => this.backgrounded());
+    this.boot();
+  }
+  aboutToDisappear(): void {
+    this.finishMotion(false);
+    if (!this.skipSave) this.save();
+    this.disposed = true;
+    this.host.release();
+    this.audio.release();
+  }
+
+  build() {
+    Stack({ alignContent: Alignment.TopStart }) {
+      Image($rawfile(P.scene('corner', this.dark)))
+        .width(Math.min(280, this.layout.width * .48)).height(Math.min(304, this.layout.width * .52))
+        .position({ x: this.layout.x + this.layout.width - Math.min(280, this.layout.width * .48), y: this.layout.y })
+        .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
+      Column({ space: 10 }) {
+        this.Header()
+        Scroll() {
+          if (this.layout.wide) {
+            Row({ space: this.layout.gap }) {
+              this.BoardPanel()
+              Column({ space: 18 }) {
+                Text('暖 光 叠 数').fontSize(12).letterSpacing(5).fontColor(P.accent(this.dark))
+                GlowStats({ dark: this.dark, score: this.score, best: this.bestScore,
+                  moves: this.moves, gain: this.gain, turn: this.turnKey })
+                this.Journey()
+                this.Actions()
+                Column({ space: 9 }) {
+                  Text('留一点空白，等下一次相遇').fontSize(16).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
+                  Text('让大数字靠在一角，\n给新数字留出移动的空间。')
+                    .fontSize(12).lineHeight(22).fontColor(P.muted(this.dark))
+                }.width('100%').padding(12).alignItems(HorizontalAlign.Start)
+              }.width(this.layout.rail).geometryTransition('glow-controls')
+            }.width('100%').justifyContent(FlexAlign.Center).alignItems(VerticalAlign.Center)
+          } else {
+            Column({ space: 10 }) {
+              GlowStats({ dark: this.dark, score: this.score, best: this.bestScore,
+                moves: this.moves, gain: this.gain, turn: this.turnKey })
+              this.Journey()
+              this.BoardPanel()
+              this.Actions()
+            }.width('100%')
+          }
+        }.width('100%').height(this.layout.body).scrollBar(BarState.Auto).align(Alignment.Top)
+      }.width(this.layout.width).height(this.layout.height)
+      .padding({ left: this.layout.gap, right: this.layout.gap, top: 4, bottom: 6 })
+      .position({ x: this.layout.x, y: this.layout.y })
+      .enabled(this.dialog.length === 0).accessibilityLevel(this.dialog.length === 0 ? 'auto' : 'no-hide-descendants')
+      if (this.dialog.length > 0) {
+        GlowDialog({ dark: this.dark, mode: this.dialog, score: this.score, maxTile: this.maxTile,
+          moves: this.moves, saving: this.saving, saveFailed: this.saveFailed,
+          panelWidth: Math.min(390, Math.max(1, this.layout.width - 20)), panelHeight: Math.max(80, this.layout.height - 20),
+          close: () => this.closeDialog(), restart: () => this.requestRestart(), confirmRestart: () => this.newRound(),
+          leave: () => this.saveAndExit(), discard: () => { this.skipSave = true; this.exitToHub(); },
+          retry: () => this.boot(), retrySave: () => this.retrySave()
+        }).width(this.layout.width).height(this.layout.height).position({ x: this.layout.x, y: this.layout.y })
+      }
+    }.width('100%').height('100%').backgroundColor(P.bg(this.dark))
+    .onAreaChange((oldArea: Area, area: Area) => {
+      this.pageWidth = Number(area.width);
+      this.pageHeight = Number(area.height);
+      this.host.measure();
+      this.relayout();
+    })
+  }
+
+  @Builder
+  Header() {
+    Row({ space: 8 }) {
+      GlowIconButton({ dark: this.dark, icon: 'back', label: '返回大厅', action: () => this.exitRequested() })
+      Image($rawfile(GLOW_LOGO)).width(34).height(34).accessibilityLevel('no')
+      Column({ space: 1 }) {
+        Text('2048').fontSize(25).fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
+        Text('暖光叠数').fontSize(10).fontColor(P.muted(this.dark))
+      }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      GlowIconButton({ dark: this.dark, icon: this.soundEnabled ? 'sound' : 'muted',
+        label: this.soundEnabled ? '关闭音效' : '开启音效', action: () => this.updateSound(!this.soundEnabled) })
+      GlowIconButton({ dark: this.dark, icon: this.ended ? 'trophy' : 'pause', label: this.ended ? '查看成绩' : '暂停',
+        primary: true, action: () => this.present(this.ended ? 'end' : 'pause') })
+    }.width('100%').height(52)
+  }
+
+  @Builder
+  Journey() {
+    Column({ space: 8 }) {
+      Row() {
+        Row({ space: 5 }) {
+          Image($rawfile(P.icon('sun', this.dark, 'accent'))).width(16).height(16).accessibilityLevel('no')
+          Text(`下一束光 · ${glowTarget(this.maxTile)}`).fontSize(12).fontColor(P.ink(this.dark))
+        }.layoutWeight(1)
+        Text(this.streak > 1 ? `${this.streak} 步连合` : `最大 ${this.maxTile}`)
+          .fontSize(11).fontColor(this.streak > 1 ? P.gold(this.dark) : P.muted(this.dark))
+      }.width('100%')
+      Progress({ value: Math.log2(this.maxTile), total: Math.log2(glowTarget(this.maxTile)), type: ProgressType.Linear })
+        .width('100%').color(P.accent(this.dark)).backgroundColor(P.soft(this.dark)).style({ strokeWidth: 4 })
+    }.width('100%').height(48).padding({ left: 4, right: 4, top: 4 })
+  }
+
+  @Builder
+  BoardPanel() {
+    Column({ space: 8 }) {
+      GlowBoard({ dark: this.dark, tiles: this.tiles, session: this.sessionKey, edge: this.layout.board, cell: this.layout.cell,
+        gap: this.layout.tileGap, tileInset: this.layout.tilePad, spawned: this.spawned,
+        merged: this.merged, turn: this.turnKey, active: this.dialog.length === 0 && !this.ended,
+        move: (direction: GlowDirection) => this.move(direction)
+      }).translate({ x: this.boardNudge }).opacity(this.dialog.length > 0 ? .25 : 1)
+      GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
+        move: (direction: GlowDirection) => this.move(direction) })
+      Text(this.saveFailed ? '进度未保存 · 暂停后可重试' : this.hint).fontSize(11).maxLines(1)
+        .fontColor(this.saveFailed ? P.danger(this.dark) : P.muted(this.dark)).height(16)
+    }.width(this.layout.board).geometryTransition('glow-board')
+  }
+
+  @Builder
+  Actions() {
+    Row({ space: 8 }) {
+      GlowIconButton({ dark: this.dark, icon: 'restart', label: '重新开局', action: () => this.requestRestart() })
+      Text('重新开局').fontSize(12).fontColor(P.muted(this.dark)).layoutWeight(1)
+      Text('游玩指南').fontSize(12).fontColor(P.muted(this.dark))
+      GlowIconButton({ dark: this.dark, icon: 'help', label: '游玩指南', action: () => this.present('help') })
+    }.width('100%').height(44)
+  }
+
+  private async boot(): Promise<void> {
+    if (this.loading || this.context === undefined) return;
+    this.loading = true;
+    this.dialog = 'loading';
+    try {
+      const raw = await this.storage.load(this.context);
+      if (this.disposed) return;
+      const restored = raw.length > 0 && this.engine.restore(raw);
+      this.loaded = true;
+      this.sync();
+      this.hint = raw.length > 0 && !restored ? '上次进度无法恢复，已准备新棋盘' : '滑动棋盘，也可以点按方向';
+      this.dialog = this.engine.needsCelebration() ? 'win' : this.engine.ended ? 'end' :
+        restored && this.engine.moves > 0 ? 'resume' : this.backgroundPaused ? 'pause' : '';
+      if (this.engine.ended && !this.engine.reported) { this.reportEnd(); this.save(); }
+    } catch (_) { if (!this.disposed) this.dialog = 'loadError'; }
+    finally { this.loading = false; }
+  }
+
+  private move(direction: GlowDirection): void {
+    if (!this.loaded || this.dialog.length > 0 || this.ended || this.disposed) return;
+    if (this.busy) { this.queued = direction; return; }
+    const turn = this.engine.move(direction);
+    if (!turn.moved) {
+      this.audio.play('blocked');
+      this.hint = '这个方向暂时不通，换个方向试试';
+      this.boardNudge = 3;
+      this.getUIContext().animateTo({ duration: 150, curve: Curve.EaseOut }, () => { this.boardNudge = 0; });
+      return;
+    }
+    this.currentTurn = turn;
+    this.busy = true;
+    this.merged = [];
+    this.spawned = 0;
+    this.gain = 0;
+    this.audio.play('slide');
+    this.save(); // The engine already holds the final board, including the new tile.
+    const token = ++this.animationToken;
+    this.getUIContext().animateTo({ duration: 140, curve: Curve.EaseOut,
+      onFinish: () => { if (!this.disposed && token === this.animationToken) this.finishMotion(true); }
+    }, () => {
+      this.tiles = turn.motions.map((motion: GlowMotion): GlowTile => ({ id: motion.id, value: motion.value, index: motion.to }));
+    });
+    // Ensure input unlocks even when the OS suppresses an animation callback.
+    this.settleTimer = setTimeout(() => {
+      this.settleTimer = -1;
+      if (!this.disposed && token === this.animationToken) this.finishMotion(true);
+    }, 240);
+  }
+
+  private finishMotion(effects: boolean): void {
+    this.animationToken++;
+    if (this.settleTimer !== -1) clearTimeout(this.settleTimer);
+    this.settleTimer = -1;
+    const turn = this.currentTurn;
+    this.currentTurn = undefined;
+    const queued = this.queued;
+    this.queued = undefined;
+    this.busy = false;
+    if (!effects) {
+      this.spawned = 0;
+      this.merged = [];
+      this.gain = 0;
+      this.boardNudge = 0;
+    }
+    if (turn === undefined) return;
+    this.spawned = effects ? turn.spawned : 0;
+    this.turnKey++;
+    this.gain = effects ? turn.gain : 0;
+    this.merged = effects ? turn.tiles.filter((tile: GlowTile) => turn.merged.includes(tile.id)).map((tile: GlowTile) => tile.index) : [];
+    this.sync();
+    this.hint = this.ended ? '这一盘结束了，点右上角查看成绩' : this.streak > 1 ?
+      `${this.streak} 步连续合并 · 好节奏` : turn.gain > 0 ? '留一点空白，等下一次相遇' : '滑动棋盘，也可以点按方向';
+    if (this.engine.needsCelebration()) this.dialog = 'win';
+    else if (this.ended) this.dialog = 'end';
+    if (effects) {
+      if (this.engine.needsCelebration()) this.audio.play('win');
+      else if (this.ended) this.audio.play('end');
+      else if (this.maxTile > turn.previousMax && this.maxTile >= 256) this.audio.play('milestone');
+      else if (turn.gain > 0) this.audio.play(turn.gain >= 128 ? 'bright' : 'merge');
+    }
+    if (this.maxTile > turn.previousMax && this.maxTile >= 256) this.reportMilestone();
+    if (this.ended) { this.reportEnd(); this.save(); }
+    if (effects && this.dialog.length === 0 && queued !== undefined) this.move(queued);
+  }
+
+  private sync(): void {
+    this.sessionKey = this.engine.session;
+    this.tiles = glowClone(this.engine.tiles);
+    this.score = this.engine.score;
+    this.moves = this.engine.moves;
+    this.maxTile = glowMax(this.engine.tiles);
+    this.streak = this.engine.streak;
+    this.ended = this.engine.ended;
+  }
+  private reportMilestone(): void {
+    const event: AchievementEvent = { eventId: `${this.engine.session}:tile:${this.maxTile}`,
+      sessionId: this.engine.session, gameId: 'chicken2048', type: 'milestone', occurredAt: Date.now(), isOfficial: true,
+      facts: [{ key: 'maxTile', value: this.maxTile }] };
+    this.reportAchievementEvent(event);
+  }
+  private reportEnd(): void {
+    if (this.engine.reported || this.engine.moves === 0) return;
+    this.engine.reported = true;
+    this.recordScore(this.engine.score);
+    const event: AchievementEvent = { eventId: `${this.engine.session}:session-end`, sessionId: this.engine.session,
+      gameId: 'chicken2048', type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
+      facts: [{ key: 'maxTile', value: glowMax(this.engine.tiles) }, { key: 'movesMade', value: this.engine.moves },
+        { key: 'score', value: this.engine.score }] };
+    this.reportAchievementEvent(event);
+  }
+  private present(mode: string): void {
+    if (!this.loaded || this.saving) return;
+    this.finishMotion(false);
+    this.returnDialog = this.dialog;
+    this.dialog = mode;
+    this.audio.silence();
+    this.save();
+  }
+  private closeDialog(): void {
+    if (!this.loaded || this.saving) return;
+    if (this.dialog === 'win') { this.engine.continuePlaying(); this.dialog = this.ended ? 'end' : ''; this.save(); }
+    else { this.dialog = this.returnDialog; }
+    this.returnDialog = '';
+    this.backgroundPaused = false;
+    this.audio.play('tap');
+  }
+  private requestRestart(): void {
+    if (!this.loaded || this.saving) return;
+    if (this.engine.moves > 0 && !this.engine.ended) this.present('restart');
+    else this.newRound();
+  }
+  private newRound(): void {
+    if (this.saving) return;
+    this.finishMotion(false);
+    this.reportEnd();
+    this.engine.reset();
+    this.tiles = [];
+    this.spawned = 0;
+    this.merged = [];
+    this.gain = 0;
+    this.sync();
+    this.returnDialog = '';
+    this.dialog = '';
+    this.hint = '新的一盘，从两枚数字开始';
+    this.audio.play('tap');
+    this.save();
+  }
+  private relayout(): void {
+    if (this.disposed) return;
+    const next = glowLayout(this.pageWidth, this.pageHeight, this.insets, this.crease);
+    if (next.x === this.layout.x && next.y === this.layout.y && next.width === this.layout.width && next.height === this.layout.height) return;
+    this.finishMotion(false);
+    if (!this.loaded) { this.layout = next; return; }
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, () => { this.layout = next; });
+  }
+  private backgrounded(): void {
+    this.backgroundPaused = true;
+    this.finishMotion(false);
+    this.audio.silence();
+    if (this.loaded && this.dialog.length === 0) this.dialog = 'pause';
+    this.save();
+  }
+  themeChanged(): void { this.host.setDark(this.dark); }
+  soundChanged(): void { this.audio.setEnabled(this.soundEnabled); }
+  exitRequested(): void {
+    if (this.saving) return;
+    if (!this.loaded) { this.skipSave = true; this.exitToHub(); return; }
+    if (['help', 'restart', 'exit'].includes(this.dialog)) this.closeDialog();
+    else this.present('exit');
+  }
+  private async save(): Promise<boolean> {
+    if (!this.loaded || this.context === undefined || this.skipSave) return true;
+    const ok = await this.storage.save(this.context, this.engine.serialize());
+    if (!this.disposed) this.saveFailed = !ok;
+    return ok;
+  }
+  private async retrySave(): Promise<void> {
+    if (this.saving) return;
+    this.saving = true;
+    await this.save();
+    if (!this.disposed) this.saving = false;
+  }
+  private async saveAndExit(): Promise<void> {
+    if (this.saving) return;
+    this.finishMotion(false);
+    this.audio.silence();
+    this.saving = true;
+    const saved = await this.save();
+    if (this.disposed) return;
+    this.saving = false;
+    if (saved) { this.skipSave = true; this.exitToHub(); }
+    else this.dialog = 'exit';
+  }
+}

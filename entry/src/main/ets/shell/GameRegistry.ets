@@ -38,6 +38,15 @@ export const GAME_MODULES: GameModule[] = [
     highScoreLabel: '最高得分'
   },
   {
+    id: 'chicken2048Next',
+    title: '2048',
+    subtitle: '暖光叠数，滑动合并与轻柔和弦',
+    icon: '2',
+    tags: ['合成', '数字', '休闲'],
+    accent: '#34664D',
+    highScoreLabel: '最高分'
+  },
+  {
     id: 'chicken2048',
     title: '2048',
     subtitle: '滑动数字块合成升级，冲到 2048',
@@ -104,7 +113,7 @@ export function gameLogoPath(gameId: string): string {
   if (gameId === 'tetris') {
     return 'app/game_logos/game_icon_tetris.svg';
   }
-  if (gameId === 'chicken2048') {
+  if (gameId === 'chicken2048' || gameId === 'chicken2048Next') {
     return 'app/game_logos/game_icon_chicken2048.svg';
   }
   if (gameId === 'freecell') {

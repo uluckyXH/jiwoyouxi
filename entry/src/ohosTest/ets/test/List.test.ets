@@ -1,4 +1,5 @@
 import mineGardenNextTest from './MineGardenNext.test';
+import glow2048NextTest from './Glow2048Next.test';
 import fruitMarketNextTest from './FruitMarketNext.test';
 import achievementEngineTest from './AchievementEngine.test';
 import achievementFavoriteEventTest from './AchievementFavoriteEvent.test';
@@ -19,6 +20,7 @@ import rpsBattleZoneSystemTest from './RpsBattleZoneSystem.test';
 
 export default function testSuite(): void {
   mineGardenNextTest();
+  glow2048NextTest();
   fruitMarketNextTest();
   achievementEngineTest();
   achievementFavoriteEventTest();

@@ -27,6 +27,7 @@ import { FreecellPage } from '../games/freecell/FreecellPage';
 import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
 import { MineGardenPage } from '../gamesNext/minesweeper/MineGardenPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
+import { GlowPage } from '../gamesNext/glow2048/GlowPage';
 import { TetrisPage } from '../games/tetris/TetrisPage';
 import { SuikaPage } from '../games/suika/SuikaPage';
 import { FruitMarketPage } from '../gamesNext/fruitMarket/FruitMarketPage';
@@ -60,6 +61,7 @@ struct Index {
   @State achievementNoticeVisible: boolean = false;
   @State minesweeperExitRequestId: number = 0;
   @State mineGardenExitRequest: number = 0;
+  @State glow2048ExitRequest: number = 0;
   @State fruitMarketExitRequest: number = 0;
 
   aboutToAppear(): void {
@@ -77,6 +79,10 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'chicken2048Next') {
+      this.glow2048ExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'minesweeperNext') {
       this.mineGardenExitRequest += 1;
       return true;
@@ -199,6 +205,19 @@ struct Index {
             reportAchievementEvent: (event: AchievementEvent) => {
               this.reportAchievementEvent(event);
             }
+          })
+        }
+      } else if (this.activeGame === 'chicken2048Next') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          GlowPage({
+            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            bestScore: this.recordFor('chicken2048Next').highScore,
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.glow2048ExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('chicken2048Next', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })
         }
       } else if (this.activeGame === 'chicken2048') {
@@ -514,7 +533,8 @@ struct Index {
     }
     this.achievementService.report(context, event).then((result: AchievementApplyResult) => {
       this.achievementState = result.state;
-      if (this.activeGame !== event.gameId && !(this.activeGame === 'minesweeperNext' && event.gameId === 'minesweeper')) {
+      if (this.activeGame !== event.gameId && !(this.activeGame === 'minesweeperNext' && event.gameId === 'minesweeper') &&
+        !(this.activeGame === 'chicken2048Next' && event.gameId === 'chicken2048')) {
         return;
       }
       this.enqueueAchievementNotices(result);
