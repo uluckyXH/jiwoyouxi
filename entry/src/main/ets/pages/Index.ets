@@ -25,6 +25,7 @@ import { RpsPage } from '../games/rps/RpsPage';
 import { RpsBattlePage } from '../games/rpsBattle/RpsBattlePage';
 import { FreecellPage } from '../games/freecell/FreecellPage';
 import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
+import { MineGardenPage } from '../gamesNext/minesweeper/MineGardenPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
 import { TetrisPage } from '../games/tetris/TetrisPage';
 import { SuikaPage } from '../games/suika/SuikaPage';
@@ -58,6 +59,7 @@ struct Index {
   @State achievementNoticeMounted: boolean = false;
   @State achievementNoticeVisible: boolean = false;
   @State minesweeperExitRequestId: number = 0;
+  @State mineGardenExitRequest: number = 0;
   @State fruitMarketExitRequest: number = 0;
 
   aboutToAppear(): void {
@@ -75,6 +77,10 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'minesweeperNext') {
+      this.mineGardenExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'suikaNext') {
       this.fruitMarketExitRequest += 1;
       return true;
@@ -164,6 +170,19 @@ struct Index {
             reportAchievementEvent: (event: AchievementEvent) => {
               this.reportAchievementEvent(event);
             }
+          })
+        }
+      } else if (this.activeGame === 'minesweeperNext') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          MineGardenPage({
+            dark: this.snapshot.appearanceMode === APPEARANCE_DARK,
+            bestScore: this.recordFor('minesweeperNext').highScore,
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.mineGardenExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('minesweeperNext', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })
         }
       } else if (this.activeGame === 'minesweeper') {
@@ -495,7 +514,7 @@ struct Index {
     }
     this.achievementService.report(context, event).then((result: AchievementApplyResult) => {
       this.achievementState = result.state;
-      if (this.activeGame !== event.gameId) {
+      if (this.activeGame !== event.gameId && !(this.activeGame === 'minesweeperNext' && event.gameId === 'minesweeper')) {
         return;
       }
       this.enqueueAchievementNotices(result);

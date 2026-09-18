@@ -20,7 +20,7 @@ import { HubHeroBanner } from './HubHeroBanner';
 import { HubSettingsPanel } from './HubSettingsPanel';
 import { HubStatsPanel } from './HubStatsPanel';
 
-const HOME_GAME_ORDER: string[] = ['suikaNext', 'suika', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
+const HOME_GAME_ORDER: string[] = ['suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
 const HOME_SIDE_PADDING: number = 20;
 const HOME_TOP_PADDING: number = 56;
 const HOME_CONTENT_BOTTOM_SPACE: number = 108;
@@ -506,7 +506,8 @@ export struct HubPage {
     if (gameId === 'suikaNext') return '重构中';
     if (gameId === 'suika') return '经典版';
     if (gameId === 'chicken2048') return '数字叠叠乐';
-    if (gameId === 'minesweeper') return '小心鸡雷';
+    if (gameId === 'minesweeperNext') return '新版 · 庭院探雷';
+    if (gameId === 'minesweeper') return '经典版';
     if (gameId === 'tetris') return '方块下蛋';
     if (gameId === 'freecell') return '纸牌归位';
     return '鸡窝乱斗';

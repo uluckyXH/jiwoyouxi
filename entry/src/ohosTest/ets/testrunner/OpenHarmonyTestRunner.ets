@@ -35,7 +35,7 @@ export default class OpenHarmonyTestRunner implements TestRunner {
       moduleName: moduleName
     };
     abilityDelegator.startAbility(want, (error: BusinessError, data: void): void => {
-      if (error !== undefined && error.code !== 0) {
+      if (error !== undefined && error !== null && error.code !== 0) {
         hilog.error(0x0000, TEST_TAG, 'Failed to start test ability: %{public}s', JSON.stringify(error));
         return;
       }

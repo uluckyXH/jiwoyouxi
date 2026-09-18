@@ -20,6 +20,15 @@ export const GAME_MODULES: GameModule[] = [
     highScoreLabel: '最高分'
   },
   {
+    id: 'minesweeperNext',
+    title: '扫雷',
+    subtitle: '庭院探雷，三档难度与轻柔音效',
+    icon: '✹',
+    tags: ['推理', '三档难度', '休闲'],
+    accent: '#416B55',
+    highScoreLabel: '最高得分'
+  },
+  {
     id: 'minesweeper',
     title: '扫雷',
     subtitle: '经典雷区推理，首点安全，支持插旗模式',
@@ -89,8 +98,8 @@ export function gameLogoPath(gameId: string): string {
   if (gameId === 'suika' || gameId === 'suikaNext') {
     return 'app/game_logos/game_icon_suika.svg';
   }
-  if (gameId === 'minesweeper') {
-    return 'app/game_logos/game_icon_minesweeper.svg';
+  if (gameId === 'minesweeper' || gameId === 'minesweeperNext') {
+    return 'gamesNext/minesweeper/scene/logo.svg';
   }
   if (gameId === 'tetris') {
     return 'app/game_logos/game_icon_tetris.svg';

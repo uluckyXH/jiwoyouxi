@@ -1,3 +1,4 @@
+import mineGardenNextTest from './MineGardenNext.test';
 import fruitMarketNextTest from './FruitMarketNext.test';
 import achievementEngineTest from './AchievementEngine.test';
 import achievementFavoriteEventTest from './AchievementFavoriteEvent.test';
@@ -17,6 +18,7 @@ import rpsBattleTraitorSystemTest from './RpsBattleTraitorSystem.test';
 import rpsBattleZoneSystemTest from './RpsBattleZoneSystem.test';
 
 export default function testSuite(): void {
+  mineGardenNextTest();
   fruitMarketNextTest();
   achievementEngineTest();
   achievementFavoriteEventTest();
