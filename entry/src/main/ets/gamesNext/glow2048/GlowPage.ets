@@ -23,7 +23,8 @@ export struct GlowPage {
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
-  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
+  private reportingSession: string = '';
   private engine: GlowEngine = new GlowEngine();
   private audio: GlowAudio = new GlowAudio();
   private storage: GlowStorage = new GlowStorage();
@@ -215,6 +216,7 @@ export struct GlowPage {
       this.hint = raw.length > 0 && !restored ? '上次进度无法恢复，已准备新棋盘' : GLOW_PLAY_HINT;
       this.dialog = this.engine.needsCelebration() ? 'win' : this.engine.ended ? 'end' :
         restored && this.engine.moves > 0 ? 'resume' : this.backgroundPaused ? 'pause' : '';
+      if (this.maxTile >= 256) this.reportMilestone();
       if (this.engine.ended && !this.engine.reported) { this.reportEnd(); this.save(); }
     } catch (_) { if (!this.disposed) this.dialog = 'loadError'; }
     finally { this.loading = false; }
@@ -303,15 +305,23 @@ export struct GlowPage {
       facts: [{ key: 'maxTile', value: this.maxTile }] };
     this.reportAchievementEvent(event);
   }
-  private reportEnd(): void {
-    if (this.engine.reported || this.engine.moves === 0) return;
-    this.engine.reported = true;
-    this.recordScore(this.engine.score);
+  private async reportEnd(): Promise<void> {
+    if (!this.engine.ended || this.engine.reported || this.engine.moves === 0 ||
+      this.reportingSession === this.engine.session) return;
+    const session = this.engine.session;
+    const score = this.engine.score;
+    this.reportingSession = session;
     const event: AchievementEvent = { eventId: `${this.engine.session}:session-end`, sessionId: this.engine.session,
       gameId: 'chicken2048', type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
       facts: [{ key: 'maxTile', value: glowMax(this.engine.tiles) }, { key: 'movesMade', value: this.engine.moves },
         { key: 'score', value: this.engine.score }] };
-    this.reportAchievementEvent(event);
+    const accepted = await this.reportAchievementEvent(event).catch(() => false);
+    if (accepted) this.recordScore(score);
+    if (this.engine.session === session) {
+      this.engine.reported = accepted;
+      await this.save();
+    }
+    if (this.reportingSession === session) this.reportingSession = '';
   }
   private present(mode: string): void {
     if (!this.loaded || this.saving) return;
@@ -337,6 +347,8 @@ export struct GlowPage {
   private newRound(): void {
     if (this.saving) return;
     this.finishMotion(false);
+    // Preserve the score of an abandoned attempt without counting a completed game.
+    if (!this.engine.ended && this.engine.moves > 0) this.recordScore(this.engine.score);
     this.reportEnd();
     this.engine.reset();
     this.tiles = [];

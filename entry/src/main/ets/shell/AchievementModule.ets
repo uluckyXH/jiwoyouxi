@@ -95,6 +95,8 @@ export interface AchievementState {
   processedEventIds: string[];
   completedSessionCount: number;
   playedGameIds: string[];
+  // Independent of the short event cache: a resumed result must not count twice.
+  completedSessionIds?: string[];
 }
 
 export interface AchievementUnlock {

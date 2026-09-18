@@ -53,7 +53,7 @@ async function make(values = [2, 2, 4, 4]) {
   controller.sync();
   const scores = [], events = [];
   controller.recordScore = value => scores.push(value);
-  controller.reportAchievementEvent = event => events.push(event);
+  controller.reportAchievementEvent = async event => { events.push(event); return true; };
   return { controller, finishes, frames, scores, events };
 }
 const board = tiles => JSON.stringify(tiles.map(({ id, value, index }) => ({ id, value, index })));
@@ -209,7 +209,7 @@ await test('2048_interrupted_by_pause_still_offers_continue_once', async () => {
   assert.equal(events.length, 1);
 });
 
-await test('restart_invalidates_old_motion_and_reports_the_old_session_once', async () => {
+await test('restart_invalidates_old_motion_without_counting_an_unfinished_session', async () => {
   const { controller: p, finishes, scores, events } = await make();
   p.move('left'); p.newRound();
   const snapshot = p.engine.serialize();
@@ -218,7 +218,7 @@ await test('restart_invalidates_old_motion_and_reports_the_old_session_once', as
   assert.equal(p.engine.moves, 0);
   assert.equal(p.engine.tiles.length, 2);
   assert.equal(scores.length, 1);
-  assert.equal(events.filter(event => event.type === 'sessionEnd').length, 1);
+  assert.equal(events.filter(event => event.type === 'sessionEnd').length, 0);
 });
 
 await test('failed_exit_save_keeps_the_page_open_and_retry_can_leave', async () => {

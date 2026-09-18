@@ -74,7 +74,8 @@ export class CoopStorage {
         return normalizeAchievementState(JSON.parse(raw) as AchievementState);
       }
     } catch (error) {
-      return emptyAchievementState();
+      // A failed read is not an empty account; never overwrite existing badges.
+      throw new Error('Unable to load achievement state.');
     }
     return emptyAchievementState();
   }

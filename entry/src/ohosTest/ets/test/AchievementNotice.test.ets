@@ -64,7 +64,7 @@ export default function achievementNoticeTest(): void {
         expect(notices[3].noticeLevel).assertEqual('highlight');
       });
 
-    it('ignores duplicate, disabled and unregistered achievement ids',
+    it('includes the enabled conversion badge and ignores duplicate or unregistered ids',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const notices = achievementNoticeItemsForUnlocks([
           unlock('tetris.first_tetris'),
@@ -73,8 +73,9 @@ export default function achievementNoticeTest(): void {
           unlock('notRegistered.missing')
         ]);
 
-        expect(notices.length).assertEqual(1);
+        expect(notices.length).assertEqual(2);
         expect(notices[0].noticeId).assertEqual('tetris.first_tetris');
+        expect(notices[1].noticeId).assertEqual('rpsBattle.conversion_storm');
       });
 
     it('shares each global SVG with the wall and preserves individual notice order',

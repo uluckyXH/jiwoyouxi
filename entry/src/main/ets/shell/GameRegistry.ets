@@ -11,6 +11,15 @@ export const GAME_MODULES: GameModule[] = [
     highScoreLabel: '最高存活数'
   },
   {
+    id: 'freecellNext',
+    title: '空当接龙',
+    subtitle: '暖木牌室 · 纸牌归位、提示与轻柔音效',
+    icon: '♣',
+    tags: ['纸牌', '策略', '多屏'],
+    accent: '#2C6B52',
+    highScoreLabel: '最高分'
+  },
+  {
     id: 'freecell',
     title: '空当接龙',
     subtitle: '经典纸牌策略，红黑交替递减，四花色归位',
@@ -99,6 +108,15 @@ export const GAME_MODULES: GameModule[] = [
     tags: ['观战', '策略', '乱斗'],
     accent: '#2c8f7f',
     highScoreLabel: '最高存活数'
+  },
+  {
+    id: 'rpsBattleNext',
+    title: '石头剪刀布大作战',
+    subtitle: '庭院擂台 · 三方转阵、据点指挥与八个挑战',
+    icon: '✊',
+    tags: ['乱斗', '指挥', '多屏'],
+    accent: '#527342',
+    highScoreLabel: '挑战星数'
   }
 ];
 
@@ -125,8 +143,8 @@ export function gameLogoPath(gameId: string): string {
   if (gameId === 'chicken2048' || gameId === 'chicken2048Next') {
     return 'app/game_logos/game_icon_chicken2048.svg';
   }
-  if (gameId === 'freecell') {
-    return 'app/game_logos/game_icon_freecell.svg';
+  if (gameId === 'freecell' || gameId === 'freecellNext') {
+    return 'gamesNext/warmFreecell/scene/logo.svg';
   }
   return 'app/game_logos/game_icon_rps.svg';
 }

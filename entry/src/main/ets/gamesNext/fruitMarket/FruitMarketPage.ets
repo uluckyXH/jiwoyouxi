@@ -23,7 +23,8 @@ export struct FruitMarketPage {
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
-  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
+  private achievementRequests: string[] = [];
   private engine: MarketEngine = new MarketEngine();
   private renderer: MarketRenderer = new MarketRenderer();
   private sounds: MarketAudio = new MarketAudio();
@@ -215,6 +216,9 @@ export struct FruitMarketPage {
     this.sync();
     this.dialogMode = restored && this.engine.round.drops > 0 ? (this.engine.round.ended ? 'result' : 'resume') : '';
     if ((this.backgroundDuringBoot || this.viewport.limited) && this.dialogMode === '') this.dialogMode = 'pause';
+    if (this.score >= 600) this.report('score-600', false);
+    if (this.highest >= 7) this.report('watermelon', false);
+    if (this.highest >= 10) this.report('crown', false);
     if (this.engine.round.ended) this.finish();
     this.draw();
     if (this.dialogMode === '') this.start();
@@ -416,24 +420,31 @@ export struct FruitMarketPage {
     this.sync();
     this.dialogMode = 'result';
     if (!this.engine.round.reported) {
-      this.engine.round.reported = true;
-      this.recordScore(this.engine.round.score);
       this.report('session-end', true);
       this.sounds.play('finish');
     }
     this.save();
   }
 
-  private report(key: string, ended: boolean): void {
+  private async report(key: string, ended: boolean): Promise<void> {
     const round = this.engine.round;
-    this.reportAchievementEvent({
-      eventId: `${round.sessionId}:${key}`, sessionId: round.sessionId, gameId: 'suika',
+    const eventId = `${round.sessionId}:${key}`;
+    if (this.achievementRequests.includes(eventId)) return;
+    this.achievementRequests.push(eventId);
+    const accepted = await this.reportAchievementEvent({
+      eventId: eventId, sessionId: round.sessionId, gameId: 'suika',
       type: ended ? 'sessionEnd' : 'milestone', occurredAt: Date.now(), isOfficial: true,
       facts: [
         { key: 'score', value: round.score }, { key: 'droppedCount', value: round.drops },
         { key: 'highestMergeLevel', value: round.highest }, { key: 'madeWatermelon', value: round.highest >= 7 ? 1 : 0 },
         { key: 'isFinalMerge', value: round.highest >= 10 ? 1 : 0 }
       ]
-    });
+    }).catch(() => false);
+    if (accepted && ended) {
+      round.reported = true;
+      this.recordScore(round.score);
+      if (round === this.engine.round) await this.save();
+    }
+    this.achievementRequests = this.achievementRequests.filter((id: string) => id !== eventId);
   }
 }

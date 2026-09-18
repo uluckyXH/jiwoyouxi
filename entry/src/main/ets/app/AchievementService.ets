@@ -62,15 +62,14 @@ export class AchievementService {
   }
 
   private async resetNow(context: common.Context): Promise<AchievementState> {
-    if (!this.initialized) {
-      await this.refreshNow(context);
-    }
+    // Explicit reset must also recover an unreadable/corrupt achievement archive.
     const resetState = emptyAchievementState();
     const didSave = await CoopStorage.saveAchievementState(context, resetState);
     if (!didSave) {
       throw new Error('Unable to reset achievement state.');
     }
     this.state = resetState;
+    this.initialized = true;
     return this.currentState();
   }
 

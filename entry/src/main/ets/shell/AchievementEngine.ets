@@ -24,6 +24,7 @@ import {
   ACHIEVEMENT_GROUPS,
   ACHIEVEMENT_PRIMARY_GAME_IDS,
   achievementPrimaryFavoriteCount,
+  achievementCanonicalGameId,
   achievementDefinitionFor,
   achievementProfileFor,
   isAchievementEventTypeAllowed,
@@ -90,11 +91,22 @@ function normalizePlayedGameIds(gameIds: string[]): string[] {
     return normalized;
   }
   gameIds.forEach((gameId: string) => {
+    gameId = achievementCanonicalGameId(gameId);
     if (isPrimaryGameId(gameId) && !normalized.includes(gameId)) {
       normalized.push(gameId);
     }
   });
   return normalized;
+}
+
+function normalizeCompletedSessionIds(sessionIds: string[] | undefined): string[] {
+  if (!Array.isArray(sessionIds)) return [];
+  const seen: Set<string> = new Set<string>();
+  return sessionIds.filter((id: string) => {
+    if (!isNonEmptyString(id) || seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
 }
 
 export function emptyAchievementState(): AchievementState {
@@ -103,7 +115,8 @@ export function emptyAchievementState(): AchievementState {
     progresses: [],
     processedEventIds: [],
     completedSessionCount: 0,
-    playedGameIds: []
+    playedGameIds: [],
+    completedSessionIds: []
   };
 }
 
@@ -128,7 +141,8 @@ export function normalizeAchievementState(state: AchievementState | undefined): 
     progresses: progresses,
     processedEventIds: normalizeProcessedEventIds(state.processedEventIds),
     completedSessionCount: normalizedCount(state.completedSessionCount),
-    playedGameIds: normalizePlayedGameIds(state.playedGameIds)
+    playedGameIds: normalizePlayedGameIds(state.playedGameIds),
+    completedSessionIds: normalizeCompletedSessionIds(state.completedSessionIds)
   };
 }
 
@@ -254,6 +268,10 @@ function nextStateForSessionEnd(state: AchievementState, event: AchievementEvent
   if (event.type !== 'sessionEnd' || !isPrimaryGameId(event.gameId)) {
     return state;
   }
+  const completedSessionIds = (state.completedSessionIds ?? []).slice();
+  const sessionKey = event.gameId + ':' + event.sessionId;
+  if (completedSessionIds.includes(sessionKey)) return state;
+  completedSessionIds.push(sessionKey);
   const playedGameIds = state.playedGameIds.slice();
   if (!playedGameIds.includes(event.gameId)) {
     playedGameIds.push(event.gameId);
@@ -263,7 +281,8 @@ function nextStateForSessionEnd(state: AchievementState, event: AchievementEvent
     progresses: state.progresses.slice(),
     processedEventIds: state.processedEventIds.slice(),
     completedSessionCount: state.completedSessionCount + 1,
-    playedGameIds: playedGameIds
+    playedGameIds: playedGameIds,
+    completedSessionIds: completedSessionIds
   };
 }
 
@@ -292,6 +311,11 @@ export function applyAchievementEvent(
   event: AchievementEvent
 ): AchievementApplyResult {
   const state = normalizeAchievementState(previous);
+  if (event !== undefined && event !== null) {
+    event = { eventId: event.eventId, sessionId: event.sessionId,
+      gameId: achievementCanonicalGameId(event.gameId), type: event.type,
+      occurredAt: event.occurredAt, isOfficial: event.isOfficial, facts: event.facts };
+  }
   if (!isValidEvent(event)) {
     return { state: state, disposition: 'ignored', newlyUnlocked: [] };
   }
@@ -338,7 +362,8 @@ export function applyAchievementEvent(
       }),
       processedEventIds: nextState.processedEventIds.slice(),
       completedSessionCount: nextState.completedSessionCount,
-      playedGameIds: nextState.playedGameIds.slice()
+      playedGameIds: nextState.playedGameIds.slice(),
+      completedSessionIds: (nextState.completedSessionIds ?? []).slice()
     };
     if (previousUnlockedAt === 0 && unlockedAt > 0) {
       newlyUnlocked.push({ achievementId: definition.id, unlockedAt: unlockedAt });
@@ -349,7 +374,8 @@ export function applyAchievementEvent(
     progresses: nextState.progresses.slice(),
     processedEventIds: nextProcessedEventIds(nextState.processedEventIds, event.eventId),
     completedSessionCount: nextState.completedSessionCount,
-    playedGameIds: nextState.playedGameIds.slice()
+    playedGameIds: nextState.playedGameIds.slice(),
+    completedSessionIds: (nextState.completedSessionIds ?? []).slice()
   };
   return { state: nextState, disposition: 'applied', newlyUnlocked: newlyUnlocked };
 }

@@ -24,7 +24,9 @@ export struct BlockWorkshopPage {
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
-  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
+  private achievementRequests: string[] = [];
+  private achievementRetryAt: number = 0;
   private engine: BlockEngine = new BlockEngine();
   private renderer: BlockRenderer = new BlockRenderer();
   private canvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
@@ -312,6 +314,7 @@ export struct BlockWorkshopPage {
     this.engine.round.best = Math.max(this.bestScore, this.engine.round.best);
     this.dialog = restored ? (this.engine.round.phase === 'over' ? 'over' : 'paused') : 'ready';
     this.sync(); this.paint();
+    this.milestones(true);
     if (this.engine.round.phase === 'over') this.finish();
   }
 
@@ -466,14 +469,19 @@ export struct BlockWorkshopPage {
     if (!this.disposed) this.saving = false;
   }
 
-  private milestones(): void {
+  private milestones(restoring: boolean = false): void {
+    if (Date.now() < this.achievementRetryAt) return;
     const r = this.engine.round;
     const achieved: boolean[] = [r.maxClear >= 4, r.lines >= 20, r.level >= 3];
     for (let i = 0; i < achieved.length; i += 1) {
       const bit = 1 << i;
-      if (achieved[i] && (r.milestones & bit) === 0) {
-        r.milestones |= bit;
-        this.report('milestone', 'milestone-' + i);
+      if (achieved[i] && (restoring || (r.milestones & bit) === 0)) {
+        this.report('milestone', 'milestone-' + i).then((accepted: boolean) => {
+          if (accepted) {
+            r.milestones |= bit;
+            if (r === this.engine.round) this.save();
+          }
+        });
       }
     }
   }
@@ -481,18 +489,26 @@ export struct BlockWorkshopPage {
     this.dialog = 'over';
     if (this.timer >= 0) clearTimeout(this.timer);
     this.timer = -1; this.cancelHold();
-    const r = this.engine.round;
-    if (!r.reported) {
-      r.reported = true;
-      this.recordScore(r.score); this.report('sessionEnd', 'finish'); this.save();
-    }
+    if (!this.engine.round.reported) this.report('sessionEnd', 'finish');
+    this.save();
   }
-  private report(type: 'milestone' | 'sessionEnd', suffix: string): void {
+  private async report(type: 'milestone' | 'sessionEnd', suffix: string): Promise<boolean> {
     const r = this.engine.round;
-    this.reportAchievementEvent({ eventId: r.session + ':' + suffix, sessionId: r.session, gameId: 'tetris',
+    const eventId = r.session + ':' + suffix;
+    if (this.achievementRequests.includes(eventId)) return false;
+    this.achievementRequests.push(eventId);
+    const accepted = await this.reportAchievementEvent({ eventId: eventId, sessionId: r.session, gameId: 'tetris',
       type: type, occurredAt: Date.now(), isOfficial: true,
       facts: [{ key: 'score', value: r.score }, { key: 'maxClearedLines', value: r.maxClear },
-        { key: 'totalLines', value: r.lines }, { key: 'level', value: r.level }] });
+        { key: 'totalLines', value: r.lines }, { key: 'level', value: r.level }] }).catch(() => false);
+    if (accepted && type === 'sessionEnd') {
+      r.reported = true;
+      this.recordScore(r.score);
+      if (r === this.engine.round) await this.save();
+    }
+    if (!accepted) this.achievementRetryAt = Date.now() + 5000;
+    this.achievementRequests = this.achievementRequests.filter((id: string) => id !== eventId);
+    return accepted;
   }
 
   private dialogTitle(): string {

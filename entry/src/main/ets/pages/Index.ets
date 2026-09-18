@@ -1,3 +1,4 @@
+import { achievementCanonicalGameId } from '../shell/AchievementRegistry';
 import { HubSession } from '../design/HubSession';
 import { localPlayDay, normalizePlayDays, playDaysWithLegacyRecords } from '../design/PlayActivity';
 import { BlockWorkshopPage } from '../gamesNext/blockWorkshop/BlockWorkshopPage';
@@ -27,7 +28,9 @@ import { HubPage } from './HubPage';
 import { StartupPage } from './StartupPage';
 import { RpsPage } from '../games/rps/RpsPage';
 import { RpsBattlePage } from '../games/rpsBattle/RpsBattlePage';
+import { CoopArenaPage } from '../gamesNext/coopArena/CoopArenaPage';
 import { FreecellPage } from '../games/freecell/FreecellPage';
+import { FreecellRoomPage } from '../gamesNext/warmFreecell/FreecellRoomPage';
 import { MinesweeperPage } from '../games/minesweeper/MinesweeperPage';
 import { MineGardenPage } from '../gamesNext/minesweeper/MineGardenPage';
 import { Chicken2048Page } from '../games/chicken2048/Chicken2048Page';
@@ -73,7 +76,9 @@ struct Index {
   @State minesweeperExitRequestId: number = 0;
   @State mineGardenExitRequest: number = 0;
   @State glow2048ExitRequest: number = 0;
+  @State freecellRoomExitRequest: number = 0;
   @State fruitMarketExitRequest: number = 0;
+  @State coopArenaExitRequest: number = 0;
 
   aboutToAppear(): void {
     this.startupActive = true;
@@ -113,6 +118,14 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'rpsBattleNext') {
+      this.coopArenaExitRequest += 1;
+      return true;
+    }
+    if (this.activeGame === 'freecellNext') {
+      this.freecellRoomExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'chicken2048Next') {
       this.glow2048ExitRequest += 1;
       return true;
@@ -202,6 +215,18 @@ struct Index {
             }
           })
         }
+      } else if (this.activeGame === 'rpsBattleNext') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          CoopArenaPage({
+            dark: this.isDarkMode(),
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.coopArenaExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('rpsBattleNext', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
+          })
+        }
       } else if (this.activeGame === 'rpsBattle') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           RpsBattlePage({
@@ -213,8 +238,20 @@ struct Index {
               this.recordGameResult('rpsBattle', score);
             },
             reportAchievementEvent: (event: AchievementEvent) => {
-              this.reportAchievementEvent(event);
+              return this.reportAchievementEvent(event);
             }
+          })
+        }
+      } else if (this.activeGame === 'freecellNext') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          FreecellRoomPage({
+            dark: this.isDarkMode(),
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.freecellRoomExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            recordScore: (score: number) => this.recordGameResult('freecellNext', score),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })
         }
       } else if (this.activeGame === 'freecell') {
@@ -228,7 +265,7 @@ struct Index {
               this.recordGameResult('freecell', score);
             },
             reportAchievementEvent: (event: AchievementEvent) => {
-              this.reportAchievementEvent(event);
+              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -257,7 +294,7 @@ struct Index {
               this.recordGameResult('minesweeper', score);
             },
             reportAchievementEvent: (event: AchievementEvent) => {
-              this.reportAchievementEvent(event);
+              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -285,7 +322,7 @@ struct Index {
               this.recordGameResult('chicken2048', score);
             },
             reportAchievementEvent: (event: AchievementEvent) => {
-              this.reportAchievementEvent(event);
+              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -314,7 +351,7 @@ struct Index {
               this.recordGameResult('tetris', score);
             },
             reportAchievementEvent: (event: AchievementEvent) => {
-              this.reportAchievementEvent(event);
+              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -342,7 +379,7 @@ struct Index {
               this.recordGameResult('suika', score);
             },
             reportAchievementEvent: (event: AchievementEvent) => {
-              this.reportAchievementEvent(event);
+              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -615,22 +652,21 @@ struct Index {
     }
   }
 
-  private reportAchievementEvent(event: AchievementEvent): void {
+  private async reportAchievementEvent(event: AchievementEvent): Promise<boolean> {
     const context = this.appContext;
-    if (context === undefined) {
-      return;
-    }
-    this.achievementService.report(context, event).then((result: AchievementApplyResult) => {
+    if (context === undefined) return false;
+    try {
+      const result = await this.achievementService.report(context, event);
       this.achievementState = result.state;
-      if (this.activeGame !== event.gameId && !(this.activeGame === 'minesweeperNext' && event.gameId === 'minesweeper') &&
-        !(this.activeGame === 'tetrisNext' && event.gameId === 'tetris') &&
-        !(this.activeGame === 'chicken2048Next' && event.gameId === 'chicken2048')) {
-        return;
+      if (this.activeGame === 'hub' ||
+        achievementCanonicalGameId(this.activeGame) === achievementCanonicalGameId(event.gameId)) {
+        this.enqueueAchievementNotices(result);
       }
-      this.enqueueAchievementNotices(result);
-    }).catch(() => {
-      // Storage or engine errors must not surface a notification that was not persisted.
-    });
+      return result.disposition !== 'ignored';
+    } catch (_) {
+      // The game keeps its unacknowledged result so restoring it can retry.
+      return false;
+    }
   }
 
   private async resetAchievements(): Promise<boolean> {

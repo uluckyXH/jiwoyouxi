@@ -38,7 +38,8 @@ const harness = `class PageHarness {
     this.context={}; this.storage={load:async()=>'', save:async(_context,raw)=>{this.saves.push(raw);return true;}};
     this.exitToHub=()=>{this.exits++;}; this.scores=[]; this.achievements=[];
     this.recordScore=score=>this.scores.push(score);
-    this.reportAchievementEvent=event=>this.achievements.push(event);
+    this.reportAchievementEvent=async event=>{this.achievements.push(event);return true;};
+    this.achievementRequests=[];this.achievementRetryAt=0;
   }
   ${names.map(method).join('\n')}
 }
@@ -180,11 +181,12 @@ function fresh() { timers.clear();now=0;return context.createPage(); }
   p.engine.round.maxClear=4;p.engine.round.lines=40;p.engine.round.level=3;
   p.milestones();p.milestones();assert.equal(p.achievements.length,3);
   p.engine.round.phase='over';p.engine.round.score=700;p.engine.round.best=700;p.finish();p.finish();
+  await new Promise(resolve=>setImmediate(resolve));
   assert.equal(p.scores.join(','),'700');assert.equal(p.achievements.length,4);
   assert.equal(p.achievements[3].gameId,'tetris');assert.equal(p.achievements[3].type,'sessionEnd');
   assert.equal(timers.size,0);
   const raw=p.engine.serialize();const q=fresh();q.storage.load=async()=>raw;await q.boot();
-  assert.equal(q.dialog,'over');assert.equal(q.scores.length,0);assert.equal(q.achievements.length,0);
+  assert.equal(q.dialog,'over');assert.equal(q.scores.length,0);assert.equal(q.achievements.length,3);assert.ok(q.achievements.every(event=>event.type==='milestone'));
   console.log('PASS milestones, score and result report once across repeated finish and reload');
 }
 {

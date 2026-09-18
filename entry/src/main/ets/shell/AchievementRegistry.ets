@@ -208,14 +208,15 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'rpsBattle',
     gameId: 'rpsBattle',
     title: '转化风暴',
-    summary: '见证一局高密度阵营转化',
-    detail: '阵营转化阈值待校准，确认前不参与判定。',
+    summary: '一局正式对战发生 30 次阵营转化',
+    detail: '正常结束一局正式对战，整场累计发生至少 30 次阵营转化。自定义练习不计入。',
     placeholderSymbol: '✊',
     badgeAssetPath: 'app/achievements/ach_rps_battle_conversion_storm.svg',
     progressKind: 'none',
-    target: 1,
-    rule: { type: 'disabled' },
-    enabled: false,
+    target: 30,
+    rule: { type: 'eventFact', eventType: 'sessionEnd',
+      condition: { key: 'conversions', comparison: 'atLeast', value: 30 } },
+    enabled: true,
     noticeLevel: 'highlight'
   },
   {
@@ -242,14 +243,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'freecell',
     gameId: 'freecell',
     title: '精打细算',
-    summary: '用较少步数完成一局',
-    detail: '步数阈值待校准，确认前不参与判定。',
+    summary: '150 步内完成一局',
+    detail: '在 150 步以内将四个花色全部归位。以本局面板显示的步数为准，自动收牌也计步。',
     placeholderSymbol: '♣',
     badgeAssetPath: 'app/achievements/ach_freecell_efficient_win.svg',
     progressKind: 'none',
     target: 1,
-    rule: { type: 'disabled' },
-    enabled: false,
+    rule: { type: 'eventAllFacts', eventType: 'sessionEnd', conditions: [
+      { key: 'won', comparison: 'equals', value: 1 },
+      { key: 'moves', comparison: 'atMost', value: 150 }
+    ] },
+    enabled: true,
     noticeLevel: 'normal'
   },
   {
@@ -257,14 +261,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'freecell',
     gameId: 'freecell',
     title: '疾速清台',
-    summary: '在合理时间内完成一局',
-    detail: '时间阈值待校准，确认前不参与判定。',
+    summary: '10 分钟内完成一局',
+    detail: '在 10 分钟内将四个花色全部归位。以本局有效游玩时间为准，暂停和离开期间不计时。',
     placeholderSymbol: '♣',
     badgeAssetPath: 'app/achievements/ach_freecell_quick_win.svg',
     progressKind: 'none',
     target: 1,
-    rule: { type: 'disabled' },
-    enabled: false,
+    rule: { type: 'eventAllFacts', eventType: 'sessionEnd', conditions: [
+      { key: 'won', comparison: 'equals', value: 1 },
+      { key: 'elapsedSec', comparison: 'atMost', value: 600 }
+    ] },
+    enabled: true,
     noticeLevel: 'highlight'
   },
   {
@@ -523,9 +530,11 @@ export function isAchievementEventTypeAllowed(gameId: string, eventType: Achieve
 }
 
 export function achievementCanonicalGameId(gameId: string): string {
+  if (gameId === 'rpsBattleNext') return 'rpsBattle';
   if (gameId === 'minesweeperNext') return 'minesweeper';
   if (gameId === 'chicken2048Next') return 'chicken2048';
   if (gameId === 'tetrisNext') return 'tetris';
+  if (gameId === 'freecellNext') return 'freecell';
   return gameId === 'suikaNext' ? 'suika' : gameId;
 }
 

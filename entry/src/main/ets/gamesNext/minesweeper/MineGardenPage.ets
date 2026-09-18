@@ -21,7 +21,8 @@ export struct MineGardenPage {
   exitToHub: () => void = () => {};
   recordScore: (score: number) => void = () => {};
   updateSound: (enabled: boolean) => void = () => {};
-  reportAchievementEvent: (event: AchievementEvent) => void = () => {};
+  reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
+  private reportingSession: string = '';
   private engine: MineEngine = new MineEngine();
   private audio: MineAudio = new MineAudio();
   private storage: MineStorage = new MineStorage();
@@ -259,22 +260,30 @@ export struct MineGardenPage {
     this.save();
   }
 
-  private settle(): void {
-    if (!this.engine.finished() || this.engine.reported) return;
-    this.engine.reported = true;
-    if (this.phase === 'won') this.recordScore(this.engine.score());
+  private async settle(): Promise<void> {
+    if (!this.engine.finished() || this.engine.reported || this.reportingSession === this.engine.session) return;
+    const session = this.engine.session;
+    const score = this.engine.score();
+    const won = this.engine.phase === 'won';
+    this.reportingSession = session;
     const event: AchievementEvent = {
       eventId: `${this.engine.session}:session-end`, sessionId: this.engine.session, gameId: 'minesweeper',
       type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
       facts: [ { key: 'won', value: this.phase === 'won' ? 1 : 0 },
-        { key: 'elapsedSec', value: Math.floor(this.engine.elapsedMs / 1000) },
+        { key: 'elapsedSec', value: Math.ceil(this.engine.elapsedMs / 1000) },
         // The existing badge explicitly asks for ten manually placed correct flags.
         { key: 'manualAllMinesFlagged', value: this.engine.manualAllFlags && this.level.mines === 10 ? 1 : 0 },
         { key: 'hasEverFlaggedNonMine', value: this.engine.everWrongFlag ? 1 : 0 } ]
     };
-    this.reportAchievementEvent(event);
     this.returnDialog = '';
     this.dialog = 'result';
+    const accepted = await this.reportAchievementEvent(event).catch(() => false);
+    if (accepted && won) this.recordScore(score);
+    if (this.engine.session === session) {
+      this.engine.reported = accepted;
+      await this.save();
+    }
+    if (this.reportingSession === session) this.reportingSession = '';
   }
 
   private sync(): void {
