@@ -104,7 +104,7 @@ export struct GlowBoard {
     .border({ width: 1, color: P.line(this.dark), radius: 26 })
     .shadow({ radius: 16, color: this.dark ? '#22000000' : '#126C7449', offsetY: 7 })
     .focusable(this.active).defaultFocus(true).onKeyEvent((event: KeyEvent) => this.keyboard(event))
-    .accessibilityText('2048 棋盘，滑动移动数字，也可使用棋盘外的四个方向按钮')
+    .accessibilityText('2048 棋盘，可上下左右滑动，也可点按棋盘外的方向按钮')
     .priorityGesture(PanGesture({ direction: PanDirection.All, distance: 12 })
       .onActionEnd((event: GestureEvent) => {
         if (!this.active || Math.max(Math.abs(event.offsetX), Math.abs(event.offsetY)) < 12) return;

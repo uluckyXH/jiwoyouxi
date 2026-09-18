@@ -7,7 +7,7 @@ import { GlowBackdrop } from './GlowBackdrop';
 import { GlowDialog } from './GlowDialog';
 import { GlowEngine } from './GlowEngine';
 import { GlowCrease, GlowInsets, GlowLayout, glowLayout, sameGlowLayout } from './GlowLayout';
-import { GLOW_LOGO, GlowDirection, GlowMotion, GlowTile, GlowTurn, glowMax, glowTarget } from './GlowModel';
+import { GLOW_LOGO, GLOW_PLAY_HINT, GlowDirection, GlowMotion, GlowTile, GlowTurn, glowMax, glowTarget } from './GlowModel';
 import { GlowPalette as P } from './GlowPalette';
 import { GlowRenderTile, glowReconcileTiles } from './GlowRenderTile';
 import { GlowReflow } from './GlowReflow';
@@ -63,7 +63,7 @@ export struct GlowPage {
   @State saving: boolean = false;
   @State saveFailed: boolean = false;
   @State ended: boolean = false;
-  @State hint: string = '滑动棋盘，合出第一束暖光';
+  @State hint: string = GLOW_PLAY_HINT;
 
   aboutToAppear(): void {
     this.context = this.getUIContext().getHostContext() as common.Context;
@@ -212,7 +212,7 @@ export struct GlowPage {
       const restored = raw.length > 0 && this.engine.restore(raw);
       this.loaded = true;
       this.sync();
-      this.hint = raw.length > 0 && !restored ? '上次进度无法恢复，已准备新棋盘' : '滑动棋盘，也可以点按方向';
+      this.hint = raw.length > 0 && !restored ? '上次进度无法恢复，已准备新棋盘' : GLOW_PLAY_HINT;
       this.dialog = this.engine.needsCelebration() ? 'win' : this.engine.ended ? 'end' :
         restored && this.engine.moves > 0 ? 'resume' : this.backgroundPaused ? 'pause' : '';
       if (this.engine.ended && !this.engine.reported) { this.reportEnd(); this.save(); }
@@ -273,8 +273,7 @@ export struct GlowPage {
     this.gain = effects ? turn.gain : 0;
     this.merged = effects ? turn.tiles.filter((tile: GlowTile) => turn.merged.includes(tile.id)).map((tile: GlowTile) => tile.index) : [];
     this.sync();
-    this.hint = this.ended ? '这一盘结束了，点右上角查看成绩' : this.streak > 1 ?
-      `${this.streak} 步连续合并 · 好节奏` : turn.gain > 0 ? '留一点空白，等下一次相遇' : '滑动棋盘，也可以点按方向';
+    this.hint = this.ended ? '这一盘结束了，点右上角查看成绩' : GLOW_PLAY_HINT;
     if (this.engine.needsCelebration()) this.dialog = 'win';
     else if (this.ended) this.dialog = 'end';
     if (effects) {
@@ -347,7 +346,7 @@ export struct GlowPage {
     this.sync();
     this.returnDialog = '';
     this.dialog = '';
-    this.hint = '新的一盘，从两枚数字开始';
+    this.hint = GLOW_PLAY_HINT;
     this.audio.play('tap');
     this.save();
   }

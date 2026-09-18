@@ -1,4 +1,5 @@
 export const GLOW_ASSETS: string = 'gamesNext/glow2048/';
+export const GLOW_PLAY_HINT = '上下左右滑动 · 也可点按方向键';
 export const GLOW_LOGO: string = 'app/game_logos/game_icon_chicken2048.svg';
 export const GLOW_MAX_TILE: number = 1073741824;
 export type GlowDirection = 'left' | 'right' | 'up' | 'down';
