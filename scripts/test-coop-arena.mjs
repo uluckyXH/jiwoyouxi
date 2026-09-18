@@ -68,6 +68,44 @@ test('shield absorbs exactly one conversion and grants the short buffer',()=>{
   const e=new ArenaEngine();frozen(e,[{faction:0,x:100,y:100},{faction:1,x:145,y:100,protectedUntil:0,shield:1,shieldUntil:3},{faction:2,x:600,y:600}]);
   e.step();assert.equal(e.round.entities[1].faction,1);assert.equal(e.round.entities[1].shield,0);assert.ok(e.round.entities[1].protectedUntil>e.time());
 });
+test('token bodies stay inside the visible fence, including shrinking boundaries',()=>{
+ for(const mode of ['classic','challenge']){
+  const e=new ArenaEngine({...config(mode),mission:6});e.round.tick=mode==='challenge'?1800:0;
+  const body=e.round.entities[0];body.x=0;body.y=720;e.bounds(body);
+  assert.ok(body.x-26>=24+e.border());assert.ok(body.y+26<=720-24-e.border());
+  e.spawn(0);const born=e.round.entities.at(-1);assert.ok(born.x-26>=24+e.border());assert.ok(born.y+26<=720-24-e.border());
+ }
+});
+test('visible-rim threshold, protected contacts and snapshot conversion do not cascade',()=>{
+  for(const distance of [51.9,52,52.1]){
+    const e=new ArenaEngine();frozen(e,[{faction:0,x:100,y:100,protectedUntil:0},{faction:1,x:100+distance,y:100,protectedUntil:0}]);
+    e.rebuild();e.collide();assert.equal(e.round.entities[1].faction,distance<52?0:1);
+  }
+  const e=new ArenaEngine();frozen(e,[{faction:0,x:100,y:100,protectedUntil:0},{faction:1,x:145,y:100,protectedUntil:0},{faction:2,x:190,y:100,protectedUntil:0}]);
+  e.rebuild();e.collide();assert.deepEqual(plain(e.round.entities.map(p=>p.faction)),[0,0,1]);
+  const p=e.round.entities[1];assert.ok(p.protectedUntil>0);
+  p.faction=1;e.rebuild();e.collide();assert.equal(p.faction,1,'protection blocks conversion while contacts still separate');
+});
+test('three-way and coincident contacts are independent of entity traversal order',()=>{
+  for(const positions of [[{faction:0,x:200,y:200},{faction:1,x:245,y:200},{faction:2,x:223,y:238}],
+      [{faction:0,x:200,y:200},{faction:1,x:200,y:200}]]){
+    const run=reverse=>{const e=new ArenaEngine();frozen(e,positions.map(p=>({...p,protectedUntil:0})));
+      if(reverse)e.round.entities.reverse();e.rebuild();e.collide();
+      return plain(e.round.entities).sort((a,b)=>a.id-b.id).map(p=>({id:p.id,x:p.x,y:p.y,faction:p.faction}));};
+    const a=run(false),b=run(true);assert.deepEqual(a,b);
+  }
+});
+test('visual interpolation smooths leftover time without changing collision or save state',()=>{
+  const e=new ArenaEngine();const start=e.round.entities.map(p=>({x:p.x,y:p.y}));
+  e.advance(25);assert.ok(Math.abs(e.interpolation()-.5)<1e-6);
+  const saved=e.serialize();
+  for(let i=0;i<start.length;i++){
+    assert.ok(Math.abs(e.visualX(i,e.interpolation())-(start[i].x+e.round.entities[i].x)/2)<1e-6);
+    assert.ok(Math.abs(e.visualY(i,e.interpolation())-(start[i].y+e.round.entities[i].y)/2)<1e-6);
+  }
+  assert.equal(e.serialize(),saved);e.resetClock();assert.equal(e.visualX(0,0),e.round.entities[0].x);
+  const restored=new ArenaEngine();assert.ok(restored.restore(saved));assert.equal(restored.visualX(0,0),restored.round.entities[0].x);
+});
 test('empty/outside/cooling-down casts do not consume a charge',()=>{
   const e=new ArenaEngine(config('zones'));const r=e.round;
   assert.equal(e.cast(0,2,0,720),0);assert.equal(r.windLeft[0],2);

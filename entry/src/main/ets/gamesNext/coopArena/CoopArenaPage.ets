@@ -1,8 +1,8 @@
 import { common } from '@kit.AbilityKit';
 import systemDateTime from '@ohos.systemDateTime';
 import { AchievementEvent } from '../../shell/AchievementModule';
-import { ArenaConfig, ArenaEntity, ArenaProfile, ArenaSave, ARENA_NAMES, ARENA_SKILLS,
-  arenaConfigValid, arenaDefaultConfig, arenaPractice, arenaProfile } from './ArenaModel';
+import { ArenaConfig, ArenaEntity, ArenaProfile, ArenaSave, ArenaScenario, ARENA_NAMES, ARENA_SKILLS,
+  arenaConfigValid, arenaDefaultConfig, arenaPractice, arenaProfile, arenaScenario } from './ArenaModel';
 import { ArenaEngine } from './ArenaEngine';
 import { ArenaInsets, ArenaRect, ArenaLayout, arenaLayout } from './ArenaLayout';
 import { ArenaPalette as P } from './ArenaPalette';
@@ -10,14 +10,15 @@ import { ArenaAudio } from './ArenaAudio';
 import { ArenaWindow, ArenaFold } from './ArenaWindow';
 import { ArenaStorage } from './ArenaStorage';
 import { ArenaRenderer } from './ArenaRenderer';
-import { ArenaPerformance } from './ArenaPerformance';
+import { ArenaPerfScene, ArenaPerformance } from './ArenaPerformance';
 import { ArenaClock } from './ArenaClock';
 import { ArenaInput } from './ArenaInput';
 import { arenaSave, arenaApplyResult, arenaProfileValid } from './ArenaProgress';
-import { ArenaAction, ArenaIcon, ArenaSkill, ArenaTeam } from './ArenaControls';
+import { ArenaAction, ArenaIcon, ArenaSkill, ArenaTeam, ArenaRuleStrip } from './ArenaControls';
 import { ArenaSetup } from './ArenaSetup';
 import { ArenaHelp } from './ArenaHelp';
 import { ArenaReport } from './ArenaReport';
+import { arenaSceneLabel, arenaLiveNotice } from './ArenaGuide';
 
 @Component
 export struct CoopArenaPage {
@@ -50,12 +51,16 @@ export struct CoopArenaPage {
   private lastTick: number = 0;
   private lastHud: number = 0;
   private lastSave: number = 0;
+  private pixelRatio: number = 1;
+  private profileCounter: number = 0;
+  private profileClock: () => number = () => this.now();
   private remainingCountdown: number = 3000;
   private helpReturn: string = 'setup';
   @State viewport: ArenaLayout = arenaLayout(390,844);
   @State dialog: string = 'loading';
   @State profile: ArenaProfile = arenaProfile();
   @State configuration: ArenaConfig = arenaDefaultConfig();
+  @State scenario: ArenaScenario = arenaScenario(arenaDefaultConfig());
   @State counts: number[] = [8,8,8];
   @State scores: number[] = [0,0,0];
   @State timeLeft: number = 60;
@@ -65,6 +70,7 @@ export struct CoopArenaPage {
   @State armed: number = -1;
   @State countdown: number = 3;
   @State message: string = '挑一支小队，为它加油';
+  @State notice: string = '';
   @State saveFailed: boolean = false;
   @State saving: boolean = false;
   @State errorText: string = '进度暂时没能读出来，请重试。';
@@ -72,12 +78,13 @@ export struct CoopArenaPage {
   aboutToAppear(): void {
     this.context = this.getUIContext().getHostContext() as common.Context;
     if (this.context === undefined) { this.dialog='error'; return; }
+    this.pixelRatio=this.getUIContext().vp2px(1);
     this.sounds.setEnabled(this.soundEnabled); this.sounds.init(this.context);
     this.hostWindow.setDark(this.dark);
     this.hostWindow.attach(this.context,(px:number):number => this.getUIContext().px2vp(px),
       (insets:ArenaInsets,creases:ArenaRect[],fold:ArenaFold) => this.windowChanged(insets,creases,fold),
       () => this.pause('已暂停，回来后再继续'));
-    this.boot();
+    this.renderer.prepare(this.dark); this.boot();
   }
   aboutToDisappear(): void {
     this.disposed=true; this.stop(); this.save(); this.renderer.release(); this.sounds.release(); this.hostWindow.release();
@@ -100,7 +107,7 @@ export struct CoopArenaPage {
               this.Header()
               this.Stats()
               if (!this.viewport.compact) {
-                Text(this.engine.scenario.summary).fontSize(12).lineHeight(19).fontColor(P.muted(this.dark)).width('100%')
+                Text(this.scenario.summary).fontSize(12).lineHeight(19).fontColor(P.muted(this.dark)).width('100%')
               }
               this.Commands()
               ArenaAction({label:'玩法与计分',icon:'help',primary:false,dark:this.dark,action:() => this.showHelp()})
@@ -125,7 +132,7 @@ export struct CoopArenaPage {
         }
       }
       if (this.dialog === 'help') {
-        ArenaHelp({dark:this.dark,close:() => this.closeHelp()}).width(this.sheetWidth(640)).height(this.sheetHeight())
+        ArenaHelp({dark:this.dark,config:this.configuration,close:() => this.closeHelp()}).width(this.sheetWidth(640)).height(this.sheetHeight())
           .position({x:this.sheetX(640),y:this.viewport.pane.y+8})
       } else if (this.dialog === 'result') {
         ArenaReport({dark:this.dark,round:this.engine.round,saveFailed:this.saveFailed,busy:this.saving,
@@ -148,10 +155,14 @@ export struct CoopArenaPage {
     Row({space:6}) {
       ArenaIcon({name:'back',label:'暂停并返回',dark:this.dark,action:() => this.exitRequested()})
       Column({space:2}) {
-        Text(this.viewport.wide ? '鸡窝乱斗' : '鸡窝乱斗 · 庭院擂台').fontSize(this.viewport.wide ? 15 : 17)
-          .fontWeight(FontWeight.Bold).maxLines(1).textOverflow({overflow:TextOverflow.Ellipsis}).fontColor(P.ink(this.dark))
-        Text(`${this.timeLeft}s · ${this.engine.scenario.name}`).fontSize(11).fontColor(P.muted(this.dark)).maxLines(1)
-          .textOverflow({overflow:TextOverflow.Ellipsis})
+        Text('鸡窝乱斗').fontSize(this.viewport.wide ? 18 : 20)
+          .fontWeight(FontWeight.Medium).maxLines(1).textOverflow({overflow:TextOverflow.Ellipsis}).fontColor(P.ink(this.dark))
+        Row({space:4}) {
+          Image($rawfile(P.icon('clock',this.dark))).width(12).height(12).draggable(false).accessibilityLevel('no')
+          Text(this.clockText()).fontSize(12).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
+          Text(`· ${this.scenario.name}`).fontSize(11).fontColor(P.muted(this.dark)).maxLines(1)
+            .textOverflow({overflow:TextOverflow.Ellipsis}).layoutWeight(1)
+        }.width('100%')
       }.layoutWeight(1).alignItems(HorizontalAlign.Start)
       ArenaIcon({name:this.soundEnabled ? 'sound' : 'mute',label:this.soundEnabled ? '关闭音效' : '开启音效',dark:this.dark,
         action:() => this.updateSound(!this.soundEnabled)})
@@ -161,14 +172,14 @@ export struct CoopArenaPage {
   @Builder Stats() {
     Row({space:5}) {
       ForEach([0,1,2], (f:number) => {
-        ArenaTeam({faction:f,count:this.counts[f],score:this.scores[f],dark:this.dark,zones:this.engine.scenario.rule==='zones',
+        ArenaTeam({faction:f,count:this.counts[f],score:this.scores[f],dark:this.dark,zones:this.scenario.rule==='zones',
           chosen:this.configuration.faction===f,compact:this.viewport.compact||this.viewport.wide}).layoutWeight(1)
       })
     }.width('100%').height(this.viewport.stats)
   }
   @Builder Board() {
     Stack() {
-      Image($rawfile(P.scene('arena',this.dark))).width('100%').height('100%').objectFit(ImageFit.Fill)
+      Image($rawfile(P.scene(this.scenario.obstacles ? 'arena_garden' : 'arena',this.dark))).width('100%').height('100%').objectFit(ImageFit.Fill)
         .draggable(false).hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
       Canvas(this.canvas).width('100%').height('100%')
         .onReady(() => { this.canvasReady=true; this.paint(); })
@@ -186,11 +197,11 @@ export struct CoopArenaPage {
   }
   @Builder Commands() {
     Column({space:6}) {
-      if (this.engine.scenario.skills.some((s:boolean):boolean => s)) {
+      if (this.scenario.skills.some((s:boolean):boolean => s)) {
         Row({space:6}) {
           ForEach([0,1,2], (i:number) => {
-            ArenaSkill({index:i,hint:!this.engine.scenario.skills[i] ? '本关不可用' : this.cooldowns[i]>0 ? `${this.cooldowns[i]}s` :
-              i===2 ? `余 ${this.windLeft} 次` : '选好再落点',dark:this.dark,selected:this.armed===i,active:this.skillAllowed[i]&&this.dialog==='play',
+            ArenaSkill({index:i,hint:!this.scenario.skills[i] ? '本关不可用' : this.cooldowns[i]>0 ? `${this.cooldowns[i]} 秒` :
+              i===2 ? `余 ${this.windLeft} 次` : '点击选点',dark:this.dark,selected:this.armed===i,active:this.skillAllowed[i]&&this.dialog==='play',
               spacious:this.viewport.wide&&!this.viewport.compact,action:() => this.arm(i)}).layoutWeight(1)
           })
         }.width('100%')
@@ -207,10 +218,19 @@ export struct CoopArenaPage {
             .textAlign(TextAlign.Center).fontColor(P.muted(this.dark))
         }
       } else {
-        Row({space:8}) {
-          Text(this.message).layoutWeight(1).fontSize(12).lineHeight(20).fontColor(P.muted(this.dark)).maxLines(3)
-          ArenaIcon({name:'help',label:'查看玩法说明',dark:this.dark,action:() => this.showHelp()})
-        }.width('100%').padding(12).borderRadius(22).backgroundColor(P.surface(this.dark))
+        Column({space:6}) {
+          Row({space:8}) {
+            Image($rawfile(P.icon(this.notice.length>0 ? 'leaf' : 'eye',this.dark))).width(20).height(20).draggable(false).accessibilityLevel('no')
+            Column({space:3}) {
+              Text(this.counts[this.configuration.faction]===0 ? '我方已转阵，看看谁能胜出' : '小队正在自动交锋')
+                .fontSize(13).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark)).maxLines(1)
+              Text(this.notice.length>0 ? this.notice : '统一全场获胜 · 时间到比队员数量').fontSize(11).lineHeight(17)
+                .fontColor(this.notice.length>0 ? P.accent(this.dark) : P.muted(this.dark)).maxLines(2)
+            }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+            ArenaIcon({name:'help',label:'查看碰撞规则与玩法',dark:this.dark,action:() => this.showHelp()})
+          }.width('100%')
+          ArenaRuleStrip({dark:this.dark})
+        }.width('100%').padding(10).borderRadius(22).backgroundColor(P.surface(this.dark))
       }
     }.width('100%')
   }
@@ -264,10 +284,10 @@ export struct CoopArenaPage {
       if (save===null || save.version!==1 || !arenaProfileValid(save.profile) || typeof save.round!=='string') throw new Error('invalid save');
       const e = new ArenaEngine();
       if (save.round.length>0 && !e.restore(save.round)) throw new Error('invalid round');
-      this.profile=save.profile; this.engine=e; this.hasRound=save.round.length>0; this.loaded=true;
+      this.profile=save.profile; this.engine=e; this.scenario=JSON.parse(JSON.stringify(e.scenario)) as ArenaScenario; this.hasRound=save.round.length>0; this.loaded=true;
       if (save.config!==undefined && arenaConfigValid(save.config)) this.configuration=save.config;
       if (this.hasRound) {
-        this.configuration=e.round.config; this.remainingCountdown=e.round.tick===0 ? 3000 : 0;
+        this.configuration=JSON.parse(JSON.stringify(e.round.config)) as ArenaConfig; this.remainingCountdown=e.round.tick===0 ? 3000 : 0;
         this.updateHud(); this.dialog=e.round.finished ? 'result' : 'paused';
         this.message='已找到上次的对局，准备好再继续';
         if (e.round.finished) this.publishResult();
@@ -278,7 +298,8 @@ export struct CoopArenaPage {
   }
   private newRound(config: ArenaConfig): void {
     if (this.saving || !this.loaded) return;
-    this.stop(); this.engine=new ArenaEngine(config); this.configuration=this.engine.round.config; this.hasRound=true;
+    this.stop(); this.engine=new ArenaEngine(config); this.configuration=JSON.parse(JSON.stringify(this.engine.round.config)) as ArenaConfig;
+    this.scenario=JSON.parse(JSON.stringify(this.engine.scenario)) as ArenaScenario; this.hasRound=true;
     this.remainingCountdown=3000; this.countdown=3; this.message=this.engine.scenario.summary; this.updateHud();
     this.dialog=this.viewport.limited ? 'paused' : 'countdown'; this.save(); this.paint();
     if (!this.viewport.limited) this.run();
@@ -308,32 +329,46 @@ export struct CoopArenaPage {
   }
   private run(): void {
     if (this.disposed || this.viewport.limited) return;
-    this.lastTick=this.now(); this.lastHud=this.lastTick; this.lastSave=this.lastTick; this.engine.resetClock(); this.perf.reset(this.lastTick);
+    this.lastTick=this.now(); this.lastHud=this.lastTick; this.lastSave=this.lastTick; this.engine.resetClock(); this.profileCounter=0; this.perf.begin(this.lastTick,this.perfScene());
     this.clock.start(() => this.tick());
   }
   private tick(): void {
     if (this.disposed || this.viewport.limited || !['play','countdown'].includes(this.dialog)) return;
-    const now=this.now(), interval=now-this.lastTick; this.lastTick=now;
-    if (interval>500) { this.pause('刚才离开了一会儿，准备好再继续'); return; }
+    const now=this.now(), interval=now-this.lastTick, clock=this.clock.mode; this.lastTick=now;
+    if (interval>500) { this.perf.stall(interval); this.pause('刚才离开了一会儿，准备好再继续'); return; }
     if (this.dialog==='countdown') {
       this.remainingCountdown=Math.max(0,this.remainingCountdown-Math.min(50,interval));
       this.countdown=Math.max(1,Math.ceil(this.remainingCountdown/1000));
       if (this.remainingCountdown===0) { this.dialog='play'; this.perf.reset(now); this.sounds.play('tap'); }
       return;
     }
-    const steps=this.engine.advance(interval), simulated=this.now();
+    this.profileCounter+=1;
+    // Eleven avoids phase-locking the samples to six-tick targeting or thirty-tick AI commands.
+    const steps=this.engine.advance(interval,this.profileCounter%11===0 ? this.profileClock : undefined), simulated=this.now();
     this.paint(); const painted=this.now();
-    if (now-this.lastHud>=100) { this.lastHud=now; this.updateHud(); }
-    const saveStart=this.now();
-    if (this.engine.round.finished) {
-      this.stop(); this.updateHud(); this.dialog='result'; this.publishResult();
-    } else if (now-this.lastSave>=5000) { this.lastSave=now; this.save(); }
+    let hudChanged=false;
+    if (now-this.lastHud>=100) { this.lastHud=now; hudChanged=this.updateHud(); }
+    const saveStart=this.now(), finished=this.engine.round.finished;
+    if(finished) { this.stop(false); this.updateHud(); this.dialog='result'; this.publishResult(); }
+    else if (now-this.lastSave>=5000) { this.lastSave=now; this.save(); }
     const saveSubmitted=this.now();
     this.playEvents();
-    this.perf.frame({at:now,interval:interval,logic:simulated-now,paint:painted-simulated,total:this.now()-now,
+    const completed=this.now(), sampled=this.engine.timing, r=this.engine.round;
+    this.perf.frame({at:now,interval:interval,logic:simulated-now,paint:painted-simulated,total:completed-now,
+      hud:saveStart-painted,hudChanged:hudChanged,clock:clock,sprites:this.renderer.mode(),audio:completed-saveSubmitted,
       save:saveSubmitted-saveStart,steps:steps,checks:this.engine.checks,scans:this.engine.scans,dropped:this.engine.droppedMs,
-      count:this.engine.round.entities.length,seed:this.configuration.seed});
+      count:r.entities.length,seed:this.configuration.seed,elapsed:this.engine.time(),rock:r.counts[0],scissors:r.counts[1],cloth:r.counts[2],
+      effects:this.profile.reducedMotion ? 0 : this.engine.effects.length,conversions:r.conversions,contacts:this.engine.contacts,crowding:this.engine.crowding,
+      sampled:sampled.steps,grid:sampled.grid,seek:sampled.seek,move:sampled.move,contact:sampled.contact,rules:sampled.rules});
+    if(finished)this.perf.finish('结算');
   }
+  private perfScene(): ArenaPerfScene {
+    const r=this.engine.round;
+    return {session:r.session,label:arenaSceneLabel(r.config),seed:r.config.seed,initial:r.config.counts.join('/'),
+      window:`${this.pageWidth.toFixed(1)}×${this.pageHeight.toFixed(1)}`,board:this.viewport.board.width,density:this.pixelRatio,fold:this.fold.status,
+      dark:this.dark,reduced:this.profile.reducedMotion,sound:this.soundEnabled};
+  }
+  private reportScene(): void { if(this.hasRound && this.loaded)this.perf.context(this.perfScene()); }
   private playEvents(): void {
     const events=this.engine.sounds;
     if (events.length===0) return;
@@ -341,7 +376,9 @@ export struct CoopArenaPage {
     for (let i=0;i<priority.length;i+=1) if (events.includes(priority[i])) { this.sounds.play(priority[i]); break; }
     events.length=0;
   }
-  private stop(): void { this.clock.stop(); this.cancelInput(); this.engine.resetClock(); this.sounds.silence(); }
+  private stop(finishSampling: boolean = true): void {
+    if(finishSampling)this.perf.finish(this.engine.round.finished ? '结算' : '暂停或退出');
+    this.clock.stop(); this.cancelInput(); this.engine.resetClock(); this.sounds.silence(); }
   private pause(message: string = '歇一会儿，队友们会等你'): void {
     if (this.dialog!=='play' && this.dialog!=='countdown') { this.cancelInput(); return; }
     this.stop(); this.dialog='paused'; this.message=message; this.save(); this.paint();
@@ -372,7 +409,9 @@ export struct CoopArenaPage {
   }
   private async save(): Promise<boolean> {
     if (!this.loaded || this.context===undefined) return false;
+    const began=this.now(), session=this.engine.round.session;
     const ok=await this.storage.save(this.context,arenaSave(this.profile,this.hasRound ? this.engine.serialize() : '',this.configuration));
+    this.perf.saved(this.now()-began,ok,session);
     if (!this.disposed) this.saveFailed=!ok;
     return ok;
   }
@@ -396,17 +435,34 @@ export struct CoopArenaPage {
     }
     if (!this.disposed) this.saving=false;
   }
-  private updateHud(): void {
+  private updateHud(): boolean {
     const r=this.engine.round, t=this.engine.time(), f=r.config.faction;
-    this.counts=r.counts.slice(); this.scores=r.scores.map((n:number):number => Math.floor(n));
-    this.timeLeft=Math.max(0,Math.ceil(this.engine.scenario.limit-t)); this.windLeft=r.windLeft[f];
-    this.cooldowns=r.readyAt[f].map((n:number):number => Math.max(0,Math.ceil(n-t)));
-    this.skillAllowed=[0,1,2].map((i:number):boolean => this.engine.skillReady(f,i));
+    let changed=false;
+    if(this.valuesDiffer(this.counts,r.counts)) { this.counts=r.counts.slice(); changed=true; }
+    const scores=r.scores.map((n:number):number => Math.floor(n));
+    if(this.valuesDiffer(this.scores,scores)) { this.scores=scores; changed=true; }
+    const left=Math.max(0,Math.ceil(this.engine.scenario.limit-t));
+    if(this.timeLeft!==left) { this.timeLeft=left; changed=true; }
+    if(this.windLeft!==r.windLeft[f]) { this.windLeft=r.windLeft[f]; changed=true; }
+    const cooldowns=r.readyAt[f].map((n:number):number => Math.max(0,Math.ceil(n-t)));
+    if(this.valuesDiffer(this.cooldowns,cooldowns)) { this.cooldowns=cooldowns; changed=true; }
+    const allowed=[this.engine.skillReady(f,0),this.engine.skillReady(f,1),this.engine.skillReady(f,2)];
+    if(allowed.some((value:boolean,i:number):boolean => value!==this.skillAllowed[i])) { this.skillAllowed=allowed; changed=true; }
     const moments=r.moments;
-    if (this.armed<0 && moments.length>0 && t-moments[moments.length-1].time<4) this.message=moments[moments.length-1].text;
-    else if (this.armed<0) this.message=this.engine.scenario.rule==='zones' ?
-      (r.capturing<0 ? '圈内并列或无人：暂停得分' : `${ARENA_NAMES[r.capturing]}队正在争夺据点 · 先到 ${this.engine.scenario.target} 分`) : this.engine.scenario.summary;
-    if (this.armed>=0 && !this.skillAllowed[this.armed]) this.cancelInput();
+    const notice=arenaLiveNotice(r,this.engine.scenario);
+    if(this.notice!==notice) { this.notice=notice; changed=true; }
+    let message=this.message;
+    if (this.armed<0 && moments.length>0 && t-moments[moments.length-1].time<4) message=moments[moments.length-1].text;
+    else if (this.armed<0) message=this.engine.scenario.rule==='zones' ?
+      (r.capturing<0 ? '据点争夺中 · 暂未得分' : `${ARENA_NAMES[r.capturing]}队占领中 · 目标 ${this.engine.scenario.target} 分`) : this.engine.scenario.summary;
+    if(this.armed<0 && notice.length>0)message=notice;
+    if(this.message!==message) { this.message=message; changed=true; }
+    if (this.armed>=0 && !this.skillAllowed[this.armed]) { this.cancelInput(); changed=true; }
+    return changed;
+  }
+  private valuesDiffer(a:number[],b:number[]): boolean {
+    for(let i=0;i<b.length;i+=1)if(a[i]!==b[i])return true;
+    return a.length!==b.length;
   }
   private arm(i:number): void {
     if (this.dialog!=='play' || !this.engine.skillReady(this.configuration.faction,i)) return;
@@ -450,26 +506,28 @@ export struct CoopArenaPage {
   private cancelInput(): void { this.input.cancel(); this.armed=-1; }
   private paint(): void {
     if (!this.canvasReady || this.disposed || !this.hasRound || this.viewport.limited) return;
-    this.renderer.paint(this.canvas,this.engine,this.viewport.board.width,this.dark,this.armed,this.input.x,this.input.y,this.profile.reducedMotion);
+    this.renderer.paint(this.canvas,this.engine,this.viewport.board.width,this.dark,this.armed,this.input.x,this.input.y,this.profile.reducedMotion,
+      this.dialog==='play' ? this.engine.interpolation() : 1);
   }
   private windowChanged(insets:ArenaInsets,creases:ArenaRect[],fold:ArenaFold): void {
     const changed=this.fold.status!==fold.status || JSON.stringify(this.insets)!==JSON.stringify(insets) || JSON.stringify(this.creases)!==JSON.stringify(creases);
     this.insets=insets; this.creases=creases; this.fold=fold;
     if (changed) { this.pause('屏幕布局变了，准备好再继续'); this.cancelInput(); }
-    this.relayout();
+    this.relayout(); this.reportScene();
   }
   private relayout(): void {
     if (this.pageWidth<=0 || this.pageHeight<=0) return;
     const next=arenaLayout(this.pageWidth,this.pageHeight,this.insets,this.creases);
     if (JSON.stringify(next)===JSON.stringify(this.viewport)) return;
-    this.pause('屏幕布局变了，准备好再继续'); this.cancelInput(); this.viewport=next; this.paint();
+    this.pause('屏幕布局变了，准备好再继续'); this.cancelInput(); this.viewport=next; this.paint(); this.reportScene();
   }
-  private themeChanged(): void { this.hostWindow.setDark(this.dark); this.paint(); }
-  private soundChanged(): void { this.sounds.setEnabled(this.soundEnabled); }
+  private themeChanged(): void { this.hostWindow.setDark(this.dark); this.paint(); this.reportScene(); }
+  private soundChanged(): void { this.sounds.setEnabled(this.soundEnabled); this.reportScene(); }
   private toggleMotion(): void {
     const p: ArenaProfile=JSON.parse(JSON.stringify(this.profile)) as ArenaProfile;
-    p.reducedMotion=!p.reducedMotion; this.profile=p; this.save(); this.paint();
+    p.reducedMotion=!p.reducedMotion; this.profile=p; this.save(); this.paint(); this.reportScene();
   }
+  private clockText(): string { return `${Math.floor(this.timeLeft/60)}:${(this.timeLeft%60).toString().padStart(2,'0')}`; }
   private now(): number { return systemDateTime.getUptime(systemDateTime.TimeType.STARTUP,true)/1000000; }
   private sheetWidth(max:number): number { return Math.max(1,Math.min(max,this.viewport.pane.width-16)); }
   private sheetX(max:number): number { return this.viewport.pane.x+(this.viewport.pane.width-this.sheetWidth(max))/2; }

@@ -7,11 +7,13 @@ import struct
 import wave
 
 ROOT = Path(__file__).resolve().parents[1] / 'entry/src/main/resources/rawfile/gamesNext/coopArena'
-for folder in ['factions', 'icons', 'scene', 'audio']:
+for folder in ['factions', 'tokens', 'icons', 'scene', 'audio']:
     (ROOT / folder).mkdir(parents=True, exist_ok=True)
 
 def svg(path, body, box='0 0 100 100'):
-    (ROOT / path).write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="{box}">{body}</svg>\n')
+    # ArkUI Image supplies a layout size; Canvas ImageBitmap needs an intrinsic size as well.
+    _, _, width, height = box.split()
+    (ROOT / path).write_text(f'<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="{box}">{body}</svg>\n')
 
 paths = {
     'back':'M17 5 7 12l10 7M7 12h15',
@@ -33,7 +35,9 @@ paths = {
     'tune':'M4 6h16M4 12h16M4 18h16M8 3v6M16 9v6M9 15v6',
     'save':'M5 3h12l4 4v14H3V3ZM7 3v6h9V3M7 21v-8h10v8',
     'eye':'M2 12q10-15 20 0-10 15-20 0ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0',
-    'home':'m3 11 9-8 9 8M6 9v12h12V9M10 21v-7h4v7'
+    'home':'m3 11 9-8 9 8M6 9v12h12V9M10 21v-7h4v7',
+    'clock':'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 6v6l4 2',
+    'arrow':'M4 12h15m-5-5 5 5-5 5'
 }
 for dark in [False, True]:
     theme = 'dark' if dark else 'light'
@@ -50,10 +54,22 @@ for dark in [False, True]:
     for f, body in enumerate([rock,scissors,cloth]):
         face = '' if f == 1 else '<g fill="#334434"><ellipse cx="43" cy="55" rx="2.3" ry="3"/><ellipse cx="63" cy="53" rx="2.3" ry="3"/></g><path d="M49 64q5 5 10-1" fill="none" stroke="#334434" stroke-width="2.5" stroke-linecap="round"/><g fill="#eab1a0" opacity=".7"><ellipse cx="35" cy="63" rx="5" ry="3"/><ellipse cx="71" cy="61" rx="5" ry="3"/></g>'
         svg(f'factions/{f}_{theme}.svg',body+face)
+        token_fill = (['#304652','#503b30','#354b34'] if dark else ['#e4eff3','#fbedde','#eaf0de'])[f]
+        token_line = (['#9dbdce','#e6ae8b','#a6c393'] if dark else ['#83a6b5','#d49977','#94b384'])[f]
+        # The visible outer disc matches the 26-world-unit contact radius (48/100 of this SVG).
+        svg(f'tokens/{f}_{theme}.svg',f'<circle cx="50" cy="50" r="47" fill="{token_fill}" stroke="{token_line}" stroke-width="2"/><path d="M18 36a35 35 0 0 1 43-20" fill="none" stroke="{token_line}" stroke-opacity=".45" stroke-width="2" stroke-linecap="round"/><g transform="translate(11 10) scale(.78)">{body}{face}</g>')
     bg='#101110' if dark else '#fff4e4'; wash='#252b21' if dark else '#eaf0d5'; clay='#383027' if dark else '#fae8ca'
-    svg(f'scene/garden_{theme}.svg',f'<path fill="{bg}" d="M0 0h900v1200H0Z"/><path fill="{wash}" d="M0 180C230 170 200 520 0 650Z"/><path fill="{clay}" d="M900 50C600 200 650 490 900 660Z"/><path fill="{wash}" d="M20 1110C300 850 630 1040 880 1120Q490 1185 20 1110Z"/><g fill="none" stroke="{clay}" stroke-width="3"><circle cx="800" cy="960" r="9"/><circle cx="78" cy="880" r="5"/></g>','0 0 900 1200')
+    svg(f'scene/garden_{theme}.svg',f'<path fill="{bg}" d="M0 0h900v1200H0Z"/><path fill="{wash}" opacity=".65" d="M0 140C180 130 170 430 0 610Z"/><path fill="{clay}" opacity=".55" d="M900 30C670 130 710 400 900 560Z"/><path fill="{wash}" opacity=".5" d="M0 1200v-75c220-95 310 70 540 20s310-38 360-40v95Z"/><g fill="none" stroke="{clay}" stroke-width="3"><circle cx="824" cy="984" r="7"/><path d="M69 935q14-18 28 0m-14 0v-24"/></g>','0 0 900 1200')
     ground='#272c22' if dark else '#eef0dc'; border='#6e6b4b' if dark else '#d8bd8b'; leaf='#5d7958' if dark else '#9dbc88'
     svg(f'scene/arena_{theme}.svg',f'<rect x="5" y="5" width="710" height="710" rx="40" fill="{ground}" stroke="{border}" stroke-width="7"/><rect x="20" y="20" width="680" height="680" rx="30" fill="none" stroke="{border}" stroke-opacity=".35" stroke-width="2"/><g stroke="{border}" stroke-width="5" stroke-linecap="round" opacity=".55"><path d="M65 14h100m390 0h90M65 706h100m390 0h90M14 65v100m0 390v90M706 65v100m0 390v90"/></g><g fill="{leaf}" opacity=".45"><ellipse cx="37" cy="45" rx="8" ry="15" transform="rotate(-30 37 45)"/><ellipse cx="685" cy="676" rx="7" ry="15" transform="rotate(35 685 676)"/></g>','0 0 720 720')
+    pot = '#a67754' if dark else '#dca878'
+    rim = '#d1a373' if dark else '#b98557'
+    soil = '#574538' if dark else '#b48b60'
+    sprout = '#a3bd7f' if dark else '#7fa56c'
+    plant = f'<circle r="37" fill="{pot}" stroke="{rim}" stroke-width="2"/><circle r="28" fill="{soil}"/><path d="M-26 15a30 30 0 0 0 48 5M-27-14a30 30 0 0 1 13-12" fill="none" stroke="{rim}" stroke-width="3" stroke-linecap="round"/><g fill="{sprout}" stroke="{soil}" stroke-width="1.5"><path d="M0 6C-30 5-29-25-8-18Q1-15 0 6Z"/><path d="M0 6C-2-23 24-31 25-10Q23 2 0 6Z"/><path d="M0 6C24-2 30 17 16 23Q2 26 0 6Z"/><path d="M0 6C-3 31-29 21-24 9Q-16-1 0 6Z"/></g><circle cx="1" cy="5" r="6" fill="{leaf}"/>'
+    arena = (ROOT / f'scene/arena_{theme}.svg').read_text().strip()
+    planters = ''.join(f'<g transform="translate({x} {y})">{plant}</g>' for x,y in [(220,330),(500,330),(360,535)])
+    (ROOT / f'scene/arena_garden_{theme}.svg').write_text(arena.replace('</svg>',planters+'</svg>')+'\n')
     svg(f'scene/bench_{theme}.svg',f'<path d="M20 83h160M34 84v8m131-8v8" stroke="{border}" stroke-width="7" stroke-linecap="round"/><path d="M30 82 26 57h28l-5 25" fill="{clay}"/><path d="M41 59V22M41 41Q15 35 21 16 45 24 41 41ZM42 50q29-9 26-26Q44 25 42 50Z" fill="{leaf}" stroke="{leaf}" stroke-width="3"/><g transform="translate(90 40) scale(.45)">{rock}</g>','0 0 200 100')
     svg(f'scene/unfold_{theme}.svg',f'<rect x="25" y="16" width="150" height="96" rx="14" fill="{ground}" stroke="{border}" stroke-width="4"/><path d="M100 18v92" stroke="{border}" stroke-width="2" stroke-dasharray="5 5"/><path d="m69 51-15 14 15 14m62-28 15 14-15 14M54 65h33m26 0h33" fill="none" stroke="{leaf}" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>','0 0 200 128')
     svg(f'scene/mark_{theme}.svg',f'<rect width="100" height="100" rx="30" fill="{clay}"/><g transform="translate(3 2) scale(.54)">{rock}</g><g transform="translate(44 28) scale(.5)">{scissors}</g><g transform="translate(3 48) scale(.48)">{cloth}</g>')

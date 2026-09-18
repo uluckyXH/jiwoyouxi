@@ -15,5 +15,9 @@ export class ArenaPalette {
     return `${ARENA_ASSETS}icons/${name}_${primary ? 'primary_' : ''}${dark ? 'dark' : 'light'}.svg`;
   }
   static piece(f: number, dark: boolean): string { return `${ARENA_ASSETS}factions/${f}_${dark ? 'dark' : 'light'}.svg`; }
+  static token(f: number, dark: boolean): string { return `${ARENA_ASSETS}tokens/${f}_${dark ? 'dark' : 'light'}.svg`; }
+  static teamSurface(f: number, dark: boolean): string {
+    return (dark ? ['#30414a','#49352b','#30402d'] : ['#e8eff0','#fbebdf','#e8efdc'])[f];
+  }
   static scene(name: string, dark: boolean): string { return `${ARENA_ASSETS}scene/${name}_${dark ? 'dark' : 'light'}.svg`; }
 }

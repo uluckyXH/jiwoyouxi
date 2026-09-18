@@ -1,6 +1,8 @@
 import { ArenaConfig, ArenaProfile, ARENA_MISSIONS, ARENA_NAMES, arenaDefaultConfig, arenaProfile, arenaPractice } from './ArenaModel';
 import { ArenaPalette as P } from './ArenaPalette';
 import { ArenaAction, ArenaIcon } from './ArenaControls';
+import { ARENA_EVENTS, ArenaEventGuide } from './ArenaGuide';
+import { ArenaEventCard, ArenaMissionCard } from './ArenaGuideCards';
 
 @Component
 export struct ArenaSetup {
@@ -58,11 +60,14 @@ export struct ArenaSetup {
           } else { this.Modes(); this.Teams() }
           if (this.mode === 'challenge') {
             Column({space:8}) {
-              this.Section('八个庭院挑战', '每关固定开局，可反复练习')
+              this.Section('八个庭院挑战', '点选关卡，展开目标、技能和拿星说明')
               ForEach([0,1,2,3], (row: number) => {
-                Row({space:8}) { this.Mission(row*2); this.Mission(row*2+1) }.width('100%')
+                Column({space:8}) {
+                  Row({space:8}) { this.Mission(row*2); this.Mission(row*2+1) }.width('100%')
+                  if(Math.floor(this.mission/2)===row) { ArenaMissionCard({mission:this.mission,dark:this.dark}) }
+                }.width('100%')
               })
-              Text('通关得 1 星；风推不超过 1 次再得 1 星；提前 20% 完成再得 1 星。生存关第三星要求至少剩 3 人。')
+              Text('每关固定开局，可反复练习；保存本关最高星数，不会扣掉已经拿到的星星。')
                 .fontSize(11).lineHeight(18).fontColor(P.muted(this.dark))
             }.width('100%')
           } else {
@@ -71,6 +76,15 @@ export struct ArenaSetup {
             if (this.options) {
               Column({space:10}) {
                 this.Section('小队人数', '每队 3–20 人，最多 60 人')
+                Row({space:6}) {
+                  ForEach([8,12,20], (count:number) => {
+                    Button(`${count*3} 位`).layoutWeight(1).height(44).fontSize(13)
+                      .fontColor(this.counts.every((n:number):boolean => n===count) ? P.onAccent(this.dark) : P.ink(this.dark))
+                      .backgroundColor(this.counts.every((n:number):boolean => n===count) ? P.accent(this.dark) : P.soft(this.dark))
+                      .accessibilityText(`三队各 ${count} 位，共 ${count*3} 位队员`)
+                      .onClick(() => { this.counts=[count,count,count]; })
+                  })
+                }.width('100%')
                 ForEach([0,1,2], (f: number) => {
                   Row({space:8}) {
                     Image($rawfile(P.piece(f,this.dark))).width(30).height(30).draggable(false).accessibilityLevel('no')
@@ -82,16 +96,18 @@ export struct ArenaSetup {
                       .enabled(this.counts[f]<20).accessibilityText(`增加${ARENA_NAMES[f]}人数`).onClick(() => this.changeCount(f,1))
                   }.width('100%')
                 })
-                this.Section('庭院事件', '带预告的变化，随时可以关闭')
+                this.Section('庭院事件', '开局前选择，每局一种；点选后查看说明')
                 Flex({wrap:FlexWrap.Wrap}) {
-                  ForEach(['none','garden','wind','traitor','shrink'], (name: string, index: number) => {
-                    Button(['平静庭院','花盆迷阵','一阵微风','临阵换队','围栏收拢'][index])
+                  ForEach(ARENA_EVENTS, (event: ArenaEventGuide) => {
+                    Button(event.name)
                       .height(44).margin({right:6,bottom:6}).padding({left:14,right:14}).fontSize(13)
-                      .fontColor(name===this.event ? P.onAccent(this.dark) : P.ink(this.dark))
-                      .backgroundColor(name===this.event ? P.accent(this.dark) : P.soft(this.dark))
-                      .onClick(() => { this.event = name; })
-                  })
+                      .fontColor(event.id===this.event ? P.onAccent(this.dark) : P.ink(this.dark))
+                      .backgroundColor(event.id===this.event ? P.accent(this.dark) : P.soft(this.dark))
+                      .onClick(() => { this.event = event.id; })
+                  }, (event:ArenaEventGuide):string => event.id)
                 }.width('100%')
+                ArenaEventCard({event:this.event,dark:this.dark})
+                Text('事件时间从开局算起；若对局提前结束，后续事件不再发生。').fontSize(11).lineHeight(18).fontColor(P.muted(this.dark))
                 Text(arenaPractice(this.config()) ? '自由练习：不计胜场与成就，尽管试试不同组合。' : '均衡对局：正常记录胜场与成就。')
                   .fontSize(12).lineHeight(19).fontColor(P.muted(this.dark))
               }.padding(14).borderRadius(20).backgroundColor(P.surface(this.dark))

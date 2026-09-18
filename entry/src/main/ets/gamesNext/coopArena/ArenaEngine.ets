@@ -1,4 +1,4 @@
-import { ArenaConfig, ArenaEffect, ArenaEntity, ArenaObstacle, ArenaRound, ArenaScenario, ARENA_NAMES, ARENA_MISSION_SEEDS,
+import { ArenaConfig, ArenaEffect, ArenaEntity, ArenaObstacle, ArenaRound, ArenaScenario, ARENA_NAMES, ARENA_MISSION_SEEDS, ARENA_RADIUS, ARENA_INSET,
   arenaBeats, arenaClamp, arenaConfigValid, arenaDefaultConfig, arenaHome, arenaLeader, arenaScenario } from './ArenaModel';
 
 const STEP: number = 1 / 60;
@@ -6,6 +6,9 @@ const CELL: number = 72;
 const GRID: number = 10;
 const COOLDOWNS: number[] = [10,16,12];
 const SKILL_RADIUS: number[] = [158,86,115];
+export interface ArenaStepTiming {
+  steps: number; grid: number; seek: number; move: number; contact: number; rules: number;
+}
 
 /** All simulation state is in world units. Display size and theme never reach this class. */
 export class ArenaEngine {
@@ -17,9 +20,16 @@ export class ArenaEngine {
   checks: number = 0;
   scans: number = 0;
   droppedMs: number = 0;
+  contacts: number = 0;
+  crowding: number = 0;
+  timing: ArenaStepTiming = {steps:0,grid:0,seek:0,move:0,contact:0,rules:0};
   private buckets: number[][] = [];
   private losses: number[] = [];
   private depth: number[] = [];
+  private correctionX: number[] = [];
+  private correctionY: number[] = [];
+  private previousX: number[] = [];
+  private previousY: number[] = [];
   private accumulator: number = 0;
 
   constructor(config: ArenaConfig = arenaDefaultConfig()) {
@@ -50,38 +60,63 @@ export class ArenaEngine {
     return this.round.rng / 4294967296;
   }
   border(): number { return this.scenario.shrink ? Math.min(125, Math.max(0, this.time() - 15) * 3.2) : 0; }
-  advance(ms: number): number {
-    this.checks=0; this.scans=0; this.droppedMs=0;
+  advance(ms: number, sampleNow?: () => number): number {
+    this.checks=0; this.scans=0; this.droppedMs=0; this.contacts=0; this.crowding=0;
+    this.timing.steps=0; this.timing.grid=0; this.timing.seek=0; this.timing.move=0; this.timing.contact=0; this.timing.rules=0;
     if (!Number.isFinite(ms) || ms <= 0 || this.round.finished) return 0;
     this.droppedMs=Math.max(0,ms-50);
     this.accumulator += Math.min(50, ms) / 1000;
-    let steps = 0, checks = 0, scans = 0;
+    let steps = 0, checks = 0, scans = 0, contacts = 0, crowding = 0;
     while (this.accumulator + 0.00000001 >= STEP && steps < 3 && !this.round.finished) {
-      this.accumulator -= STEP; this.step(); steps += 1;
-      checks+=this.checks; scans+=this.scans;
+      this.accumulator -= STEP; this.step(sampleNow); steps += 1;
+      checks+=this.checks; scans+=this.scans; contacts+=this.contacts; crowding=Math.max(crowding,this.crowding);
     }
-    this.checks=checks; this.scans=scans;
+    this.checks=checks; this.scans=scans; this.contacts=contacts; this.crowding=crowding;
     if (steps === 3) this.accumulator = Math.max(0, this.accumulator % STEP);
     return steps;
   }
-  resetClock(): void { this.accumulator = 0; }
-  step(): void {
+  resetClock(): void { this.accumulator = 0; this.rememberPositions(); }
+  interpolation(): number { return arenaClamp(this.accumulator / STEP,0,1); }
+  visualX(index: number, alpha: number): number {
+    const x=this.round.entities[index].x, previous=this.previousX[index];
+    return previous === undefined ? x : previous+(x-previous)*alpha;
+  }
+  visualY(index: number, alpha: number): number {
+    const y=this.round.entities[index].y, previous=this.previousY[index];
+    return previous === undefined ? y : previous+(y-previous)*alpha;
+  }
+  private rememberPositions(): void {
+    const units=this.round.entities;
+    this.previousX.length=units.length; this.previousY.length=units.length;
+    for(let i=0;i<units.length;i+=1) { this.previousX[i]=units[i].x; this.previousY[i]=units[i].y; }
+  }
+  step(sampleNow?: () => number): void {
     if (this.round.finished) return;
-    this.round.tick += 1; this.checks = 0; this.scans = 0;
+    this.round.tick += 1; this.checks = 0; this.scans = 0; this.contacts=0; this.crowding=0;
     const t = this.time();
-    this.rebuild();
+    let mark=sampleNow!==undefined ? sampleNow() : 0;
+    this.rememberPositions(); this.rebuild();
+    if(sampleNow!==undefined) { const next=sampleNow(); this.timing.grid+=next-mark; mark=next; }
     const units = this.round.entities;
     for (let i = 0; i < units.length; i += 1) {
       if ((this.round.tick + units[i].id) % 6 === 0) this.chooseTargets(i);
-      this.move(units[i]);
     }
-    this.rebuild(); this.collide(); this.recount();
+    if(sampleNow!==undefined) { const next=sampleNow(); this.timing.seek+=next-mark; mark=next; }
+    for (let i = 0; i < units.length; i += 1) this.move(units[i]);
+    if(sampleNow!==undefined) { const next=sampleNow(); this.timing.move+=next-mark; mark=next; }
+    this.rebuild(); this.collide();
+    if(sampleNow!==undefined) { const next=sampleNow(); this.timing.contact+=next-mark; mark=next; }
+    this.recount();
     this.events();
     if (this.scenario.rule === 'zones') { this.supply(); this.zone(); }
     if (this.round.tick % 30 === 0) this.computer();
     if (this.round.tick % 60 === 0) this.sample();
-    this.effects = this.effects.filter((fx: ArenaEffect): boolean => t - fx.at < 0.65);
+    // Retain the bounded effect buffer without allocating a new array every simulation step.
+    let kept=0;
+    for(let i=0;i<this.effects.length;i+=1) if(t-this.effects[i].at<.65) this.effects[kept++]=this.effects[i];
+    this.effects.length=kept;
     this.resolveResult();
+    if(sampleNow!==undefined) { this.timing.rules+=sampleNow()-mark; this.timing.steps+=1; }
   }
   skillReady(f: number, skill: number): boolean {
     return !this.round.finished && f >= 0 && f < 3 && skill >= 0 && skill < 3 && this.scenario.skills[skill] &&
@@ -119,7 +154,7 @@ export class ArenaEngine {
       const r = JSON.parse(raw) as ArenaRound;
       if (!this.valid(r)) return false;
       this.round = r; this.scenario = arenaScenario(r.config); this.buildObstacles();
-      this.effects = []; this.sounds = []; this.accumulator = 0; this.recount();
+      this.effects = []; this.sounds = []; this.resetClock(); this.recount();
       return true;
     } catch (_) { return false; }
   }
@@ -128,10 +163,11 @@ export class ArenaEngine {
     // Chosen squad occupies the same starting sector. Swapping identities cannot change challenge difficulty.
     const home = arenaHome((f-this.round.config.faction+3+this.round.config.seed%3)%3);
     let x = home.x, y = home.y;
+    const min=ARENA_INSET+ARENA_RADIUS+this.border(), max=720-min;
     for (let tries = 0; tries < 70; tries += 1) {
       const angle = this.nextRandom() * Math.PI * 2, radius = 95 * Math.sqrt(this.nextRandom());
-      x = arenaClamp(home.x + Math.cos(angle) * radius, 34, 686);
-      y = arenaClamp(home.y + Math.sin(angle) * radius, 34, 686);
+      x = arenaClamp(home.x + Math.cos(angle) * radius, min, max);
+      y = arenaClamp(home.y + Math.sin(angle) * radius, min, max);
       if (this.round.entities.every((e: ArenaEntity): boolean => (e.x-x)*(e.x-x)+(e.y-y)*(e.y-y) > 2809)) break;
     }
     this.round.entities.push({ id: this.round.nextId++, faction: f, x: x, y: y,
@@ -144,6 +180,7 @@ export class ArenaEngine {
     for (let i = 0; i < units.length; i += 1) {
       const x = arenaClamp(Math.floor(units[i].x / CELL),0,9), y = arenaClamp(Math.floor(units[i].y / CELL),0,9);
       this.buckets[y*GRID+x].push(i);
+      this.crowding=Math.max(this.crowding,this.buckets[y*GRID+x].length);
     }
   }
   private chooseTargets(i: number): void {
@@ -191,7 +228,7 @@ export class ArenaEngine {
     if (e.shieldUntil < t) e.shield = 0;
   }
   private bounds(e: ArenaEntity): void {
-    const min = 27+this.border(), max = 693-this.border();
+    const min = ARENA_INSET+ARENA_RADIUS+this.border(), max = 720-min;
     if (e.x < min || e.x > max) { e.x = arenaClamp(e.x,min,max); e.vx *= -.4; }
     if (e.y < min || e.y > max) { e.y = arenaClamp(e.y,min,max); e.vy *= -.4; }
     for (let i = 0; i < this.obstacles.length; i += 1) {
@@ -202,7 +239,12 @@ export class ArenaEngine {
   private collide(): void {
     const units = this.round.entities, t = this.time();
     this.losses.length = units.length; this.depth.length = units.length;
+    this.correctionX.length=units.length; this.correctionY.length=units.length;
     this.losses.fill(-1); this.depth.fill(0);
+    this.correctionX.fill(0); this.correctionY.fill(0);
+    const diameter=ARENA_RADIUS*2;
+    // Read a single position/faction snapshot. Applying separation inside this scan made the
+    // grid stale and let traversal order decide which contacts were seen in a crowded group.
     for (let i = 0; i < units.length; i += 1) {
       const a = units[i], cx = Math.floor(a.x/CELL), cy = Math.floor(a.y/CELL);
       for (let y = Math.max(0,cy-1); y <= Math.min(9,cy+1); y += 1) {
@@ -211,10 +253,12 @@ export class ArenaEngine {
           for (let p = 0; p < bucket.length; p += 1) {
             const j = bucket[p]; if (j <= i) continue; this.checks += 1;
             const b = units[j], dx = b.x-a.x, dy = b.y-a.y, sq = dx*dx+dy*dy;
-            if (sq >= 2704) continue;
-            const distance = Math.sqrt(sq), nx = distance > .01 ? dx/distance : 1, ny = distance > .01 ? dy/distance : 0;
-            const penetration = 52-distance, shift = penetration*.3;
-            a.x -= nx*shift; a.y -= ny*shift; b.x += nx*shift; b.y += ny*shift;
+            if (sq >= diameter*diameter) continue;
+            this.contacts+=1;
+            const distance = Math.sqrt(sq), nx = distance > .01 ? dx/distance : (a.id < b.id ? 1 : -1), ny = distance > .01 ? dy/distance : 0;
+            const penetration = diameter-distance, shift = penetration*.3;
+            this.correctionX[i]-=nx*shift; this.correctionY[i]-=ny*shift;
+            this.correctionX[j]+=nx*shift; this.correctionY[j]+=ny*shift;
             if (a.faction === b.faction) continue;
             const loser = arenaBeats(a.faction,b.faction) ? j : i;
             const winner = loser === j ? a.faction : b.faction;
@@ -224,7 +268,9 @@ export class ArenaEngine {
       }
     }
     for (let i = 0; i < units.length; i += 1) {
-      const e = units[i]; this.bounds(e);
+      const e = units[i], dx=this.correctionX[i], dy=this.correctionY[i];
+      const length=Math.sqrt(dx*dx+dy*dy), scale=length>13 ? 13/length : 1;
+      e.x+=dx*scale; e.y+=dy*scale; this.bounds(e);
       if (this.losses[i] < 0 || e.protectedUntil > t) continue;
       if (e.shield > 0 && e.shieldUntil > t) { e.shield = 0; e.protectedUntil = t+.6; continue; }
       e.faction = this.losses[i]; e.protectedUntil = t+.6; e.rallyUntil = 0; e.target = -1; e.predator = -1;

@@ -1,11 +1,12 @@
 export const ARENA_ASSETS: string = 'gamesNext/coopArena/';
 export const ARENA_WORLD: number = 720;
 export const ARENA_RADIUS: number = 26;
+export const ARENA_INSET: number = 24;
 export const ARENA_NAMES: string[] = ['石头', '剪刀', '布'];
 export const ARENA_COLORS: string[] = ['#7099b0', '#e68c69', '#7fac77'];
 export const ARENA_SKILLS: string[] = ['集结', '护阵', '风推'];
 // Fixed openings calibrated with identical commands under all three chosen identities.
-export const ARENA_MISSION_SEEDS: number[] = [72832,78681,73961,75474,76174,77145,77845,78816];
+export const ARENA_MISSION_SEEDS: number[] = [74066,76662,77364,78066,81609,81364,87748,93185];
 export interface ArenaPoint { x: number; y: number; }
 export interface ArenaObstacle { x: number; y: number; radius: number; }
 export interface ArenaConfig {

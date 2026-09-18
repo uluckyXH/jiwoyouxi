@@ -13,18 +13,19 @@ function method(name){
   assert.equal(depth,0);return page.slice(match.index,end);
 }
 const names=[...page.matchAll(/^  private (?:async )?(\w+)\(/gm)].map(m=>m[1]);
-const logic=['ArenaModel.ets','ArenaEngine.ets','ArenaLayout.ets','ArenaInput.ets','ArenaProgress.ets'].map(n=>readFileSync(new URL(n,base),'utf8')).join('\n');
+const logic=['ArenaModel.ets','ArenaGuide.ets','ArenaEngine.ets','ArenaLayout.ets','ArenaInput.ets','ArenaProgress.ets'].map(n=>readFileSync(new URL(n,base),'utf8')).join('\n');
 const harness=`class Page {
  constructor(){
   this.engine=new ArenaEngine();this.configuration=this.engine.round.config;this.profile=arenaProfile();
   this.loaded=true;this.hasRound=true;this.disposed=false;this.dialog='paused';this.remainingCountdown=0;
   this.input=new ArenaInput();this.armed=-1;this.countdown=3;this.message='';
+  this.counts=[8,8,8];this.scores=[0,0,0];this.cooldowns=[0,0,0];this.skillAllowed=[false,false,false];this.timeLeft=60;this.windLeft=2;
   this.insets={top:24,bottom:16,left:0,right:0};this.creases=[];this.fold={foldable:false,status:0};
-  this.pageWidth=390;this.pageHeight=844;this.viewport=arenaLayout(390,844);this.lastTick=0;this.lastHud=0;this.lastSave=0;
+  this.pageWidth=390;this.pageHeight=844;this.viewport=arenaLayout(390,844);this.lastTick=0;this.lastHud=0;this.lastSave=0;this.pixelRatio=1;this.profileCounter=0;this.profileClock=()=>this.now();
   this.canvasReady=true;this.canvas={};this.dark=false;this.soundEnabled=true;this.context={};this.saving=false;this.saveFailed=false;
   this.paints=0;this.played=[];this.saves=[];this.exits=0;this.scoresRecorded=[];this.achievements=[];
   this.clock={running:false,start:(f)=>{this.clock.running=true;this.clock.frame=f;},stop:()=>{this.clock.running=false;}};
-  this.perf={frame:()=>{},reset:()=>{}};this.renderer={paint:()=>this.paints++};
+  this.perf={frame:()=>{},reset:()=>{},begin:()=>{},finish:()=>{},context:()=>{},saved:()=>{},stall:()=>{}};this.renderer={paint:()=>this.paints++,mode:()=>'SVG 3/3'};
   this.sounds={play:n=>this.played.push(n),silence:()=>this.played.push('silence'),setEnabled:()=>{}};
   this.hostWindow={setDark:()=>{}};
   this.storage={lastLoadFailed:false,load:async()=>'',save:async(_context,raw)=>{this.saves.push(raw);return true;}};
@@ -48,6 +49,20 @@ await test('countdown, one active clock, no simulation before start',async()=>{
  walk(p,120);assert.equal(p.dialog,'play');walk(p,1000);assert.ok(p.engine.round.tick>=59&&p.engine.round.tick<=63);
  const queued=p.clock.frame;p.pause();const state=p.engine.serialize();now+=30000;queued();assert.equal(p.engine.serialize(),state);assert.equal(p.clock.running,false);
  p.resume();walk(p,20);assert.ok(p.engine.round.tick-JSON.parse(state).tick<=2);
+});
+await test('unchanged HUD keeps the same observable arrays, while real changes update immediately',async()=>{
+ const p=fresh();p.updateHud();const counts=p.counts,scores=p.scores,cooldowns=p.cooldowns,skills=p.skillAllowed;
+ for(let i=0;i<30;i++)assert.equal(p.updateHud(),false);
+ assert.equal(p.counts,counts);assert.equal(p.scores,scores);assert.equal(p.cooldowns,cooldowns);assert.equal(p.skillAllowed,skills);
+ p.engine.round.counts[0]+=1;assert.equal(p.updateHud(),true);assert.notEqual(p.counts,counts);assert.equal(p.counts[0],9);
+ assert.equal(p.clockText(),'1:00');p.timeLeft=9;assert.equal(p.clockText(),'0:09');
+});
+await test('changing missions refreshes observable scenery, name and available commands',async()=>{
+ const p=fresh();p.newRound({...context.makeConfig(),mode:'challenge',mission:0});
+ assert.equal(p.scenario.obstacles,false);assert.equal(p.scenario.skills[1],false);
+ p.newRound({...context.makeConfig(),mode:'challenge',mission:3});
+ assert.equal(p.scenario.obstacles,true);assert.equal(p.scenario.skills[1],true);assert.equal(p.scenario.name,'绕过花盆');
+ await p.save();const q=fresh();q.storage.load=async()=>p.saves.at(-1);await q.boot();assert.equal(q.scenario.obstacles,true);
 });
 await test('phone-sized folds stay playable after manual resume; world state never resizes',async()=>{
  const p=fresh();p.resume();walk(p,100);

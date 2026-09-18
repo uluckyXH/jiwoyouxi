@@ -81,29 +81,42 @@ export struct ArenaTeam {
   @Prop chosen: boolean = false;
   @Prop compact: boolean = false;
   build() {
-    if (this.compact) {
-      Column({space:1}) {
-        Row({space:3}) {
-          Image($rawfile(P.piece(this.faction,this.dark))).width(20).height(20).draggable(false).accessibilityLevel('no')
-          Text(`${ARENA_NAMES[this.faction]}${this.chosen ? '·你' : ''}`).fontSize(10).maxLines(1).fontColor(P.faction(this.faction,this.dark))
+    Column({space:2}) {
+      Row({space:5}) {
+        Image($rawfile(P.piece(this.faction,this.dark))).width(this.compact ? 19 : 25).height(this.compact ? 19 : 25)
+          .draggable(false).accessibilityLevel('no')
+        Text(ARENA_NAMES[this.faction]).fontSize(this.compact ? 10 : 12).fontWeight(FontWeight.Medium)
+          .maxLines(1).fontColor(P.faction(this.faction,this.dark))
+        if(this.chosen && !this.compact) {
+          Text('我方').fontSize(8).fontColor(P.faction(this.faction,this.dark)).padding({left:3,right:3,top:1,bottom:1})
+            .backgroundColor(P.surface(this.dark)).borderRadius(4)
         }
-        Text(this.zones ? `${Math.floor(this.score)}分 · ${this.count}人` : `${this.count}人`).fontSize(10).maxLines(1)
-          .fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
-      }.width('100%').height(42).justifyContent(FlexAlign.Center).borderRadius(14)
-        .backgroundColor(this.chosen ? P.soft(this.dark) : P.surface(this.dark))
-        .accessibilityText(`${ARENA_NAMES[this.faction]}队${this.chosen ? '，你的小队' : ''}，${this.count}人，${Math.floor(this.score)}分`)
-    } else {
-    Row({space:4}) {
-      Image($rawfile(P.piece(this.faction,this.dark))).width(this.compact ? 24 : 32).height(this.compact ? 24 : 32)
-        .draggable(false).accessibilityLevel('no')
-      Column({space:1}) {
-        Text(`${ARENA_NAMES[this.faction]}${this.chosen ? ' · 你' : ''}`).fontSize(10).maxLines(1).fontColor(P.faction(this.faction,this.dark))
-        Text(this.zones ? `${Math.floor(this.score)}分 · ${this.count}人` : `${this.count}人`).fontSize(this.compact ? 12 : 14)
-          .fontWeight(FontWeight.Medium).maxLines(1).fontColor(P.ink(this.dark))
-      }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-    }.width('100%').height(this.compact ? 40 : 54).justifyContent(FlexAlign.Center)
-      .borderRadius(16).backgroundColor(this.chosen ? P.soft(this.dark) : P.surface(this.dark))
-      .accessibilityText(`${ARENA_NAMES[this.faction]}队${this.chosen ? '，你的小队' : ''}，${this.count}人，${this.zones ? Math.floor(this.score)+'据点分' : ''}`)
-    }
+      }.justifyContent(FlexAlign.Center)
+      Row({space:3}) {
+        Text(`${this.zones ? Math.floor(this.score) : this.count}`).fontSize(this.compact ? 15 : 22)
+          .fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark)).maxLines(1)
+        Text(this.zones ? `分 · ${this.count} 位` : '位').fontSize(this.compact ? 9 : 10).fontColor(P.muted(this.dark)).maxLines(1)
+      }.alignItems(VerticalAlign.Bottom).justifyContent(FlexAlign.Center)
+    }.width('100%').height(this.compact ? 44 : 64).justifyContent(FlexAlign.Center).borderRadius(this.compact ? 13 : 18)
+      .backgroundColor(this.chosen ? P.teamSurface(this.faction,this.dark) : P.surface(this.dark))
+      .border({width:this.chosen ? 1 : 0,color:this.chosen ? P.faction(this.faction,this.dark) : P.line(this.dark)})
+      .accessibilityText(`${ARENA_NAMES[this.faction]}队${this.chosen ? '，你的小队' : ''}，${this.count}位队员${this.zones ? '，'+Math.floor(this.score)+'据点分' : ''}`)
+  }
+}
+
+@Component
+export struct ArenaRuleStrip {
+  @Prop dark: boolean = false;
+  build() {
+    Row({space:5}) {
+      Text('相遇转阵').fontSize(10).fontColor(P.muted(this.dark)).margin({right:3})
+      ForEach([0,1,2,0], (f:number,i:number) => {
+        Image($rawfile(P.piece(f,this.dark))).width(20).height(20).draggable(false).accessibilityLevel('no')
+        if(i<3) {
+          Image($rawfile(P.icon('arrow',this.dark))).width(12).height(12).opacity(.6).draggable(false).accessibilityLevel('no')
+        }
+      }, (f:number,i:number):string => `${f}-${i}`)
+    }.width('100%').height(24).justifyContent(FlexAlign.Center)
+      .accessibilityText('石头克剪刀，剪刀克布，布克石头。接触后，被克制的一方换队。')
   }
 }
