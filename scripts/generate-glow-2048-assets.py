@@ -66,6 +66,13 @@ for theme in ('light', 'dark'):
 <path d="M-20 194Q90 164 138 227T243 288" stroke-dasharray="3 13"/></g>
 <g fill="{gold}" fill-opacity=".38"><circle cx="58" cy="367" r="2.5"/><circle cx="751" cy="484" r="2"/><circle cx="724" cy="746" r="2.5"/>
 <path d="m92 772 4 9 9 4-9 4-4 9-4-9-9-4 9-4ZM670 286l3 7 7 3-7 3-3 7-3-7-7-3 7-3Z"/></g>''', 800, 1000)
+    base = '#151916' if dark else '#FFF4E4'
+    svg(f'scene/edge_fade_{theme}.svg', f'''<defs><linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="1000">
+<stop offset="0%" stop-color="{base}" stop-opacity="1"/>
+<stop offset="5%" stop-color="{base}" stop-opacity=".5"/><stop offset="12%" stop-color="{base}" stop-opacity="0"/>
+<stop offset="88%" stop-color="{base}" stop-opacity="0"/><stop offset="95%" stop-color="{base}" stop-opacity=".5"/>
+<stop offset="100%" stop-color="{base}" stop-opacity="1"/></linearGradient></defs>
+<rect width="800" height="1000" fill="url(#edge)"/>''', 800, 1000)
     svg(f'scene/window_{theme}.svg', f'''<defs><linearGradient id="beam" gradientUnits="userSpaceOnUse" x1="160" y1="170" x2="160" y2="430">
 <stop stop-color="{gold}" stop-opacity=".16"/><stop offset="100%" stop-color="{gold}" stop-opacity="0"/></linearGradient></defs>
 <path d="M95 220 26 430h117l37-210Zm102 0-31 210h135l-19-210Z" fill="url(#beam)"/>

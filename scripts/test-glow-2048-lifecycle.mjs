@@ -14,7 +14,7 @@ let page = readFileSync(resolve(root, folder, 'GlowPage.ets'), 'utf8');
 page = page.slice(0, page.indexOf('  build() {')) + page.slice(page.indexOf('  private async boot()'));
 page = clean(page).replace('@Component\nstruct GlowPage', 'class GlowPage')
   .replace(/@(Prop|State)(?:\s+@Watch\('[^']+'\))?\s*/g, '');
-const core = ['GlowModel.ets', 'GlowEngine.ets', 'GlowRenderTile.ets', 'GlowLayout.ets'].map(file =>
+const core = ['GlowModel.ets', 'GlowEngine.ets', 'GlowRenderTile.ets', 'GlowLayout.ets', 'GlowReflow.ets'].map(file =>
   clean(readFileSync(resolve(root, folder, file), 'utf8'))).join('\n');
 const timers = new Map();
 let nextTimer = 1;
@@ -31,7 +31,9 @@ class Storage {
   async save(_context, raw) { this.snapshots.push(raw); return this.ok; }
 }
 class Window { release() {} setDark() {} }
-const sandbox = { console, Curve: { EaseOut: 0 }, GlowAudio: Audio, GlowStorage: Storage, GlowWindow: Window,
+class Scroll { calls = []; scrollTo(options) { this.calls.push(options); } }
+class FrameCallback {}
+const sandbox = { console, Scroller: Scroll, FrameCallback, Curve: { EaseOut: 0 }, GlowAudio: Audio, GlowStorage: Storage, GlowWindow: Window,
   setTimeout: fn => { const id = nextTimer++; timers.set(id, fn); return id; }, clearTimeout: id => timers.delete(id) };
 vm.createContext(sandbox);
 vm.runInContext(stripTypeScriptTypes(core + '\n' + page, { mode: 'transform' }) + '\nglobalThis.Page = GlowPage;', sandbox);
@@ -39,7 +41,8 @@ vm.runInContext(stripTypeScriptTypes(core + '\n' + page, { mode: 'transform' }) 
 async function make(values = [2, 2, 4, 4]) {
   const controller = new sandbox.Page();
   const finishes = [];
-  controller.getUIContext = () => ({ animateTo: (options, change) => { change(); if (options.onFinish) finishes.push(options.onFinish); } });
+  const frames = [];
+  controller.getUIContext = () => ({ animateTo: (options, change) => { change(); if (options.onFinish) finishes.push(options.onFinish); }, postFrameCallback: callback => frames.push(callback) });
   controller.context = {};
   await controller.boot();
   const save = JSON.parse(controller.engine.serialize());
@@ -51,7 +54,7 @@ async function make(values = [2, 2, 4, 4]) {
   const scores = [], events = [];
   controller.recordScore = value => scores.push(value);
   controller.reportAchievementEvent = event => events.push(event);
-  return { controller, finishes, scores, events };
+  return { controller, finishes, frames, scores, events };
 }
 const board = tiles => JSON.stringify(tiles.map(({ id, value, index }) => ({ id, value, index })));
 const rendered = page => board(page.tiles);
@@ -124,6 +127,46 @@ await test('resize_during_slide_keeps_session_score_and_board', async () => {
   assert.equal(p.spawned, 0);
   finishes.shift()();
   assert.equal(p.engine.serialize(), snapshot);
+});
+
+await test('repeated_folding_reflows_all_controls_and_only_latest_frame_resets_scroll', async () => {
+  const { controller: p, finishes, frames } = await make();
+  p.move('left');
+  const round = p.engine.serialize();
+  const windows = [
+    [1200,900, []], [390,844, []], [1200,900, []],
+    [768,1024, [{ x:0, y:490, width:768, height:24 }]],
+    [1024,768, [{ x:480, y:0, width:24, height:768 }]],
+    [390,844, []], [1280,900, []]
+  ];
+  for (let cycle=0; cycle<5; cycle++) {
+    for (const [width,height,creases] of windows) {
+      p.pageWidth=width; p.pageHeight=height; p.creases=creases; p.relayout();
+      const l=p.layout;
+      assert.ok(l.pad.x >= 0 && l.pad.y >= 0);
+      assert.ok(l.pad.x+l.pad.width <= l.contentWidth);
+      assert.ok(l.pad.y+l.pad.height <= l.contentHeight);
+      assert.equal(p.engine.serialize(), round);
+    }
+  }
+  assert.ok(frames.length > 30);
+  const latest=frames.pop();
+  for (const frame of frames.splice(0)) frame.onIdle(0);
+  assert.equal(p.verticalScroll.calls.length, 0, 'old fold callbacks cannot move the new viewport');
+  latest.onIdle(0);
+  assert.deepEqual(JSON.parse(JSON.stringify(p.verticalScroll.calls)), [{xOffset:0,yOffset:0,animation:false}]);
+  assert.equal(p.horizontalScroll.calls.length, 1);
+  assert.equal(p.layout.wide, true);
+  assert.equal(p.layout.width, 1280);
+  assert.equal(rendered(p), board(p.engine.tiles));
+  finishes.shift()();
+  assert.equal(p.engine.serialize(), round);
+  p.relayout();
+  assert.equal(frames.length, 0, 'identical measurements preserve user scrolling');
+  p.pageWidth=390; p.relayout();
+  p.aboutToDisappear();
+  for (const frame of frames) frame.onIdle(0);
+  assert.equal(p.verticalScroll.calls.length, 1, 'no scrolling after route exit');
 });
 
 await test('background_cancels_pending_input_and_silences_audio', async () => {

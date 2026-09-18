@@ -2,14 +2,15 @@ import { common } from '@kit.AbilityKit';
 import { AchievementEvent } from '../../shell/AchievementModule';
 import { GlowAudio } from './GlowAudio';
 import { GlowBoard } from './GlowBoard';
-import { GlowActionButton, GlowDirectionPad, GlowIconButton, GlowStats, GlowUtilityButton } from './GlowControls';
+import { GlowDirectionPad, GlowIconButton, GlowStats, GlowUtilityButton } from './GlowControls';
 import { GlowBackdrop } from './GlowBackdrop';
 import { GlowDialog } from './GlowDialog';
 import { GlowEngine } from './GlowEngine';
-import { GlowCrease, GlowInsets, GlowLayout, glowLayout } from './GlowLayout';
+import { GlowCrease, GlowInsets, GlowLayout, glowLayout, sameGlowLayout } from './GlowLayout';
 import { GLOW_LOGO, GlowDirection, GlowMotion, GlowTile, GlowTurn, glowMax, glowTarget } from './GlowModel';
 import { GlowPalette as P } from './GlowPalette';
 import { GlowRenderTile, glowReconcileTiles } from './GlowRenderTile';
+import { GlowReflow } from './GlowReflow';
 import { GlowStorage } from './GlowStorage';
 import { GlowWindow } from './GlowWindow';
 
@@ -38,10 +39,13 @@ export struct GlowPage {
   private queued: GlowDirection | undefined = undefined;
   private settleTimer: number = -1;
   private returnDialog: string = '';
-  private pageWidth: number = 390;
-  private pageHeight: number = 844;
+  @State pageWidth: number = 390;
+  @State pageHeight: number = 844;
   private insets: GlowInsets = { top: 24, bottom: 16, left: 0, right: 0 };
-  private crease: GlowCrease = { x: 0, y: 0, width: 0, height: 0 };
+  private creases: GlowCrease[] = [];
+  private verticalScroll: Scroller = new Scroller();
+  private horizontalScroll: Scroller = new Scroller();
+  private layoutGeneration: number = 0;
   @State layout: GlowLayout = glowLayout(390, 844, { top: 24, bottom: 16, left: 0, right: 0 });
   @State tiles: GlowRenderTile[] = [];
   @State sessionKey: string = '';
@@ -68,7 +72,7 @@ export struct GlowPage {
     this.audio.init(this.context);
     this.host.setDark(this.dark);
     this.host.attach(this.context, (px: number): number => this.getUIContext().px2vp(px),
-      (insets: GlowInsets, crease: GlowCrease) => { this.insets = insets; this.crease = crease; this.relayout(); },
+      (insets: GlowInsets, creases: GlowCrease[]) => { this.insets = insets; this.creases = creases; this.relayout(); },
       () => this.backgrounded());
     this.boot();
   }
@@ -82,38 +86,17 @@ export struct GlowPage {
 
   build() {
     Stack({ alignContent: Alignment.TopStart }) {
-      GlowBackdrop({ dark: this.dark, canvasWidth: this.layout.width, canvasHeight: this.layout.height })
-        .position({ x: this.layout.x, y: this.layout.y })
+      GlowBackdrop({ dark: this.dark, canvasWidth: this.pageWidth, canvasHeight: this.pageHeight })
       Column({ space: 10 }) {
         this.Header()
-        Scroll() {
-          if (this.layout.wide) {
-            Row({ space: this.layout.gap }) {
-              this.BoardPanel()
-              Column({ space: 18 }) {
-                Text('暖 光 叠 数').fontSize(12).letterSpacing(5).fontColor(P.accent(this.dark))
-                GlowStats({ dark: this.dark, score: this.score, best: this.bestScore,
-                  moves: this.moves, gain: this.gain, turn: this.turnKey })
-                this.Journey()
-                this.ControlDeck()
-                Column({ space: 9 }) {
-                  Text('留一点空白，等下一次相遇').fontSize(16).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
-                  Text('让大数字靠在一角，\n给新数字留出移动的空间。')
-                    .fontSize(12).lineHeight(22).fontColor(P.muted(this.dark))
-                }.width('100%').padding(12).alignItems(HorizontalAlign.Start)
-              }.width(this.layout.rail).geometryTransition('glow-controls')
-            }.width('100%').justifyContent(FlexAlign.Center).alignItems(VerticalAlign.Center)
-          } else {
-            Column({ space: 10 }) {
-              GlowStats({ dark: this.dark, score: this.score, best: this.bestScore,
-                moves: this.moves, gain: this.gain, turn: this.turnKey })
-              this.Journey()
-              this.BoardPanel()
-              this.ControlDeck()
-            }.width('100%')
-          }
-        }.width('100%').height(this.layout.body).scrollBar(BarState.Auto).align(Alignment.Top)
-      }.width(this.layout.width).height(this.layout.height)
+        Scroll(this.horizontalScroll) {
+          Scroll(this.verticalScroll) {
+            this.PlayArea()
+          }.width(this.layout.contentWidth).height(this.layout.body)
+          .scrollable(ScrollDirection.Vertical).scrollBar(BarState.Auto).align(Alignment.TopStart)
+        }.width('100%').height(this.layout.body).scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Auto).align(Alignment.TopStart)
+      }.width(this.layout.width).height(this.layout.height).clip(true)
       .padding({ left: this.layout.gap, right: this.layout.gap, top: 4, bottom: 6 })
       .position({ x: this.layout.x, y: this.layout.y })
       .enabled(this.dialog.length === 0).accessibilityLevel(this.dialog.length === 0 ? 'auto' : 'no-hide-descendants')
@@ -139,10 +122,13 @@ export struct GlowPage {
   Header() {
     Row({ space: 8 }) {
       GlowIconButton({ dark: this.dark, icon: 'back', label: '返回大厅', action: () => this.exitRequested() })
-      Image($rawfile(GLOW_LOGO)).width(34).height(34).accessibilityLevel('no')
+      if (this.layout.width >= 300) {
+        Image($rawfile(GLOW_LOGO)).width(34).height(34).accessibilityLevel('no')
+      }
       Column({ space: 1 }) {
-        Text('2048').fontSize(25).fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
-        Text('暖光叠数').fontSize(10).fontColor(P.muted(this.dark))
+        Text('2048').fontSize(25).minFontSize(12).maxFontSize(25).maxLines(1).width('100%')
+          .fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
+        Text('暖光叠数').fontSize(10).maxLines(1).width('100%').fontColor(P.muted(this.dark))
       }.layoutWeight(1).alignItems(HorizontalAlign.Start)
       GlowIconButton({ dark: this.dark, icon: this.soundEnabled ? 'sound' : 'muted',
         label: this.soundEnabled ? '关闭音效' : '开启音效', action: () => this.updateSound(!this.soundEnabled) })
@@ -164,7 +150,8 @@ export struct GlowPage {
       }.width('100%')
       Progress({ value: Math.log2(this.maxTile), total: Math.log2(glowTarget(this.maxTile)), type: ProgressType.Linear })
         .width('100%').color(P.accent(this.dark)).backgroundColor(P.soft(this.dark)).style({ strokeWidth: 4 })
-    }.width('100%').height(48).padding({ left: 4, right: 4, top: 4 })
+    }.width(this.layout.journey.width).height(this.layout.journey.height).padding({ left: 4, right: 4, top: 4 })
+    .position({ x: this.layout.journey.x, y: this.layout.journey.y })
   }
 
   @Builder
@@ -177,32 +164,42 @@ export struct GlowPage {
       }).translate({ x: this.boardNudge }).opacity(this.dialog.length > 0 ? .25 : 1)
       Text(this.saveFailed ? '进度未保存 · 暂停后可重试' : this.hint).fontSize(11).maxLines(1)
         .fontColor(this.saveFailed ? P.danger(this.dark) : P.muted(this.dark)).height(16)
-    }.width(this.layout.board).geometryTransition('glow-board')
+    }.width(this.layout.board).height(this.layout.boardBox.height)
+    .position({ x: this.layout.boardBox.x, y: this.layout.boardBox.y })
   }
 
   @Builder
-  ControlDeck() {
-    if (this.layout.wide) {
-      Column({ space: 12 }) {
-        GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
-          move: (direction: GlowDirection) => this.move(direction) })
-        Row({ space: 8 }) {
-          GlowActionButton({ dark: this.dark, icon: 'restart', label: '重新开局', primary: false,
-            action: () => this.requestRestart() }).layoutWeight(1)
-          GlowActionButton({ dark: this.dark, icon: 'help', label: '游玩指南', primary: false,
-            action: () => this.present('help') }).layoutWeight(1)
-        }.width('100%')
-      }.width('100%').geometryTransition('glow-pad')
-    } else {
-      Row({ space: 10 }) {
-        GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
-          move: (direction: GlowDirection) => this.move(direction) })
-        Column({ space: 10 }) {
-          GlowUtilityButton({ dark: this.dark, icon: 'restart', label: '重新开局', action: () => this.requestRestart() })
-          GlowUtilityButton({ dark: this.dark, icon: 'help', label: '游玩指南', action: () => this.present('help') })
-        }.layoutWeight(1)
-      }.width('100%').height(188).geometryTransition('glow-pad')
-    }
+  PlayArea() {
+    // One instance of every interactive component survives every posture change.
+    // Coordinates come from one layout result; no shared-element transforms or
+    // old Row/Column branches can carry an offset into the new viewport.
+    Stack({ alignContent: Alignment.TopStart }) {
+      GlowStats({ dark: this.dark, score: this.score, best: this.bestScore,
+        moves: this.moves, gain: this.gain, turn: this.turnKey, panelHeight: this.layout.stats.height
+      }).width(this.layout.stats.width).position({ x: this.layout.stats.x, y: this.layout.stats.y })
+      this.Journey()
+      this.BoardPanel()
+      GlowDirectionPad({ dark: this.dark, active: this.dialog.length === 0 && !this.ended,
+        buttonEdge: this.layout.buttonEdge, move: (direction: GlowDirection) => this.move(direction)
+      }).position({ x: this.layout.pad.x, y: this.layout.pad.y })
+      GlowUtilityButton({ dark: this.dark, icon: 'restart', label: '重新开局',
+        controlHeight: this.layout.restart.height,
+        stacked: this.layout.restart.width < 110 && this.layout.restart.height > 48,
+        action: () => this.requestRestart()
+      }).width(this.layout.restart.width).position({ x: this.layout.restart.x, y: this.layout.restart.y })
+      GlowUtilityButton({ dark: this.dark, icon: 'help', label: '游玩指南',
+        controlHeight: this.layout.help.height,
+        stacked: this.layout.help.width < 110 && this.layout.help.height > 48,
+        action: () => this.present('help')
+      }).width(this.layout.help.width).position({ x: this.layout.help.x, y: this.layout.help.y })
+      if (this.layout.note.height > 0) {
+        Column({ space: 9 }) {
+          Text('留一点空白，等下一次相遇').fontSize(15).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
+          Text('让大数字靠在一角，\n给新数字留出移动的空间。').fontSize(12).lineHeight(22).fontColor(P.muted(this.dark))
+        }.width(this.layout.note.width).height(this.layout.note.height).alignItems(HorizontalAlign.Start)
+        .position({ x: this.layout.note.x, y: this.layout.note.y })
+      }
+    }.width(this.layout.contentWidth).height(this.layout.contentHeight)
   }
 
   private async boot(): Promise<void> {
@@ -356,12 +353,18 @@ export struct GlowPage {
   }
   private relayout(): void {
     if (this.disposed) return;
-    const next = glowLayout(this.pageWidth, this.pageHeight, this.insets, this.crease);
-    if (next.x === this.layout.x && next.y === this.layout.y && next.width === this.layout.width && next.height === this.layout.height) return;
+    const next = glowLayout(this.pageWidth, this.pageHeight, this.insets, this.creases);
+    if (sameGlowLayout(this.layout, next)) return;
     this.finishMotion(false);
-    if (!this.loaded) { this.layout = next; return; }
-    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, () => { this.layout = next; });
+    this.layout = next;
+    const generation = ++this.layoutGeneration;
+    this.getUIContext().postFrameCallback(new GlowReflow(() => {
+      if (this.disposed || generation !== this.layoutGeneration) return;
+      this.verticalScroll.scrollTo({ xOffset: 0, yOffset: 0, animation: false });
+      this.horizontalScroll.scrollTo({ xOffset: 0, yOffset: 0, animation: false });
+    }));
   }
+
   private backgrounded(): void {
     this.backgroundPaused = true;
     this.finishMotion(false);

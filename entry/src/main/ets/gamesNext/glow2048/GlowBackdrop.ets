@@ -20,6 +20,10 @@ export struct GlowBackdrop {
         .width(Math.min(350, this.canvasWidth * .53)).aspectRatio(320 / 200)
         .position({ x: this.canvasWidth - Math.min(350, this.canvasWidth * .53) + 14,
           y: this.canvasHeight - Math.min(350, this.canvasWidth * .53) * 200 / 320 + 8 })
+      // Blend all decoration into the same base color at the physical edges.
+      // The backdrop includes system-bar areas; content alone uses safe insets.
+      Image($rawfile(P.scene('edge_fade', this.dark)))
+        .width('100%').height('100%').objectFit(ImageFit.Fill)
     }.width(this.canvasWidth).height(this.canvasHeight).clip(true)
     .hitTestBehavior(HitTestMode.None).accessibilityLevel('no-hide-descendants')
   }

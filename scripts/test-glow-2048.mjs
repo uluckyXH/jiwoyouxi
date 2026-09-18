@@ -44,7 +44,7 @@ for (const effect of ['slide','merge','bright','tap','blocked','milestone','win'
 }
 for (const theme of ['light', 'dark']) {
   for (let rank=1; rank<=11; rank++) assert.ok(existsSync(resolve(assetRoot, `tiles/${rank}_${theme}.svg`)));
-  for (const layer of ['corner','burst','medal','atmosphere','window','garden','stilllife','compass']) assert.ok(existsSync(resolve(assetRoot, `scene/${layer}_${theme}.svg`)));
+  for (const layer of ['corner','burst','medal','atmosphere','window','garden','stilllife','compass','edge_fade']) assert.ok(existsSync(resolve(assetRoot, `scene/${layer}_${theme}.svg`)));
 }
 for (const file of readdirSync(resolve(root, 'entry/src/main/ets/gamesNext/glow2048'))) {
   const text = readFileSync(resolve(root, 'entry/src/main/ets/gamesNext/glow2048', file), 'utf8');

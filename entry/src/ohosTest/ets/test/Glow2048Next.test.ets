@@ -2,7 +2,7 @@ import { GlowRenderTile, glowReconcileTiles } from '../../../main/ets/gamesNext/
 import { describe, it, expect, TestType, Size, Level } from '@ohos/hypium';
 import { GlowEngine, glowCanMove, glowSlide } from '../../../main/ets/gamesNext/glow2048/GlowEngine';
 import { GlowDirection, GlowSave, GlowTile, glowMax } from '../../../main/ets/gamesNext/glow2048/GlowModel';
-import { GlowInsets, glowLayout } from '../../../main/ets/gamesNext/glow2048/GlowLayout';
+import { GlowInsets, GlowRect, GlowCrease, glowLayout, glowUsesCreases } from '../../../main/ets/gamesNext/glow2048/GlowLayout';
 import { gameLogoPath } from '../../../main/ets/shell/GameRegistry';
 import { achievementPrimaryFavoriteCount } from '../../../main/ets/shell/AchievementRegistry';
 
@@ -213,13 +213,57 @@ export default function glow2048NextTest(): void {
         });
       [[345,782], [360,780], [390,844], [430,932]].forEach((size: number[]) => {
         const layout = glowLayout(size[0], size[1], insets);
-        expect(layout.board + 368 <= layout.body).assertTrue();
+        expect(layout.contentHeight <= layout.body).assertTrue();
       });
-      const horizontal = glowLayout(768, 1024, insets, { x: 0, y: 490, width: 768, height: 24 });
+      const horizontal = glowLayout(768, 1024, insets, [{ x: 0, y: 490, width: 768, height: 24 }]);
       expect(horizontal.y >= 514 || horizontal.y + horizontal.height <= 490).assertTrue();
-      const vertical = glowLayout(1024, 768, insets, { x: 480, y: 0, width: 24, height: 768 });
+      const vertical = glowLayout(1024, 768, insets, [{ x: 480, y: 0, width: 24, height: 768 }]);
       expect(vertical.x >= 504 || vertical.x + vertical.width <= 480).assertTrue();
       expect(horizontal.board >= 272).assertTrue();
+    });
+    it('every_control_fits_without_overlap_in_phone_tablet_and_short_panes', GLOW_FLAGS, () => {
+      const insets: GlowInsets = { top: 28, bottom: 20, left: 0, right: 0 };
+      [240,280,320,345,390,430,480,560,600,700,768,844,1024,1280,1600].forEach((width: number) => {
+        [280,360,430,520,640,780,900,1024].forEach((height: number) => {
+          const l = glowLayout(width, height, insets);
+          const boxes: GlowRect[] = [l.stats, l.journey, l.boardBox, l.pad, l.restart, l.help];
+          if (l.note.height > 0) boxes.push(l.note);
+          boxes.forEach((box: GlowRect, index: number) => {
+            expect(box.x >= 0 && box.y >= 0 && box.width > 0 && box.height > 0).assertTrue();
+            expect(box.x + box.width <= l.contentWidth + .01).assertTrue();
+            expect(box.y + box.height <= l.contentHeight + .01).assertTrue();
+            boxes.slice(index + 1).forEach((other: GlowRect) => {
+              expect(box.x + box.width <= other.x + .01 || other.x + other.width <= box.x + .01 ||
+                box.y + box.height <= other.y + .01 || other.y + other.height <= box.y + .01).assertTrue();
+            });
+          });
+          expect(l.buttonEdge >= 56).assertTrue();
+          expect(l.restart.height >= 44 && l.restart.width >= 44).assertTrue();
+          expect(l.pad.width).assertEqual(l.buttonEdge * 3 + 8);
+          expect(l.pad.height).assertEqual(l.pad.width);
+        });
+      });
+    });
+    it('half_fold_uses_a_continuous_pane_and_compact_controls_fit_its_height', GLOW_FLAGS, () => {
+      const insets: GlowInsets = { top: 28, bottom: 20, left: 0, right: 0 };
+      const half = glowLayout(768, 1024, insets, [{ x: 0, y: 490, width: 768, height: 24 }]);
+      expect(half.wide && half.compact).assertTrue();
+      expect(half.contentHeight <= half.body).assertTrue();
+      expect(half.pad.y + half.pad.height <= half.body).assertTrue();
+      expect(half.help.y + half.help.height <= half.body).assertTrue();
+      const hinges: GlowCrease[] = [{ x: 400, y: 0, width: 24, height: 1000 },
+        { x: 800, y: 0, width: 24, height: 1000 }];
+      const triple = glowLayout(1280, 1000, insets, hinges);
+      expect(triple.x).assertEqual(824);
+      expect(triple.width).assertEqual(456);
+      const unfolded = glowLayout(1280, 1000, insets);
+      expect(unfolded.x).assertEqual(0);
+      expect(unfolded.width).assertEqual(1280);
+      expect(unfolded.wide).assertTrue();
+      const outside = glowLayout(390, 844, insets, [{ x: 0, y: 900, width: 1280, height: 24 }]);
+      expect(outside.height).assertEqual(796);
+      [3,13,21,22,23].forEach((status: number) => expect(glowUsesCreases(status)).assertTrue());
+      [0,1,2,11,12].forEach((status: number) => expect(glowUsesCreases(status)).assertFalse());
     });
     it('new_and_classic_share_the_existing_logo_and_one_favorite', GLOW_FLAGS, () => {
       expect(gameLogoPath('chicken2048Next')).assertEqual('app/game_logos/game_icon_chicken2048.svg');
