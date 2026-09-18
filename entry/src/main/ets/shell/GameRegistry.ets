@@ -85,9 +85,9 @@ export const GAME_MODULES: GameModule[] = [
   {
     id: 'suikaNext',
     title: '鸡窝水果摊',
-    subtitle: '重构中 · 全新鲜果、音效与多屏体验',
+    subtitle: '鲜果合成 · 合并同类水果，攒出一颗大西瓜',
     icon: '◉',
-    tags: ['重构中', '物理', '合成'],
+    tags: ['合成', '物理', '休闲'],
     accent: '#779553',
     highScoreLabel: '最高瓜分'
   },

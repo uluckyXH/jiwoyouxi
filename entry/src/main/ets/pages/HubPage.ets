@@ -17,10 +17,12 @@ import { HubStatsPanel } from './HubStatsPanel';
 import { PlayStreakSheet } from './PlayStreakSheet';
 import { currentPlayStreak } from '../design/PlayActivity';
 
-const HOME_GAME_ORDER: string[] = ['rpsBattleNext', 'tetrisNext', 'suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048Next', 'chicken2048', 'freecellNext', 'freecell', 'rps', 'rpsBattle'];
+const HOME_GAME_ORDER: string[] = [
+  'suikaNext', 'minesweeperNext', 'tetrisNext', 'chicken2048Next', 'freecellNext', 'rpsBattleNext'
+];
 
 // Hide classic entry points on Home while retaining their routes, saves and favorites.
-const HIDDEN_HOME_GAME_IDS: string[] = ['chicken2048', 'minesweeper', 'suika', 'tetris', 'rps'];
+const HIDDEN_HOME_GAME_IDS: string[] = ['chicken2048', 'minesweeper', 'suika', 'tetris', 'freecell', 'rps', 'rpsBattle'];
 
 @Component
 export struct HubPage {
@@ -412,7 +414,7 @@ export struct HubPage {
   private homeTag(gameId: string): string {
     if (gameId === 'rpsBattle') return '鸡窝乱斗';
     if (gameId === 'rpsBattleNext') return '庭院擂台';
-    if (gameId === 'suikaNext') return '重构中';
+    if (gameId === 'suikaNext') return '鲜果合成';
     if (gameId === 'suika') return '经典版';
     if (gameId === 'chicken2048Next') return '暖光叠数';
     if (gameId === 'chicken2048') return '经典版';
