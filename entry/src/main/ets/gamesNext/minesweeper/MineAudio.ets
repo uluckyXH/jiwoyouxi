@@ -60,7 +60,7 @@ export class MineAudio {
     this.lastPlayed.set(name, now);
     const epoch = this.epoch;
     pool.play(id, { loop: 0, rate: audio.AudioRendererRate.RENDER_RATE_NORMAL,
-      leftVolume: 0.55, rightVolume: 0.55, priority: 1 }).then((stream: number) => {
+      leftVolume: 0.9, rightVolume: 0.9, priority: 1 }).then((stream: number) => {
       if (this.disposed || !this.enabled || epoch !== this.epoch) {
         pool.stop(stream).catch(() => {});
       } else {

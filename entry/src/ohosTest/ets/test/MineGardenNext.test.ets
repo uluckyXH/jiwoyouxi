@@ -150,13 +150,37 @@ export default function mineGardenNextTest(): void {
       });
     });
 
-    it('phone_tablet_landscape_and_fold_layouts_keep_touch_targets_and_bounds', FLAGS, () => {
+    it('phone_boards_fit_width_and_keep_readable_cells_in_short_windows', FLAGS, () => {
+      const insets: MineInsets = { top: 28, bottom: 20, left: 0, right: 0 };
+      MINE_LEVELS.forEach((level: MineLevel) => {
+        [[320, 568], [360, 780], [377, 816], [390, 844], [430, 932], [844, 390], [280, 500]].forEach((size: number[]) => {
+          const layout = mineLayout(size[0], size[1], level.rows, level.cols, insets);
+          expect(layout.compact).assertTrue();
+          expect(layout.gridWidth <= layout.boardAreaWidth - 28).assertTrue();
+          expect(layout.cell >= Math.min(20, Math.floor((layout.boardAreaWidth - 28) / level.cols))).assertTrue();
+          if (!layout.wide) {
+            expect(layout.scrolls).assertFalse();
+            expect(layout.boardCardHeight >= layout.gridHeight + 98).assertTrue();
+          }
+        });
+        [[345, 782], [360, 780], [377, 816], [390, 844], [430, 932]].forEach((size: number[]) => {
+          const layout = mineLayout(size[0], size[1], level.rows, level.cols, insets);
+          expect(layout.boardCardHeight + 200 <= layout.bodyHeight).assertTrue();
+        });
+      });
+      const easy = mineLayout(390, 844, 8, 8, insets);
+      const normal = mineLayout(390, 844, 13, 10, insets);
+      const hard = mineLayout(390, 844, 16, 12, insets);
+      expect(easy.cell > normal.cell && normal.cell > hard.cell).assertTrue();
+    });
+
+    it('tablet_unfolded_and_trifold_windows_keep_existing_large_cell_sizes', FLAGS, () => {
       const sizes: number[][] = [[320, 568], [390, 844], [844, 390], [768, 1024], [1024, 768], [1280, 800], [720, 720], [280, 500]];
       const insets: MineInsets = { top: 28, bottom: 20, left: 0, right: 0 };
       MINE_LEVELS.forEach((level: MineLevel) => {
         sizes.forEach((size: number[]) => {
           const layout = mineLayout(size[0], size[1], level.rows, level.cols, insets);
-          expect(layout.cell >= 40).assertTrue();
+          if (!layout.compact) expect(layout.cell >= 40).assertTrue();
           expect(layout.x + layout.width <= size[0]).assertTrue();
           expect(layout.y + layout.height <= size[1]).assertTrue();
           expect(layout.boardAreaWidth + layout.gap * 2 + (layout.wide ? layout.rail + layout.gap : 0) <= layout.width + 0.01).assertTrue();
@@ -164,10 +188,24 @@ export default function mineGardenNextTest(): void {
       });
       const horizontal: MineCrease = { x: 0, y: 490, width: 768, height: 24 };
       const layout = mineLayout(768, 1024, 16, 12, insets, horizontal);
+      expect(layout.compact).assertFalse();
+      expect(layout.cell >= 40).assertTrue();
+      expect(layout.scrollX && layout.scrollY).assertTrue();
       expect(layout.y >= 514 || layout.y + layout.height <= 490).assertTrue();
       const vertical: MineCrease = { x: 480, y: 0, width: 24, height: 768 };
       const folded = mineLayout(1024, 768, 16, 12, insets, vertical);
+      expect(folded.compact).assertFalse();
+      expect(folded.scrollX).assertTrue();
       expect(folded.x >= 504 || folded.x + folded.width <= 480).assertTrue();
+      [[768, 1024], [1024, 768], [1280, 800], [720, 720], [1600, 1000]].forEach((size: number[]) => {
+        MINE_LEVELS.forEach((level: MineLevel) => {
+          const result = mineLayout(size[0], size[1], level.rows, level.cols, insets);
+          const availableHeight = result.bodyHeight - (result.wide ? 0 : 214);
+          const originalCell = Math.max(40, Math.min(58, Math.floor(Math.min(
+            (result.boardAreaWidth - 28) / level.cols, (availableHeight - 114) / level.rows))));
+          expect(result.cell).assertEqual(originalCell);
+        });
+      });
     });
 
     it('new_and_classic_share_logo_and_count_as_one_favorite', FLAGS, () => {

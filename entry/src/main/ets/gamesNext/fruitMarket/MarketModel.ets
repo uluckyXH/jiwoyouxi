@@ -4,7 +4,7 @@ export const MARKET_LEFT: number = 18;
 export const MARKET_RIGHT: number = 342;
 export const MARKET_FLOOR: number = 493;
 export const MARKET_LINE: number = 110;
-export const MARKET_STEP: number = 1 / 120;
+export const MARKET_STEP: number = 1 / 60;
 export const MARKET_DROP_DELAY: number = 0.5;
 export const MARKET_OVERFLOW_GRACE: number = 3;
 export const MARKET_ASSETS: string = 'gamesNext/fruitMarket/';
@@ -65,6 +65,7 @@ export interface MarketRound {
   ended: boolean;
   reported: boolean;
   bodies: MarketBody[];
+  resting?: number[];
 }
 
 export interface MarketMerge {

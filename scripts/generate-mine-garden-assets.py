@@ -97,7 +97,7 @@ for name, (duration, notes) in SOUNDS.items():
             age = t - i * duration * .17
             if age >= 0:
                 envelope = min(1, age / .008) * math.exp(-age / (duration * .25))
-                value += (math.sin(2 * math.pi * frequency * age) + .12 * math.sin(4 * math.pi * frequency * age)) * envelope * .19
+                value += (math.sin(2 * math.pi * frequency * age) + .12 * math.sin(4 * math.pi * frequency * age)) * envelope * .34
         value *= min(1, (duration - t) / .02)
         data.extend(struct.pack('<h', round(max(-.85, min(.85, value)) * 32767)))
     with wave.open(str(ROOT / f'audio/{name}.wav'), 'wb') as out:

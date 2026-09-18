@@ -2,8 +2,9 @@ export interface MineInsets { top: number; bottom: number; left: number; right: 
 export interface MineCrease { x: number; y: number; width: number; height: number; }
 export interface MineLayout {
   x: number; y: number; width: number; height: number;
-  wide: boolean; gap: number; rail: number; boardAreaWidth: number; bodyHeight: number;
-  cell: number; gridWidth: number; gridHeight: number; scrolls: boolean;
+  wide: boolean; compact: boolean; gap: number; rail: number; boardAreaWidth: number; bodyHeight: number;
+  boardCardHeight: number;
+  cell: number; gridWidth: number; gridHeight: number; scrolls: boolean; scrollX: boolean; scrollY: boolean;
 }
 
 export function mineLayout(width: number, height: number, rows: number, cols: number,
@@ -12,6 +13,9 @@ export function mineLayout(width: number, height: number, rows: number, cols: nu
   let y = Math.max(0, insets.top);
   let w = Math.max(1, width - x - Math.max(0, insets.right));
   let h = Math.max(1, height - y - Math.max(0, insets.bottom));
+  // Classify the full window before choosing a half-fold pane. An unfolded
+  // tablet/foldable keeps its large cells even when a crease makes one pane short.
+  const compact = Math.min(width, height) < 600;
   if (crease.height > 0 && crease.width >= w * 0.7 && crease.y > y && crease.y < y + h) {
     const top = crease.y - y;
     const bottom = y + h - crease.y - crease.height;
@@ -27,13 +31,23 @@ export function mineLayout(width: number, height: number, rows: number, cols: nu
   const wide = w >= 700 || (w >= 540 && w / h > 1.2);
   const rail = wide ? Math.min(280, Math.max(w >= 620 ? 248 : 216, w * 0.28)) : w - gap * 2;
   const boardAreaWidth = Math.max(1, w - gap * 2 - (wide ? rail + gap : 0));
-  const bodyHeight = Math.max(100, h - 80 - gap * 2);
-  const boardHeight = Math.max(100, bodyHeight - (wide ? 0 : 214));
-  // Grid scrolls on small windows: never shrink a cell below a 40vp touch target.
-  const cell = Math.max(40, Math.min(58, Math.floor(Math.min((boardAreaWidth - 28) / cols, (boardHeight - 114) / rows))));
+  const bodyHeight = Math.max(100, compact ? h - 76 : h - 80 - gap * 2);
+  const frame = compact ? 98 : 114;
+  const boardHeight = Math.max(100, bodyHeight - (wide ? 0 : compact ? 200 : 214));
+  const widthFit = Math.max(1, Math.floor((boardAreaWidth - 28) / cols));
+  const heightFit = Math.floor((boardHeight - frame) / rows);
+  // Phones fit every column and shrink by difficulty. On very short windows,
+  // keep at least 20vp cells and scroll vertically rather than make them illegible.
+  const cell = compact ? Math.min(58, widthFit, Math.max(20, heightFit)) :
+    Math.max(40, Math.min(58, widthFit, heightFit));
   const gridWidth = cell * cols;
   const gridHeight = cell * rows;
-  return { x: x, y: y, width: w, height: h, wide: wide, gap: gap, rail: rail,
+  const boardCardHeight = wide ? Math.min(bodyHeight, gridHeight + frame) : compact ?
+    Math.max(gridHeight + frame, boardHeight) : Math.max(280, boardHeight);
+  const scrollX = gridWidth > boardAreaWidth - 28;
+  const scrollY = gridHeight > boardCardHeight - frame + 4;
+  return { x: x, y: y, width: w, height: h, wide: wide, compact: compact, gap: gap, rail: rail,
     boardAreaWidth: boardAreaWidth, bodyHeight: bodyHeight, cell: cell,
-    gridWidth: gridWidth, gridHeight: gridHeight, scrolls: gridWidth > boardAreaWidth - 28 || gridHeight > boardHeight - 114 };
+    boardCardHeight: boardCardHeight, gridWidth: gridWidth, gridHeight: gridHeight,
+    scrolls: scrollX || scrollY, scrollX: scrollX, scrollY: scrollY };
 }

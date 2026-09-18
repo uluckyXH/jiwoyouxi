@@ -14,6 +14,7 @@ const files = [
   'entry/src/main/ets/gamesNext/fruitMarket/MarketModel.ets',
   'entry/src/main/ets/gamesNext/fruitMarket/MarketEngine.ets',
   'entry/src/main/ets/gamesNext/fruitMarket/MarketLayout.ets',
+  'entry/src/ohosTest/ets/test/fixtures/FruitMarketDense.ets',
   'entry/src/ohosTest/ets/test/FruitMarketNext.test.ets'
 ];
 const source = files.map(file => readFileSync(resolve(root, file), 'utf8')).join('\n')

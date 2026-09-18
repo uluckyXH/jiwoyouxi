@@ -37,6 +37,9 @@ for (const effect of ['open','flood','flag','unflag','tap','blocked','win','lose
   assert.equal(wav.toString('ascii', 0, 4), 'RIFF');
   assert.equal(wav.toString('ascii', 8, 12), 'WAVE');
   assert.ok(wav.length > 44);
+  let peak = 0;
+  for (let i = 44; i < wav.length; i += 2) peak = Math.max(peak, Math.abs(wav.readInt16LE(i)) / 32768);
+  assert.ok(peak >= 0.2 && peak < 0.85, `${effect}: audible amplitude with headroom, peak=${peak}`);
 }
 for (const theme of ['light', 'dark']) {
   for (const tile of ['open', 'closed', 'flag', 'mine']) assert.ok(existsSync(resolve(assetRoot, `tiles/${tile}_${theme}.svg`)));

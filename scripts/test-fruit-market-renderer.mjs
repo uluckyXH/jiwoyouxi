@@ -13,10 +13,11 @@ const files = ['design/CoopTheme.ets', 'gamesNext/fruitMarket/MarketModel.ets',
 const source = files.map(file => readFileSync(resolve(root, 'entry/src/main/ets', file), 'utf8')).join('\n')
   .replace(/^import[\s\S]*?;\s*$/gm, '').replace(/^export /gm, '');
 
-function runtime(mode = 'ready', cacheMode = 'unavailable') {
-  const bitmaps = [], sprites = [], rasterCalls = [];
+function runtime(mode = 'ready') {
+  const bitmaps = [];
   class Bitmap {
-    constructor(path) {
+    constructor(path, unit) {
+      assert.equal(unit, undefined, 'SVG and Canvas both use default vp coordinates');
       assert.match(path, /^resource:\/\/RAWFILE\/gamesNext\/fruitMarket\/fruits\/.*\.svg$/);
       if (mode === 'missing') throw new Error('SVG unavailable');
       this.width = this.height = mode === 'pending' ? 0 : 200;
@@ -25,33 +26,19 @@ function runtime(mode = 'ready', cacheMode = 'unavailable') {
     }
     close() { this.closed++; this.width = this.height = 0; }
   }
-  const context = { ImageBitmap: Bitmap, console: { warn() {} } };
-  if (cacheMode !== 'unavailable') {
-    context.LengthMetricsUnit = { PX: 1 };
-    context.RenderingContextSettings = class {};
-    context.OffscreenCanvasRenderingContext2D = class {
-      constructor(width, height, _settings, unit) {
-        assert.equal(unit, 1, 'cache must be sized in physical pixels');
-        assert.ok(width <= 768 && height <= 768, 'bound texture memory');
-        this.width = width; this.height = height;
+  const context = { ImageBitmap: Bitmap, hilog: { warn() {}, info() {} },
+    RenderingContextSettings: class {},
+    CanvasRenderingContext2D: class {
+      constructor(_settings, unit) {
+        assert.equal(unit, undefined, 'vp layout dimensions go straight to the default vp canvas');
       }
-      drawImage(source) {
-        rasterCalls.push(source);
-        if (cacheMode === 'throws') throw new Error('offscreen unavailable');
-      }
-      getImageData() { return { data: [0, 0, 0, cacheMode === 'transparent' ? 0 : 255] }; }
-      transferToImageBitmap() {
-        const sprite = { width: cacheMode === 'empty' ? 0 : this.width, height: this.height,
-          isSprite: true, closed: 0, close() { this.closed++; } };
-        sprites.push(sprite); return sprite;
-      }
-    };
-  }
+    }
+  };
   vm.runInNewContext(stripTypeScriptTypes(source, { mode: 'transform' }) +
-    '\nglobalThis.api = {MarketRenderer, MarketEngine};', context);
+    '\nglobalThis.api = {MarketRenderer, MarketEngine, createMarketCanvas};', context);
   const renderer = new context.api.MarketRenderer();
   const engine = new context.api.MarketEngine(1234);
-  return { renderer, engine, bitmaps, sprites, rasterCalls };
+  return { renderer, engine, bitmaps, createCanvas: context.api.createMarketCanvas };
 }
 
 function canvas(failDraw = false) {
@@ -126,44 +113,79 @@ function canvas(failDraw = false) {
   assert.equal(calls.depth, 0);
   console.log('PASS drawing errors fall back and close image handles once');
 }
-{
-  const { renderer, engine, bitmaps, sprites, rasterCalls } = runtime('ready', 'ready');
-  renderer.prepare(); engine.drop();
-  engine.round.bodies.push({ ...engine.round.bodies[0], id: 2, level: 1 });
-  const { ctx, calls } = canvas();
-  renderer.draw(ctx, engine, 360, 520, false, false, 3.5);
-  assert.equal(rasterCalls.length, 1, 'bake at most one level per display frame');
-  for (let i = 0; i < 60; i++) renderer.draw(ctx, engine, 360, 520, false, false, 3.5);
-  assert.equal(rasterCalls.length, 2, 'repeated fruit share two textures, not one raster per fruit per frame');
-  renderer.draw(ctx, engine, 720, 1040, false, false, 7);
-  assert.ok(sprites.slice(0, 2).every(image => image.closed === 1), 'resize releases obsolete textures');
-  renderer.release();
-  assert.ok([...bitmaps, ...sprites].every(image => image.closed === 1));
-  assert.equal(calls.depth, 0);
-  console.log('PASS bounded raster cache reuse, frame budget, density resize and release');
-}
-for (const failure of ['throws', 'transparent', 'empty']) {
-  const { renderer, engine, bitmaps, sprites, rasterCalls } = runtime('ready', failure);
-  renderer.prepare();
-  const { ctx, calls } = canvas();
-  for (let i = 0; i < 3; i++) renderer.draw(ctx, engine, 360, 520, true, false);
-  assert.equal(calls.images, 3, 'cache failure still paints the original SVG');
-  assert.equal(calls.labels.length, 0, 'no placeholder needed when source artwork works');
-  assert.equal(rasterCalls.length, 1, 'avoid retrying broken offscreen operations every frame');
-  renderer.release();
-  assert.ok([...bitmaps, ...sprites].every(image => image.closed === 1));
-  console.log(`PASS ${failure} raster cache preserves source SVG`);
+// Record the real renderer's transforms and map the circular SVG body back into
+// physical pixels. A density-only multiplier on textures cannot move the collider.
+function geometryCanvas(density) {
+  // Native Canvas applies display density to vp coordinates exactly once.
+  let m = [density, 0, 0, density, 0, 0];
+  const stack = [], images = [];
+  function multiply(n) {
+    const [a,b,c,d,e,f] = m, [g,h,i,j,k,l] = n;
+    m = [a*g+c*h,b*g+d*h,a*i+c*j,b*i+d*j,a*k+c*l+e,b*k+d*l+f];
+  }
+  function point(x,y) { return [m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]]; }
+  const ctx = new Proxy({}, { get: (_o,key) => {
+    if (key === 'save') return () => stack.push([...m]);
+    if (key === 'restore') return () => { m = stack.pop(); };
+    if (key === 'scale') return (x,y) => multiply([x,0,0,y,0,0]);
+    if (key === 'translate') return (x,y) => multiply([1,0,0,1,x,y]);
+    if (key === 'rotate') return angle => multiply([Math.cos(angle),Math.sin(angle),-Math.sin(angle),Math.cos(angle),0,0]);
+    if (key === 'drawImage') return (image,x,y,w,h) => images.push({
+      center: point(x+w*.5,y+h*.515), edge: point(x+w*.92,y+h*.515), image
+    });
+    return () => {};
+  }, set: () => true });
+  return { ctx, images };
 }
 {
-  const { renderer, engine, bitmaps, sprites } = runtime('ready', 'ready');
+  const { renderer, engine, bitmaps, createCanvas } = runtime();
+  createCanvas();
   renderer.prepare();
-  const { ctx, calls } = canvas(image => image.isSprite);
-  renderer.draw(ctx, engine, 360, 520, false, false);
-  renderer.draw(ctx, engine, 360, 520, false, false);
-  assert.equal(calls.images, 3, 'bad cached image falls back to SVG in the same frame');
-  assert.equal(calls.labels.length, 0);
+  engine.round.time = 10;
+  engine.round.readyAt = 100;
+  const radii = [13,17,21,26,31,37,43,50,58,67,77];
+  for (const density of [1,2,3.5,6]) {
+    for (const boardWidthVp of [288,360,620]) {
+      const pixelScale = density * boardWidthVp / 360;
+      for (let level=0; level<radii.length; level++) {
+        engine.round.bodies = [{id:1,level,x:137,y:300,vx:0,vy:0,angle:.73,born:0,unlock:0}];
+        const { ctx, images } = geometryCanvas(density);
+        renderer.draw(ctx, engine, boardWidthVp, boardWidthVp*520/360, true, false);
+        assert.equal(images.length, 1);
+        const {center, edge, image} = images[0];
+        assert.equal(image, bitmaps[level], 'always draw the original SVG, never the density-broken offscreen bitmap');
+        assert.ok(Math.abs(center[0]-137*pixelScale) < 1e-6);
+        assert.ok(Math.abs(center[1]-300*pixelScale) < 1e-6);
+        assert.ok(Math.abs(Math.hypot(edge[0]-center[0],edge[1]-center[1])-radii[level]*pixelScale) < 1e-6,
+          'circular SVG body must match its collider at all viewport sizes and densities');
+      }
+    }
+  }
+  assert.equal(bitmaps.length, 11, 'resize and density changes reuse source SVG handles');
   renderer.release();
-  assert.ok([...bitmaps, ...sprites].every(image => image.closed === 1));
-  console.log('PASS cached draw failure recovers original SVG without interrupting play');
+  console.log('PASS 11 original SVGs: centers/radii match colliders at four densities and three viewport widths');
 }
-console.log('9 renderer regression cases passed. Native rendering still requires device validation.');
+{
+  const {renderer,engine}=runtime(); renderer.prepare();
+  engine.drop(); for(let i=0;i<180;i++) engine.advance(1/60);
+  assert.equal(engine.sleeping,true);
+  const {ctx,calls}=canvas();
+  assert.equal(renderer.draw(ctx,engine,360,520,false,false),true);
+  const images=calls.images;
+  for(let i=0;i<300;i++) {engine.advance(1/60);assert.equal(renderer.draw(ctx,engine,360,520,false,false),false);}
+  assert.equal(calls.images,images,'a resting pile must not resubmit SVGs each callback');
+  engine.aimAt(90);
+  assert.equal(renderer.draw(ctx,engine,360,520,false,false),true,'aim changes repaint immediately');
+  assert.equal(renderer.draw(ctx,engine,360,520,true,false),true,'theme changes repaint');
+  assert.equal(renderer.draw(ctx,engine,620,620*520/360,true,false),true,'resizing repaints');
+  renderer.prepare();
+  assert.equal(renderer.draw(ctx,engine,620,620*520/360,true,false),true,'recreated Canvas repaints even at the same size');
+  engine.round.overflow=.5;
+  assert.equal(renderer.draw(ctx,engine,620,620*520/360,true,false),true);
+  engine.round.overflow=1.5;
+  assert.equal(renderer.draw(ctx,engine,620,620*520/360,true,false),true,'sleeping overflow countdown remains visible');
+  engine.drop();
+  assert.equal(renderer.draw(ctx,engine,620,620*520/360,true,false),true,'new drops repaint');
+  console.log('PASS static SVG submission stops; aim, theme, resize, canvas recreation, warning and drop invalidate');
+}
+console.log('6 renderer regression cases passed. Native rendering still requires device validation.');

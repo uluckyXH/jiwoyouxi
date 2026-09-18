@@ -67,7 +67,6 @@ export struct MineGardenPage {
       () => this.backgrounded());
     this.boot();
     this.lastTick = Date.now();
-    this.timer = setInterval(() => this.tick(), 250);
   }
 
   aboutToDisappear(): void {
@@ -145,14 +144,16 @@ export struct MineGardenPage {
       MineIconButton({ icon: this.phase === 'won' ? 'trophy' : this.phase === 'lost' ? 'leaf' : 'pause',
         label: this.engine.finished() ? '查看本局结果' : '暂停游戏', dark: this.dark, primary: true,
         action: () => this.present(this.engine.finished() ? 'result' : 'pause') })
-    }.width('100%').height(64)
+    }.width('100%').height(this.viewport.compact ? 56 : 64)
   }
 
   @Builder
   Controls() {
     Column({ space: 8 }) {
-      MineStats({ dark: this.dark, remaining: this.remaining, elapsedMs: this.elapsedMs, bestMs: this.bestMs })
-      MineDifficultyPicker({ dark: this.dark, selected: this.level.key, choose: (key: string) => this.chooseLevel(key) })
+      MineStats({ dark: this.dark, compact: this.viewport.compact,
+        remaining: this.remaining, elapsedMs: this.elapsedMs, bestMs: this.bestMs })
+      MineDifficultyPicker({ dark: this.dark, compact: this.viewport.compact,
+        selected: this.level.key, choose: (key: string) => this.chooseLevel(key) })
       if (this.viewport.wide) {
         MineModeSwitch({ dark: this.dark, flagMode: this.flagMode, change: (flag: boolean) => this.changeMode(flag) })
         Row({ space: 8 }) {
@@ -173,7 +174,7 @@ export struct MineGardenPage {
 
   @Builder
   BoardCard() {
-    Column({ space: 8 }) {
+    Column({ space: this.viewport.compact ? 6 : 8 }) {
       Row() {
         Column({ space: 3 }) {
           Text(this.level.caption).fontSize(16).fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
@@ -183,26 +184,27 @@ export struct MineGardenPage {
         Text(`${this.opened} / ${this.level.rows * this.level.cols - this.level.mines}`)
           .fontSize(12).fontFamily('monospace').fontColor(P.accent(this.dark))
         Image($rawfile(P.icon('leaf', this.dark, 'accent'))).width(17).height(17).margin({ left: 7 }).accessibilityLevel('no')
-      }.width('100%').height(38)
+      }.width('100%').height(this.viewport.compact ? 32 : 38)
       MineBoard({ dark: this.dark, cells: this.cells, rows: this.level.rows, cols: this.level.cols,
         cellSize: this.viewport.cell, lost: this.phase === 'lost', locked: this.dialog.length > 0 || this.engine.finished(),
+        scrollX: this.viewport.scrollX, scrollY: this.viewport.scrollY,
         resetKey: this.session, tap: (index: number) => this.act(index, false), hold: (index: number) => this.act(index, true)
-      }).width('100%').height(Math.max(1, this.boardCardHeight() - 110)).opacity(this.dialog.length > 0 ? 0 : 1)
+      }).width('100%').height(Math.max(1, this.boardCardHeight() - (this.viewport.compact ? 94 : 110)))
+        .opacity(this.dialog.length > 0 ? 0 : 1)
       Row({ space: 6 }) {
         Image($rawfile(P.icon(this.viewport.scrolls ? 'pan' : 'leaf', this.dark, 'accent')))
           .width(13).height(13).accessibilityLevel('no')
         Text(this.saveFailed ? '进度未保存 · 暂停后可重试' : this.message)
           .fontSize(11).fontColor(this.saveFailed ? P.danger(this.dark) : P.muted(this.dark))
           .maxLines(2).layoutWeight(1)
-      }.height(32).width('100%')
+      }.height(this.viewport.compact ? 26 : 32).width('100%')
     }.padding(12).width(this.boardCardWidth()).height(this.boardCardHeight()).borderRadius(26)
     .backgroundColor(P.paper(this.dark)).border({ width: 1, color: P.line(this.dark), radius: 26 }).clip(true)
     .shadow({ radius: 18, color: this.dark ? '#22000000' : '#0D647344', offsetY: 6 })
   }
 
   private boardCardHeight(): number {
-    return this.viewport.wide ? Math.min(this.viewport.bodyHeight, this.viewport.gridHeight + 114) :
-      Math.max(280, this.viewport.bodyHeight - 214);
+    return this.viewport.boardCardHeight;
   }
 
   private boardCardWidth(): number {
@@ -214,7 +216,7 @@ export struct MineGardenPage {
   GuideNote() {
     Column({ space: 9 }) {
       Text('慢慢来，线索就在身边').fontSize(16).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
-      Text('数字是周围八格的雷数。\n长按插旗，点数字尝试连开。\n大棋盘可以上下左右拖动。')
+      Text(`数字是周围八格的雷数。\n长按插旗，点数字尝试连开。\n${this.viewport.scrolls ? '拖动可以查看完整棋盘。' : '棋盘随窗口自动调整大小。'}`)
         .fontSize(12).lineHeight(23).fontColor(P.muted(this.dark))
     }.width('100%').padding(16).alignItems(HorizontalAlign.Start)
   }
@@ -237,6 +239,8 @@ export struct MineGardenPage {
       else if (restored) this.message = this.defaultMessage();
       this.lastTick = Date.now();
       this.settle();
+      this.syncClock();
+      if (this.engine.finished()) this.save();
     } catch (_) {
       if (!this.disposed) this.dialog = 'loadError';
     } finally { this.loading = false; }
@@ -247,13 +251,16 @@ export struct MineGardenPage {
     this.captureTime();
     const result = hold || this.flagMode && !this.engine.cells[index].open ? this.engine.flag(index) : this.engine.open(index);
     if (result === 'none') return;
+    if (result === 'limit' || result === 'mismatch') {
+      this.message = result === 'limit' ? '旗子已用完，先撤下一面再标记' : '周围旗数与数字一致后，才能连开';
+      this.audio.play('blocked');
+      return;
+    }
     this.sync();
-    this.message = result === 'limit' ? '旗子已用完，先撤下一面再标记' :
-      result === 'mismatch' ? '周围旗数与数字一致后，才能连开' :
-      result === 'flood' ? '一片空地展开了 · 留意边缘的数字' : this.defaultMessage();
-    this.audio.play(result === 'won' ? 'win' : result === 'lost' ? 'lose' :
-      result === 'limit' || result === 'mismatch' ? 'blocked' : result);
+    this.message = result === 'flood' ? '一片空地展开了 · 留意边缘的数字' : this.defaultMessage();
+    this.audio.play(result === 'won' ? 'win' : result === 'lost' ? 'lose' : result);
     this.settle();
+    this.syncClock();
     this.save();
   }
 
@@ -273,7 +280,6 @@ export struct MineGardenPage {
     this.reportAchievementEvent(event);
     this.returnDialog = '';
     this.dialog = 'result';
-    this.save();
   }
 
   private sync(): void {
@@ -281,7 +287,7 @@ export struct MineGardenPage {
     this.level = this.engine.level;
     this.phase = this.engine.phase;
     this.session = this.engine.session;
-    this.elapsedMs = this.engine.elapsedMs;
+    this.elapsedMs = Math.floor(this.engine.elapsedMs / 1000) * 1000;
     this.bestMs = this.engine.bestTime();
     this.remaining = this.level.mines - this.engine.flags();
     this.opened = this.engine.opened();
@@ -300,7 +306,14 @@ export struct MineGardenPage {
     const now = Date.now();
     if (this.loaded && this.dialog.length === 0 && !this.disposed) this.engine.advance(now - this.lastTick);
     this.lastTick = now;
-    this.elapsedMs = this.engine.elapsedMs;
+    const displayed = Math.floor(this.engine.elapsedMs / 1000) * 1000;
+    if (this.elapsedMs !== displayed) this.elapsedMs = displayed;
+  }
+
+  private syncClock(): void {
+    const running = this.loaded && !this.disposed && this.dialog.length === 0 && this.phase === 'playing';
+    if (running && this.timer === -1) this.timer = setInterval(() => this.tick(), 1000);
+    else if (!running && this.timer !== -1) { clearInterval(this.timer); this.timer = -1; }
   }
 
   private tick(): void {
@@ -314,6 +327,7 @@ export struct MineGardenPage {
     this.returnDialog = this.dialog;
     this.audio.silence();
     this.dialog = mode;
+    this.syncClock();
     this.save();
   }
 
@@ -323,6 +337,7 @@ export struct MineGardenPage {
     this.returnDialog = '';
     this.dialog = previous;
     this.lastTick = Date.now();
+    this.syncClock();
     this.audio.play('tap');
   }
 
@@ -350,6 +365,7 @@ export struct MineGardenPage {
     this.dialog = '';
     this.lastTick = Date.now();
     this.message = this.defaultMessage();
+    this.syncClock();
     this.audio.play('tap');
     this.save();
   }
@@ -371,6 +387,7 @@ export struct MineGardenPage {
     this.backgroundWhileLoading = true;
     this.captureTime();
     if (this.loaded && this.dialog.length === 0 && !this.engine.finished()) this.dialog = 'pause';
+    this.syncClock();
     this.audio.silence();
     this.save();
   }

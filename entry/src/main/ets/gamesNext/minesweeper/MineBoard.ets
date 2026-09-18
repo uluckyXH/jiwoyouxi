@@ -8,7 +8,9 @@ export struct MineBoard {
   @Prop cells: SurveyCell[] = [];
   @Prop rows: number = 8;
   @Prop cols: number = 8;
-  @Prop cellSize: number = 40;
+  @Prop @Watch('resetScroll') cellSize: number = 40;
+  @Prop scrollX: boolean = true;
+  @Prop scrollY: boolean = true;
   @Prop locked: boolean = false;
   @Prop lost: boolean = false;
   @Prop @Watch('resetScroll') resetKey: string = '';
@@ -54,7 +56,7 @@ export struct MineBoard {
             .accessibilityLevel('no')
         }
       } else if (cell.open && cell.near > 0) {
-        Text(`${cell.near}`).fontSize(Math.min(26, this.cellSize * 0.48)).fontWeight(FontWeight.Bold)
+        Text(`${cell.near}`).fontSize(Math.max(12, Math.min(26, this.cellSize * 0.48))).fontWeight(FontWeight.Bold)
           .fontColor(P.number(cell.near, this.dark)).fontFamily('monospace').accessibilityLevel('no')
       }
     }.width(this.cellSize).height(this.cellSize)
@@ -84,8 +86,10 @@ export struct MineBoard {
         .width(this.cellSize * this.cols).height(this.cellSize * this.rows)
         .enableScrollInteraction(false)
       }.scrollable(ScrollDirection.Horizontal).scrollBar(BarState.Auto).edgeEffect(EdgeEffect.None)
-      .align(Alignment.TopStart).width('100%').height(this.cellSize * this.rows)
+      .enableScrollInteraction(this.scrollX)
+      .align(this.scrollX ? Alignment.TopStart : Alignment.Top).width('100%').height(this.cellSize * this.rows)
     }.scrollable(ScrollDirection.Vertical).scrollBar(BarState.Auto).edgeEffect(EdgeEffect.None)
+    .enableScrollInteraction(this.scrollY)
     .nestedScroll({ scrollForward: NestedScrollMode.SELF_FIRST, scrollBackward: NestedScrollMode.SELF_FIRST })
     .align(Alignment.TopStart)
     .width('100%').height('100%').clip(true)

@@ -73,6 +73,7 @@ struct MineStatValue {
 @Component
 export struct MineStats {
   @Prop dark: boolean = false;
+  @Prop compact: boolean = false;
   @Prop remaining: number = 10;
   @Prop elapsedMs: number = 0;
   @Prop bestMs: number = 0;
@@ -86,7 +87,7 @@ export struct MineStats {
       Divider().vertical(true).height(30).color(P.line(this.dark))
       MineStatValue({ dark: this.dark, icon: 'trophy', value: this.bestMs > 0 ? mineTime(this.bestMs) : '—', label: '本档最佳' })
         .layoutWeight(1)
-    }.width('100%').height(76).padding(8).borderRadius(22)
+    }.width('100%').height(this.compact ? 68 : 76).padding(8).borderRadius(22)
     .backgroundColor(P.paper(this.dark)).border({ width: 1, color: P.line(this.dark) })
   }
 }
@@ -94,6 +95,7 @@ export struct MineStats {
 @Component
 export struct MineDifficultyPicker {
   @Prop dark: boolean = false;
+  @Prop compact: boolean = false;
   @Prop selected: string = 'easy';
   choose: (key: string) => void = () => {};
 
@@ -110,8 +112,8 @@ export struct MineDifficultyPicker {
             }
             Text(`${level.cols}×${level.rows} · ${level.mines} 雷`).fontSize(10)
               .fontColor(this.selected === level.key ? P.onAccent(this.dark) : P.muted(this.dark))
-          }.width('100%').height(60).justifyContent(FlexAlign.Center)
-        }.layoutWeight(1).height(60).padding(0).borderRadius(16)
+          }.width('100%').height(this.compact ? 52 : 60).justifyContent(FlexAlign.Center)
+        }.layoutWeight(1).height(this.compact ? 52 : 60).padding(0).borderRadius(16)
         .backgroundColor(this.selected === level.key ? P.accent(this.dark) : P.paper(this.dark))
         .fontColor(this.selected === level.key ? P.onAccent(this.dark) : P.muted(this.dark))
         .border({ width: 1, color: this.selected === level.key ? P.accent(this.dark) : P.line(this.dark), radius: 16 })

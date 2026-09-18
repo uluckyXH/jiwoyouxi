@@ -1,20 +1,31 @@
-import { LengthMetricsUnit } from '@kit.ArkUI';
+import { hilog } from '@kit.PerformanceAnalysisKit';
 import { MarketEngine } from './MarketEngine';
 import { MarketBody, MarketMerge, MARKET_FLOOR, MARKET_FRUITS, MARKET_LINE, marketFruitPath } from './MarketModel';
 import { MarketPalette } from './MarketPalette';
+
+/** Use ArkUI's default vp coordinates for both the SVG source and the canvas. */
+export function createMarketCanvas(): CanvasRenderingContext2D {
+  return new CanvasRenderingContext2D(new RenderingContextSettings(true));
+}
 
 export class MarketRenderer {
   private images: Array<ImageBitmap | undefined> = [];
   private prepared: boolean = false;
   private effects: MarketMerge[] = [];
   private disposed: boolean = false;
-  private sprites: Array<ImageBitmap | undefined> = [];
-  private spriteScale: number = 0;
-  private bakedThisFrame: boolean = false;
-  private cacheDisabled: boolean = false;
+  private lastEngine: MarketEngine | undefined = undefined;
+  private lastVersion: number = -1;
+  private lastWidth: number = 0;
+  private lastHeight: number = 0;
+  private lastDark: boolean = false;
+  private lastAiming: boolean = false;
+  private lastReady: boolean = false;
+  private lastWarning: number = -1;
+  private awaitingImages: boolean = true;
 
   /** Canvas has its own SVG loader. Artwork must never gate gameplay startup. */
   prepare(): void {
+    this.lastVersion = -1; // Canvas can be recreated during a fold/rotation.
     if (this.prepared || this.disposed) return;
     this.prepared = true;
     for (let i = 0; i < MARKET_FRUITS.length; i += 1) {
@@ -22,23 +33,39 @@ export class MarketRenderer {
         this.images.push(new ImageBitmap(`resource://RAWFILE/${marketFruitPath(i)}`));
       } catch (error) {
         this.images.push(undefined);
-        console.warn(`Fruit Market SVG fallback (${marketFruitPath(i)}): ${JSON.stringify(error)}`);
+        hilog.warn(0x0000, 'FruitMarketPerf', '%{public}s',
+          `[绘制回退] SVG加载失败 等级=${i} ${JSON.stringify(error)}`);
       }
     }
   }
 
   add(events: MarketMerge[]): void { this.effects = this.effects.concat(events).slice(-20); }
-  reset(): void { this.effects = []; }
+  reset(): void { this.effects = []; this.lastVersion = -1; }
 
   draw(ctx: CanvasRenderingContext2D, engine: MarketEngine, width: number, height: number,
-    dark: boolean, aiming: boolean, pixelScale: number = 1): void {
-    if (this.disposed || width <= 0 || height <= 0) return;
-    const scale = Math.max(0.5, Math.ceil(pixelScale * 2) / 2);
-    if (scale !== this.spriteScale) {
-      this.releaseSprites();
-      this.spriteScale = scale;
+    dark: boolean, aiming: boolean): boolean {
+    if (this.disposed || width <= 0 || height <= 0) return false;
+    const ready = engine.canDrop();
+    const warning = engine.round.overflow > 0 ? Math.max(1, Math.ceil(3 - engine.round.overflow)) : 0;
+    if (this.awaitingImages && this.prepared) {
+      this.awaitingImages = this.images.some((image: ImageBitmap | undefined): boolean =>
+        image !== undefined && (image.width <= 0 || image.height <= 0));
+      // Paint once when the last pending SVG becomes available.
+      if (!this.awaitingImages) this.lastVersion = -1;
     }
-    this.bakedThisFrame = false;
+    if (engine.sleeping && !this.awaitingImages && this.effects.length === 0 && this.lastEngine === engine &&
+      this.lastVersion === engine.visualVersion && this.lastWidth === width && this.lastHeight === height &&
+      this.lastDark === dark && this.lastAiming === aiming && this.lastReady === ready && this.lastWarning === warning) {
+      return false;
+    }
+    this.lastEngine = engine;
+    this.lastVersion = engine.visualVersion;
+    this.lastWidth = width;
+    this.lastHeight = height;
+    this.lastDark = dark;
+    this.lastAiming = aiming;
+    this.lastReady = ready;
+    this.lastWarning = warning;
     ctx.clearRect(0, 0, width, height);
     ctx.save();
     ctx.scale(width / 360, height / 520);
@@ -83,11 +110,11 @@ export class MarketRenderer {
     }
     this.effects.forEach((effect: MarketMerge) => this.effect(ctx, effect, round.time, dark));
     ctx.restore();
+    return true;
   }
 
   release(): void {
     this.disposed = true;
-    this.releaseSprites();
     this.images.forEach((item: ImageBitmap | undefined) => { if (item !== undefined) item.close(); });
     this.images = [];
     this.effects = [];
@@ -95,7 +122,7 @@ export class MarketRenderer {
 
   private fruit(ctx: CanvasRenderingContext2D, level: number, x: number, y: number,
     radius: number, angle: number): void {
-    let bitmap = this.sprite(level);
+    const bitmap = this.images[level];
     // Each SVG has an 84-unit circular body, with leaves outside the collider.
     const size = radius * 200 / 84;
     ctx.save();
@@ -106,68 +133,14 @@ export class MarketRenderer {
         ctx.drawImage(bitmap, -size / 2, -size * 103 / 200, size, size);
         painted = true;
       } catch (error) {
-        // A failed raster cache must still be able to draw the original SVG.
-        if (bitmap === this.sprites[level]) {
-          this.cacheDisabled = true;
-          this.releaseSprites();
-          bitmap = this.images[level];
-          try {
-            if (bitmap !== undefined) {
-              ctx.drawImage(bitmap, -size / 2, -size * 103 / 200, size, size);
-              painted = true;
-            }
-          } catch (_) {}
-        }
-        if (!painted && bitmap !== undefined) {
-          bitmap.close();
-          this.images[level] = undefined;
-          console.warn(`Fruit Market draw fallback (${level}): ${JSON.stringify(error)}`);
-        }
+        bitmap.close();
+        this.images[level] = undefined;
+        hilog.warn(0x0000, 'FruitMarketPerf', '%{public}s',
+          `[绘制回退] SVG绘制失败，改用可玩数字水果 等级=${level} ${JSON.stringify(error)}`);
       }
     }
     if (!painted) this.fallbackFruit(ctx, level, radius);
     ctx.restore();
-  }
-
-  /** Rasterize each SVG only once per size, at most one sprite per frame. The
-   * source artwork stays SVG; the bounded, density-aware bitmap is runtime-only. */
-  private sprite(level: number): ImageBitmap | undefined {
-    const source = this.images[level];
-    const cached = this.sprites[level];
-    if (cached !== undefined) return cached;
-    if (source === undefined || source.width <= 0 || source.height <= 0 ||
-      this.bakedThisFrame || this.cacheDisabled) return source;
-    this.bakedThisFrame = true;
-    try {
-      const size = Math.min(768, Math.max(64,
-        Math.ceil(MARKET_FRUITS[level].radius * 200 / 84 * this.spriteScale * 1.08)));
-      const offscreen = new OffscreenCanvasRenderingContext2D(size, size,
-        new RenderingContextSettings(true), LengthMetricsUnit.PX);
-      offscreen.drawImage(source, 0, 0, size, size);
-      // Some devices return a transparent canvas for unsupported SVG operations.
-      // Never replace a visible SVG with an empty cache entry.
-      if (offscreen.getImageData(Math.floor(size / 2), Math.floor(size / 2), 1, 1).data[3] === 0) {
-        this.cacheDisabled = true;
-        return source;
-      }
-      const sprite = offscreen.transferToImageBitmap();
-      if (sprite.width <= 0 || sprite.height <= 0) {
-        sprite.close();
-        this.cacheDisabled = true;
-        return source;
-      }
-      this.sprites[level] = sprite;
-      return sprite;
-    } catch (error) {
-      this.cacheDisabled = true;
-      console.warn(`Fruit Market sprite cache unavailable: ${JSON.stringify(error)}`);
-      return source;
-    }
-  }
-
-  private releaseSprites(): void {
-    this.sprites.forEach((sprite: ImageBitmap | undefined) => { if (sprite !== undefined) sprite.close(); });
-    this.sprites = [];
   }
 
   /** Visible, level-labelled fruit keeps a round playable if a device rejects an SVG. */

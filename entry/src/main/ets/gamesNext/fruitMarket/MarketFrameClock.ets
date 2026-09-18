@@ -2,6 +2,7 @@ import displaySync from '@ohos.graphics.displaySync';
 
 /** One render per display frame; no background timer competing with the compositor. */
 export class MarketFrameClock {
+  mode: string = 'stopped';
   private sync: displaySync.DisplaySync | undefined = undefined;
   private timer: number = -1;
   private running: boolean = false;
@@ -17,6 +18,7 @@ export class MarketFrameClock {
       sync.setExpectedFrameRateRange({ min: 30, max: 60, expected: 60 });
       sync.on('frame', () => { if (this.running && generation === this.generation) frame(); });
       sync.start();
+      this.mode = 'DisplaySync';
     } catch (_) {
       this.releaseSync();
       this.generation += 1;
@@ -24,10 +26,12 @@ export class MarketFrameClock {
       this.timer = setInterval(() => {
         if (this.running && fallbackGeneration === this.generation) frame();
       }, 1000 / 60);
+      this.mode = 'Timer';
     }
   }
 
   stop(): void {
+    this.mode = 'stopped';
     this.running = false;
     this.generation += 1;
     if (this.timer !== -1) { clearInterval(this.timer); this.timer = -1; }

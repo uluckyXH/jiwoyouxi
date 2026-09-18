@@ -7,14 +7,15 @@ import { MarketFrameClock } from './MarketFrameClock';
 import { MarketCrease, MarketInsets, MarketLayout, marketLayout } from './MarketLayout';
 import { MARKET_ASSETS, MarketMerge } from './MarketModel';
 import { MarketPalette } from './MarketPalette';
+import { MARKET_PROFILE, MarketPerformance, marketNow } from './MarketPerformance';
 import { MarketDialog, MarketGuide, MarketStats } from './MarketPanels';
-import { MarketRenderer } from './MarketRenderer';
+import { createMarketCanvas, MarketRenderer } from './MarketRenderer';
 import { MarketStorage } from './MarketStorage';
 import { MarketWindow } from './MarketWindow';
 
 @Component
 export struct FruitMarketPage {
-  @Prop dark: boolean = false;
+  @Prop @Watch('themeChanged') dark: boolean = false;
   @Prop bestScore: number = 0;
   @Prop @Watch('soundChanged') soundEnabled: boolean = true;
   @Prop @Watch('exitRequested') exitRequest: number = 0;
@@ -27,17 +28,19 @@ export struct FruitMarketPage {
   private sounds: MarketAudio = new MarketAudio();
   private storage: MarketStorage = new MarketStorage();
   private hostWindow: MarketWindow = new MarketWindow();
-  private canvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
+  private canvas: CanvasRenderingContext2D = createMarketCanvas();
   private hostContext: common.Context | undefined = undefined;
   private insets: MarketInsets = { top: 24, bottom: 16, left: 0, right: 0 };
   private crease: MarketCrease = { x: 0, y: 0, width: 0, height: 0 };
   private pageWidth: number = 390;
   private pageHeight: number = 844;
   private frameClock: MarketFrameClock = new MarketFrameClock();
+  private performance: MarketPerformance = new MarketPerformance();
   private lastFrame: number = 0;
   private lastSave: number = 0;
   private canvasWidth: number = 0;
   private canvasHeight: number = 0;
+  private canvasDensity: number = 1;
   private touchId: number = -1;
   private aiming: boolean = false;
   private gameReady: boolean = false;
@@ -171,10 +174,15 @@ export struct FruitMarketPage {
         .width('100%').height('100%').objectFit(ImageFit.Fill)
         .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
       Canvas(this.canvas).width('100%').height('100%')
-        .onReady(() => { this.renderer.prepare(); this.draw(); })
+        .onReady(() => {
+          this.canvasDensity = this.getUIContext().vp2px(1);
+          this.renderer.prepare();
+          this.draw();
+        })
         .onAreaChange((oldArea: Area, newArea: Area) => {
           this.canvasWidth = Number(newArea.width);
           this.canvasHeight = Number(newArea.height);
+          this.canvasDensity = this.getUIContext().vp2px(1);
           this.draw();
         })
         .onTouch((event: TouchEvent) => this.touch(event))
@@ -207,6 +215,7 @@ export struct FruitMarketPage {
     this.lastFrame = Date.now();
     this.lastSave = this.lastFrame;
     this.frameClock.start(() => this.frame());
+    if (MARKET_PROFILE) this.performance.begin(this.engine.round.bodies.length, this.frameClock.mode);
   }
 
   private stop(): void {
@@ -219,7 +228,9 @@ export struct FruitMarketPage {
     const now = Date.now();
     const oldScore = this.engine.round.score;
     const oldHighest = this.engine.round.highest;
+    const frameStart = MARKET_PROFILE ? marketNow() : 0;
     const events = this.engine.advance((now - this.lastFrame) / 1000);
+    const physicsEnd = MARKET_PROFILE ? marketNow() : 0;
     this.lastFrame = now;
     if (events.length > 0) {
       this.renderer.add(events);
@@ -231,12 +242,20 @@ export struct FruitMarketPage {
       if (oldScore < 600 && this.score >= 600) this.report('score-600', false);
     }
     if (this.engine.round.overflow > 0.5 && !this.engine.round.ended) this.sounds.play('warning');
-    this.draw();
+    const drawStart = MARKET_PROFILE ? marketNow() : 0;
+    const painted = this.draw();
+    const drawEnd = MARKET_PROFILE ? marketNow() : 0;
+    let saveSubmitMs = 0;
     if (this.engine.round.ended) {
       this.finish();
     } else if (now - this.lastSave > 5000 && this.engine.round.drops > 0) {
       this.lastSave = now;
+      const saveStart = MARKET_PROFILE ? marketNow() : 0;
       this.save();
+      saveSubmitMs = MARKET_PROFILE ? marketNow() - saveStart : 0;
+    }
+    if (MARKET_PROFILE) {
+      this.performance.frame(frameStart, physicsEnd, drawStart, drawEnd, marketNow(), this.engine, painted, saveSubmitMs);
     }
   }
 
@@ -263,11 +282,16 @@ export struct FruitMarketPage {
 
   private cancelTouch(): void { this.touchId = -1; this.aiming = false; }
 
-  private draw(): void {
+  private draw(): boolean {
     if (this.gameReady && !this.disposed) {
-      this.renderer.draw(this.canvas, this.engine, this.canvasWidth, this.canvasHeight, this.dark, this.aiming,
-        this.getUIContext().vp2px(this.canvasWidth) / 360);
+      // Layout, touch, source SVG and Canvas all use vp. The canvas itself applies
+      // display density; no offscreen bitmap or second px/vp conversion is involved.
+      if (MARKET_PROFILE) {
+        this.performance.viewport(this.canvasWidth, this.canvasHeight, this.canvasDensity);
+      }
+      return this.renderer.draw(this.canvas, this.engine, this.canvasWidth, this.canvasHeight, this.dark, this.aiming);
     }
+    return false;
   }
 
   private relayout(): void {
@@ -337,6 +361,8 @@ export struct FruitMarketPage {
   }
 
   private soundChanged(): void { this.sounds.setEnabled(this.soundEnabled); }
+
+  private themeChanged(): void { this.draw(); }
 
   private backgrounded(): void {
     this.backgroundDuringBoot = true;

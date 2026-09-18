@@ -82,7 +82,7 @@ export struct MineDialog {
             this.HelpLine('open', '第一步安心翻开', '第一次翻格及周围八格不会有雷。数字表示周围八格的雷数；后续仍需推理，可能遇到需要猜测的局面。')
             this.HelpLine('flag', '长按插旗，也能切换模式', '长按未翻开的格子可以插旗或撤旗。插旗模式下，点一下就能标记；旗数不能超过总雷数。')
             this.HelpLine('check', '点数字，快速连开', '周围旗数等于数字时，再点数字即可展开其余邻格。旗插错了，连开也会触雷。')
-            this.HelpLine('pan', '大棋盘，拖动慢慢看', '进阶与挑战的棋盘更大。格子保持清晰可点，可上下左右拖动查看；旋转和折叠不会重开。')
+            this.HelpLine('pan', '棋盘跟着屏幕调整', '手机按难度缩放，平板与展开的大屏保持大格子。空间不足时可上下左右拖动；旋转和折叠不会重开。')
             this.HelpLine('trophy', '每个难度，都有自己的纪录', '打开所有安全格即获胜，自动补旗不算手动插旗。各难度单独记录最快用时；通关得分随用时递减。')
             MineActionButton({ label: '明白了', icon: 'check', dark: this.dark, action: this.close })
           } else if (this.mode === 'loadError') {

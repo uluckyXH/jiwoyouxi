@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Host CPU benchmark only: this does not measure device frame rate or GPU cost.
-// Optional first argument: an earlier MarketEngine.ets to compare in the same run.
+// Optional arguments: earlier MarketEngine.ets AND its matching MarketModel.ets.
+// Keeping the original timestep is essential for an honest comparison.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { stripTypeScriptTypes } from 'node:module';
@@ -8,8 +9,8 @@ import { resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 const root = resolve(import.meta.dirname, '../entry/src/main/ets/gamesNext/fruitMarket');
-async function load(path) {
-  const source = (readFileSync(resolve(root, 'MarketModel.ets'), 'utf8') + '\n' + readFileSync(path, 'utf8'))
+async function load(path, model = resolve(root, 'MarketModel.ets')) {
+  const source = (readFileSync(model, 'utf8') + '\n' + readFileSync(path, 'utf8'))
     .replace(/^import[\s\S]*?;\s*$/gm, '');
   return (await import('data:text/javascript;base64,' + Buffer.from(stripTypeScriptTypes(source, { mode: 'transform' })).toString('base64'))).MarketEngine;
 }
@@ -37,7 +38,8 @@ function sample(Engine, count) {
   return ms;
 }
 const current = await load(resolve(root, 'MarketEngine.ets'));
-const before = process.argv[2] ? await load(resolve(process.argv[2])) : undefined;
+if (process.argv[2]) assert.ok(process.argv[3], 'also supply the earlier MarketModel.ets to preserve its original timestep');
+const before = process.argv[2] ? await load(resolve(process.argv[2]), resolve(process.argv[3])) : undefined;
 for (const count of [24, 64, 120]) {
   sample(current, count);
   if (before) sample(before, count);
