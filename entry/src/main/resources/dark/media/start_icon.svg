@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+
+  <!-- Chicken Coop mark: original vector artwork. All shapes remain editable paths. -->
+  <path d="M92 394V246a164 164 0 0 1 328 0v148Z" fill="#354633"/>
+  <path d="M109 252v-9a147 147 0 0 1 147-147" fill="none" stroke="#526347" stroke-width="7" stroke-linecap="round"/>
+  <ellipse cx="256" cy="420" rx="158" ry="22" fill="#000000" opacity=".16"/>
+  <g stroke="#805335" stroke-width="10" stroke-linecap="round" stroke-linejoin="round">
+    <!-- A sage cushion makes a small, welcoming nest. -->
+    <path d="M123 378q131-39 266 0l-4 26c-3 20-62 31-130 31s-127-11-130-31Z" fill="#8DA67B"/>
+    <ellipse cx="256" cy="378" rx="133" ry="32" fill="#C4D3AC"/>
+    <!-- The small tail is part of the silhouette, not an extra ornament. -->
+    <path d="M170 294c-48 0-72-35-68-74-27 34-29 78-5 105 17 18 45 26 74 14" fill="#F1D39E"/>
+    <path d="M112 281q12 22 37 27" fill="none" stroke="#C8A36F" stroke-width="7"/>
+    <!-- Three soft coral lobes, echoing the chicken in the home illustration. -->
+    <path d="M217 157c-30-13-45-43-28-54 12-8 29 5 35 21-9-33 1-58 20-52 17 5 18 25 12 45 14-29 37-38 48-22 10 16-8 47-28 62Z" fill="#E79B7E"/>
+    <!-- Plump, uncomplicated body, readable at launcher size. -->
+    <path d="M223 150c37-12 83 3 103 31 18 25 20 49 34 72 10 19 25 37 23 61-4 50-54 82-122 82-70 0-126-29-126-80 0-25 15-41 20-66 7-37 18-83 68-100Z" fill="#FFF8E6"/>
+    <path d="M198 180q-22 15-28 43" fill="none" stroke="#FFFFFF" stroke-width="10"/>
+    <!-- Closed smiling eyes, rather than the old half-lidded 3D expression. -->
+    <path d="M218 224q11 12 22 0m55 0q11 12 22 0" fill="none" stroke-width="9"/>
+    <ellipse cx="207" cy="250" rx="17" ry="10" fill="#EFB39A" stroke="none"/>
+    <ellipse cx="329" cy="250" rx="16" ry="10" fill="#EFB39A" stroke="none"/>
+    <path d="m251 248 18-7 17 12-20 13Z" fill="#EFC36B" stroke-width="7"/>
+    <path d="M269 269c0 11 13 17 18 8 3-6-4-12-11-13" fill="#E79B7E" stroke-width="6"/>
+    <!-- A tiny wooden controller: one cross and two coloured buttons. -->
+    <path d="M210 299c27-9 62-9 88-1 14-6 31-2 39 10 10 15 23 47 11 58-10 10-25-6-36-15h-91c-12 10-27 26-38 15-10-11 2-44 11-57 4-6 9-9 16-10Z" fill="#D9AB88" stroke-width="9"/>
+    <path d="M216 317v22m-11-11h22" fill="none" stroke-width="9"/>
+    <circle cx="307" cy="317" r="7" fill="#A5BC89" stroke-width="5"/>
+    <circle cx="324" cy="336" r="7" fill="#F3D58F" stroke-width="5"/>
+    <path d="M256 326h17" fill="none" stroke="#AC7755" stroke-width="6"/>
+    <!-- Wings curl around the controller. -->
+    <path d="M166 297c19-14 43-11 53 1 9 12 3 25-11 23-9-1-15-6-20-10" fill="#F6DEAF" stroke-width="9"/>
+    <path d="M351 295c18 0 30 12 27 26-2 13-17 20-25 10-5-7-4-14-2-20" fill="#F6DEAF" stroke-width="9"/>
+  </g>
+  <path d="m397 153 5 13 13 5-13 5-5 13-5-13-13-5 13-5Z" fill="#E9C985"/>
+
+</svg>

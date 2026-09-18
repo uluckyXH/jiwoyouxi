@@ -23,6 +23,7 @@ import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, emptySnapshot, Game
 import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
 import { HubPage } from './HubPage';
+import { StartupPage } from './StartupPage';
 import { RpsPage } from '../games/rps/RpsPage';
 import { RpsBattlePage } from '../games/rpsBattle/RpsBattlePage';
 import { FreecellPage } from '../games/freecell/FreecellPage';
@@ -49,6 +50,8 @@ struct Index {
   private snapshotSaveQueue: Promise<boolean> = Promise.resolve(true);
   private snapshotRevision: number = 0;
   private favoriteAchievementEventSequence: number = 0;
+  private startupActive: boolean = false;
+  @State private startupReady: boolean = false;
   @State private hubSession: HubSession = new HubSession();
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State achievementState: AchievementState = emptyAchievementState();
@@ -69,16 +72,34 @@ struct Index {
   @State fruitMarketExitRequest: number = 0;
 
   aboutToAppear(): void {
+    this.startupActive = true;
     const context = this.getUIContext().getHostContext();
     if (context !== undefined) {
       const appContext = context as common.Context;
       this.appContext = appContext;
-      CoopStorage.load(appContext).then((snapshot: CoopAppSnapshot) => {
-        this.saveSnapshot(snapshot);
+      // Restore both stores before mounting the hub, avoiding empty favorites/theme flashes.
+      Promise.all([
+        CoopStorage.load(appContext).then((snapshot: CoopAppSnapshot) => {
+          if (this.startupActive) {
+            this.saveSnapshot(snapshot);
+          }
+        }).catch(() => {
+          console.warn('Unable to restore the app snapshot during startup');
+        }),
+        this.achievementService.initialize(appContext).then((state: AchievementState) => {
+          if (this.startupActive) {
+            this.achievementState = state;
+          }
+        }).catch(() => {
+          console.warn('Unable to restore achievements during startup');
+        })
+      ]).then(() => {
+        if (this.startupActive) {
+          this.startupReady = true;
+        }
       });
-      this.achievementService.initialize(appContext).then((state: AchievementState) => {
-        this.achievementState = state;
-      });
+    } else {
+      this.startupReady = true;
     }
   }
 
@@ -121,13 +142,16 @@ struct Index {
   }
 
   aboutToDisappear(): void {
+    this.startupActive = false;
     this.clearEntryBadgeTimers();
     this.clearAchievementNotices();
   }
 
   build() {
     Stack() {
-      if (this.activeGame === 'hub') {
+      if (!this.startupReady) {
+        StartupPage()
+      } else if (this.activeGame === 'hub') {
         GameSceneTransition({ role: 'hub', sceneDirection: this.sceneDirection }) {
           HubPage({
             session: this.hubSession,
@@ -331,6 +355,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(this.snapshot.appearanceMode === APPEARANCE_DARK ? '#101110' : '#FFF4E4')
   }
 
   private openGame(gameId: string): void {

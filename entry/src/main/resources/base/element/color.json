@@ -2,7 +2,19 @@
   "color": [
     {
       "name": "start_window_background",
-      "value": "#07110D"
+      "value": "#FFF4E4"
+    },
+    {
+      "name": "start_brand_ink",
+      "value": "#704A33"
+    },
+    {
+      "name": "start_brand_caption",
+      "value": "#98775F"
+    },
+    {
+      "name": "start_brand_accent",
+      "value": "#A8BC94"
     }
   ]
 }

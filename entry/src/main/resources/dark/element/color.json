@@ -1,0 +1,8 @@
+{
+  "color": [
+    { "name": "start_window_background", "value": "#101110" },
+    { "name": "start_brand_ink", "value": "#F6E5CB" },
+    { "name": "start_brand_caption", "value": "#B5A28D" },
+    { "name": "start_brand_accent", "value": "#8DA67B" }
+  ]
+}
