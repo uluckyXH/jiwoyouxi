@@ -80,20 +80,20 @@ export default function achievementEngineTest(): void {
         const first = applyAchievementEvent(emptyAchievementState(), createEvent(
           'tetris-1:four-line-clear:1',
           'tetris-1',
-          'tetris',
+          'tetrisNext',
           [{ key: 'maxClearedLines', value: 4 }]
         ));
         const duplicate = applyAchievementEvent(first.state, createEvent(
           'tetris-1:four-line-clear:1',
           'tetris-1',
-          'tetris',
+          'tetrisNext',
           [{ key: 'maxClearedLines', value: 4 }]
         ));
 
         expect(first.disposition).assertEqual('applied');
         expect(first.newlyUnlocked.length).assertEqual(1);
         expect(first.newlyUnlocked[0].achievementId).assertEqual('tetris.first_tetris');
-        expect(progressFor(first.state, 'tetris.first_tetris').current).assertEqual(4);
+        expect(progressFor(first.state, 'tetris.first_tetris').current).assertEqual(1);
         expect(progressFor(first.state, 'tetris.first_tetris').unlockedAt).assertEqual(TEST_OCCURRED_AT);
         expect(duplicate.disposition).assertEqual('duplicate');
         expect(duplicate.newlyUnlocked.length).assertEqual(0);
@@ -105,27 +105,27 @@ export default function achievementEngineTest(): void {
         const low = applyAchievementEvent(emptyAchievementState(), createEvent(
           '2048-1:max-tile:1',
           '2048-1',
-          'chicken2048',
+          'chicken2048Next',
           [{ key: 'maxTile', value: 128 }]
         ));
         const high = applyAchievementEvent(low.state, createEvent(
           '2048-1:max-tile:2',
           '2048-1',
-          'chicken2048',
+          'chicken2048Next',
           [{ key: 'maxTile', value: 2048 }]
         ));
         const laterLow = applyAchievementEvent(high.state, createEvent(
           '2048-2:max-tile:1',
           '2048-2',
-          'chicken2048',
+          'chicken2048Next',
           [{ key: 'maxTile', value: 256 }]
         ));
 
         expect(progressFor(low.state, 'chicken2048.reach_256').current).assertEqual(128);
         expect(high.newlyUnlocked.length).assertEqual(3);
-        expect(progressFor(high.state, 'chicken2048.reach_1024').current).assertEqual(1024);
-        expect(progressFor(high.state, 'chicken2048.reach_2048').current).assertEqual(2048);
-        expect(progressFor(laterLow.state, 'chicken2048.reach_2048').current).assertEqual(2048);
+        expect(progressFor(high.state, 'chicken2048.reach_1024').current).assertEqual(512);
+        expect(progressFor(high.state, 'chicken2048.reach_2048').current).assertEqual(1024);
+        expect(progressFor(laterLow.state, 'chicken2048.reach_2048').current).assertEqual(1024);
         expect(laterLow.newlyUnlocked.length).assertEqual(0);
       });
 
@@ -134,7 +134,7 @@ export default function achievementEngineTest(): void {
         const official = applyAchievementEvent(emptyAchievementState(), createEvent(
           'rps-battle-1:session-end:1',
           'rps-battle-1',
-          'rpsBattle',
+          'rpsBattleNext',
           [
             { key: 'won', value: 1 },
             { key: 'supportWon', value: 1 }
@@ -144,7 +144,7 @@ export default function achievementEngineTest(): void {
         const unofficial = applyAchievementEvent(official.state, createEvent(
           '2048-dev:session-end:1',
           '2048-dev',
-          'chicken2048',
+          'chicken2048Next',
           [{ key: 'maxTile', value: 2048 }],
           'sessionEnd',
           false
@@ -161,15 +161,15 @@ export default function achievementEngineTest(): void {
           .assertEqual(true);
       });
 
-    it('unlocks the confirmed minesweeper achievements at the 60-second boundary in registry order',
+    it('unlocks the confirmed minesweeper achievements at the 180-second boundary in registry order',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const result = applyAchievementEvent(emptyAchievementState(), createEvent(
           'minesweeper-1:session-end',
           'minesweeper-1',
-          'minesweeper',
+          'minesweeperNext',
           [
             { key: 'won', value: 1 },
-            { key: 'elapsedSec', value: 60 },
+            { key: 'elapsedSec', value: 180 },
             { key: 'manualAllMinesFlagged', value: 1 },
             { key: 'hasEverFlaggedNonMine', value: 0 }
           ],
@@ -193,10 +193,10 @@ export default function achievementEngineTest(): void {
         const slowWin = applyAchievementEvent(emptyAchievementState(), createEvent(
           'minesweeper-2:session-end',
           'minesweeper-2',
-          'minesweeper',
+          'minesweeperNext',
           [
             { key: 'won', value: 1 },
-            { key: 'elapsedSec', value: 61 },
+            { key: 'elapsedSec', value: 181 },
             { key: 'manualAllMinesFlagged', value: 1 },
             { key: 'hasEverFlaggedNonMine', value: 0 }
           ],
@@ -205,7 +205,7 @@ export default function achievementEngineTest(): void {
         const wrongFlagWin = applyAchievementEvent(emptyAchievementState(), createEvent(
           'minesweeper-3:session-end',
           'minesweeper-3',
-          'minesweeper',
+          'minesweeperNext',
           [
             { key: 'won', value: 1 },
             { key: 'elapsedSec', value: 30 },
@@ -217,7 +217,7 @@ export default function achievementEngineTest(): void {
         const autoFlagWin = applyAchievementEvent(emptyAchievementState(), createEvent(
           'minesweeper-4:session-end',
           'minesweeper-4',
-          'minesweeper',
+          'minesweeperNext',
           [
             { key: 'won', value: 1 },
             { key: 'elapsedSec', value: 30 },
@@ -229,7 +229,7 @@ export default function achievementEngineTest(): void {
         const devAssistedSession = applyAchievementEvent(emptyAchievementState(), createEvent(
           'minesweeper-dev:session-end',
           'minesweeper-dev',
-          'minesweeper',
+          'minesweeperNext',
           [
             { key: 'won', value: 1 },
             { key: 'elapsedSec', value: 30 },
@@ -241,7 +241,7 @@ export default function achievementEngineTest(): void {
         const failedSession = applyAchievementEvent(emptyAchievementState(), createEvent(
           'minesweeper-5:session-end',
           'minesweeper-5',
-          'minesweeper',
+          'minesweeperNext',
           [
             { key: 'won', value: 0 },
             { key: 'elapsedSec', value: 30 },
@@ -257,8 +257,8 @@ export default function achievementEngineTest(): void {
           .assertEqual(TEST_OCCURRED_AT);
         expect(progressFor(wrongFlagWin.state, 'minesweeper.quick_clear').unlockedAt)
           .assertEqual(TEST_OCCURRED_AT);
-        expect(achievementProgressForState(wrongFlagWin.state, 'minesweeper.perfect_flags') === undefined)
-          .assertEqual(true);
+        expect(progressFor(wrongFlagWin.state, 'minesweeper.perfect_flags').unlockedAt)
+          .assertEqual(TEST_OCCURRED_AT);
         expect(achievementProgressForState(autoFlagWin.state, 'minesweeper.perfect_flags') === undefined)
           .assertEqual(true);
         expect(devAssistedSession.disposition).assertEqual('applied');
@@ -282,7 +282,7 @@ export default function achievementEngineTest(): void {
         const result = applyAchievementEvent(emptyAchievementState(), createEvent(
           'rps-battle-2:session-end:1',
           'rps-battle-2',
-          'rpsBattle',
+          'rpsBattleNext',
           [
             { key: 'won', value: 1 },
             { key: 'supportWon', value: 1 }
@@ -327,7 +327,7 @@ export default function achievementEngineTest(): void {
           state = applyAchievementEvent(state, createEvent(
             `session-${index}:end:1`,
             `session-${index}`,
-            gameId,
+            gameId + 'Next',
             [],
             'sessionEnd'
           )).state;
@@ -390,7 +390,7 @@ export default function achievementEngineTest(): void {
         let state = emptyAchievementState();
         for (let index = 0; index < 10; index += 1) {
           state = applyAchievementEvent(state, createEvent(
-            `wall-${index}:end`, `wall-${index}`, gameIds[index % gameIds.length], [], 'sessionEnd'
+            `wall-${index}:end`, `wall-${index}`, gameIds[index % gameIds.length] + 'Next', [], 'sessionEnd'
           )).state;
         }
         state = applyAchievementEvent(state, createEvent(

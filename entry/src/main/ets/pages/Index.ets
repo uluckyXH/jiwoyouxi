@@ -1,4 +1,3 @@
-import { achievementCanonicalGameId } from '../shell/AchievementRegistry';
 import { HubSession } from '../design/HubSession';
 import { localPlayDay, normalizePlayDays, playDaysWithLegacyRecords } from '../design/PlayActivity';
 import { BlockWorkshopPage } from '../gamesNext/blockWorkshop/BlockWorkshopPage';
@@ -8,8 +7,10 @@ import { CoopStorage } from '../app/CoopStorage';
 import { AchievementUnlockNotice } from '../components/AchievementUnlockNotice';
 import { CoopMotion } from '../design/CoopMotion';
 import { emptyAchievementState } from '../shell/AchievementEngine';
+import { isAchievementSourceGameId } from '../shell/AchievementRegistry';
 import {
   favoriteAchievementEventAfterPersist,
+  favoriteAchievementEventForSnapshot,
   favoriteSnapshotAfterPersist,
   favoriteSnapshotAfterToggle,
   FavoriteSnapshotToggleResult
@@ -54,6 +55,7 @@ struct Index {
   private snapshotSaveQueue: Promise<boolean> = Promise.resolve(true);
   private snapshotRevision: number = 0;
   private favoriteAchievementEventSequence: number = 0;
+  private pendingFavoriteAchievements: AchievementEvent[] = [];
   private startupActive: boolean = false;
   private playDaysSaveQueue: Promise<boolean> = Promise.resolve(true);
   @State private playDays: number[] = [];
@@ -110,6 +112,7 @@ struct Index {
           this.playDays = playDaysWithLegacyRecords(this.playDays, this.snapshot.records);
           this.persistPlayDays();
           this.startupReady = true;
+          this.reconcileFavoriteAchievements();
         }
       });
     } else {
@@ -236,9 +239,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('rpsBattle', score);
-            },
-            reportAchievementEvent: (event: AchievementEvent) => {
-              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -263,9 +263,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('freecell', score);
-            },
-            reportAchievementEvent: (event: AchievementEvent) => {
-              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -292,9 +289,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('minesweeper', score);
-            },
-            reportAchievementEvent: (event: AchievementEvent) => {
-              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -320,9 +314,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('chicken2048', score);
-            },
-            reportAchievementEvent: (event: AchievementEvent) => {
-              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -349,9 +340,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('tetris', score);
-            },
-            reportAchievementEvent: (event: AchievementEvent) => {
-              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -377,9 +365,6 @@ struct Index {
             },
             recordScore: (score: number) => {
               this.recordGameResult('suika', score);
-            },
-            reportAchievementEvent: (event: AchievementEvent) => {
-              return this.reportAchievementEvent(event);
             }
           })
         }
@@ -410,7 +395,7 @@ struct Index {
     if (this.sceneTransitioning || this.activeGame === gameId) {
       return;
     }
-    this.clearAchievementNotices();
+    this.suspendAchievementNotices();
     this.recordPlayDay();
     if (gameId === 'tetris') {
       this.tetrisSession += 1;
@@ -424,6 +409,7 @@ struct Index {
       curve: Curve.Friction,
       onFinish: () => {
         this.sceneTransitioning = false;
+        this.tryShowAchievementNotice();
       }
     }, () => {
       this.activeGame = gameId;
@@ -434,7 +420,7 @@ struct Index {
     if (this.sceneTransitioning || this.activeGame === 'hub') {
       return;
     }
-    this.clearAchievementNotices();
+    this.suspendAchievementNotices();
     this.sceneDirection = 'pop';
     this.sceneTransitioning = true;
     this.hideEntryBadge();
@@ -443,6 +429,7 @@ struct Index {
       curve: Curve.Friction,
       onFinish: () => {
         this.sceneTransitioning = false;
+        this.tryShowAchievementNotice();
       }
     }, () => {
       this.activeGame = 'hub';
@@ -477,9 +464,29 @@ struct Index {
         this.favoriteAchievementEventSequence
       );
       if (event !== undefined) {
-        this.reportAchievementEvent(event);
+        this.reportFavoriteAchievement(event);
       }
     });
+  }
+
+  private async reportFavoriteAchievement(event: AchievementEvent): Promise<void> {
+    if (!await this.reportAchievementEvent(event)) this.pendingFavoriteAchievements.push(event);
+  }
+
+  private async reconcileFavoriteAchievements(): Promise<void> {
+    const context = this.appContext;
+    if (context === undefined) return;
+    // Re-read durable favorites; an optimistic UI toggle must never grant a badge.
+    await this.snapshotSaveQueue;
+    try {
+      const snapshot = await CoopStorage.load(context);
+      const pending = this.pendingFavoriteAchievements.splice(0);
+      for (const event of pending) await this.reportFavoriteAchievement(event);
+      const event = favoriteAchievementEventForSnapshot(snapshot.favorites, Date.now());
+      if (event !== undefined) await this.reportFavoriteAchievement(event);
+    } catch (_) {
+      // Opening the wall or restarting the app retries without discarding the award.
+    }
   }
 
   private updateSound(enabled: boolean): void {
@@ -659,7 +666,7 @@ struct Index {
       const result = await this.achievementService.report(context, event);
       this.achievementState = result.state;
       if (this.activeGame === 'hub' ||
-        achievementCanonicalGameId(this.activeGame) === achievementCanonicalGameId(event.gameId)) {
+        this.activeGame === event.gameId) {
         this.enqueueAchievementNotices(result);
       }
       return result.disposition !== 'ignored';
@@ -691,6 +698,7 @@ struct Index {
     }
     try {
       this.achievementState = await this.achievementService.refresh(context);
+      await this.reconcileFavoriteAchievements();
     } catch (error) {
       // Keep the in-memory state visible when local persistence is temporarily unavailable.
     }
@@ -706,7 +714,8 @@ struct Index {
 
   private tryShowAchievementNotice(): void {
     if (this.achievementNoticeMounted || this.achievementNoticeQueue.length === 0 ||
-      this.activeGame === 'hub' || this.sceneTransitioning || this.entryBadgeMounted) {
+      (this.activeGame !== 'hub' && !isAchievementSourceGameId(this.activeGame)) ||
+      this.sceneTransitioning || this.entryBadgeMounted) {
       return;
     }
     const nextNotice = this.achievementNoticeQueue.shift();
@@ -754,6 +763,14 @@ struct Index {
       this.achievementNotice = emptyAchievementNoticeItem();
       this.tryShowAchievementNotice();
     }, CoopMotion.achievementNoticeExitDuration);
+  }
+
+  private suspendAchievementNotices(): void {
+    this.clearAchievementNoticeTimers();
+    if (this.achievementNoticeMounted) this.achievementNoticeQueue.unshift(this.achievementNotice);
+    this.achievementNoticeVisible = false;
+    this.achievementNoticeMounted = false;
+    this.achievementNotice = emptyAchievementNoticeItem();
   }
 
   private clearAchievementNotices(): void {

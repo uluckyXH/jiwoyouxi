@@ -74,7 +74,7 @@ export struct ArenaReport {
             Text(`${Math.floor(m.time)}s  ${m.text}`).width('100%').fontSize(12).lineHeight(19).fontColor(P.muted(this.dark))
           })
           if (arenaPractice(this.round.config)) {
-            Text('自由练习已结束，这局不计正式战绩与成就。').fontSize(12).fontColor(P.muted(this.dark))
+            Text('自由练习已结束：不计正式战绩，成就照常记录。').fontSize(12).fontColor(P.muted(this.dark))
           }
           if (this.saveFailed) {
             ArenaAction({label:'记录暂未保存，点此重试',icon:'save',dark:this.dark,primary:false,action:this.save})

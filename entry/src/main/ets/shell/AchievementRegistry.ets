@@ -16,6 +16,14 @@ export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
   'suika'
 ];
 
+// Source routes are separate from stable badge/storage IDs. Legacy games cannot report.
+export const ACHIEVEMENT_SOURCE_GAME_IDS: string[] = [
+  'rpsBattleNext', 'freecellNext', 'minesweeperNext', 'chicken2048Next', 'tetrisNext', 'suikaNext'
+];
+export function isAchievementSourceGameId(gameId: string): boolean {
+  return ACHIEVEMENT_SOURCE_GAME_IDS.includes(gameId);
+}
+
 const ACHIEVEMENT_BADGE_ASSET_DIRECTORY: string = 'app/achievements/';
 
 export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
@@ -27,7 +35,7 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
   },
   {
     id: 'rpsBattle',
-    title: '石头剪刀布大作战',
+    title: '鸡窝乱斗 · 庭院擂台',
     gameId: 'rpsBattle',
     placeholderSymbol: '✊'
   },
@@ -51,7 +59,7 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
   },
   {
     id: 'tetris',
-    title: '俄罗斯方块',
+    title: '俄罗斯方块 · 方块工坊',
     gameId: 'tetris',
     placeholderSymbol: '▣'
   },
@@ -108,7 +116,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '鸡窝开张',
     summary: '首次完成一局游戏',
-    detail: '在任意一款主推游戏中正常结束一局。胜负都算，主动退出和重开不计入。',
+    detail: '在任意一款重构新版游戏中正常结束一局。胜负都算，主动退出和重开不计入；旧版不计入。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_first_settlement.svg',
     progressKind: 'totalSessions',
@@ -123,7 +131,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '六边形鸡仔',
     summary: '六款游戏各完成一局',
-    detail: '六款主推游戏各正常结束一局。同一款重复游玩只算一种；空当接龙需通关。',
+    detail: '六款重构新版游戏各正常结束一局。同一款重复游玩只算一种；空当接龙需通关，旧版不计入。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_play_six_games.svg',
     progressKind: 'playedGames',
@@ -137,8 +145,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'global',
     gameId: 'global',
     title: '收藏家',
-    summary: '收藏三款主推游戏',
-    detail: '在大厅收藏三款主推游戏，保存成功后解锁。达成后取消收藏，勋章仍会保留。',
+    summary: '收藏三款新版游戏',
+    detail: '在大厅收藏三款重构新版游戏，保存成功后解锁。旧版收藏不计入；达成后取消收藏，勋章仍会保留。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_favorite_three.svg',
     progressKind: 'favoriteCount',
@@ -157,7 +165,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '常驻鸡仔',
     summary: '累计完成十局游戏',
-    detail: '在主推游戏中累计正常结束十局，可以重复游玩同一款。主动退出和重开不计入。',
+    detail: '在重构新版游戏中累计正常结束十局，可以重复游玩同一款。旧版、主动退出和重开不计入。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_complete_ten_sessions.svg',
     progressKind: 'totalSessions',
@@ -170,9 +178,9 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     id: 'rpsBattle.first_battle',
     groupId: 'rpsBattle',
     gameId: 'rpsBattle',
-    title: '初入战场',
-    summary: '完成任意一局新版乱斗',
-    detail: '在新版石头剪刀布大作战完成一局正式对战。',
+    title: '庭院初见',
+    summary: '完成一局庭院擂台',
+    detail: '在新版庭院擂台正常结束一局，胜负都算。快速乱斗、据点、挑战和自定义事件局均可；主动退出和重开不计入。',
     placeholderSymbol: '✊',
     badgeAssetPath: 'app/achievements/ach_rps_battle_first_battle.svg',
     progressKind: 'none',
@@ -185,9 +193,9 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     id: 'rpsBattle.supporter_wins',
     groupId: 'rpsBattle',
     gameId: 'rpsBattle',
-    title: '押中阵营',
-    summary: '支持的阵营赢得一局',
-    detail: '在正式对战中，让你支持的阵营赢得一局。',
+    title: '小队首胜',
+    summary: '自己的小队赢得一局',
+    detail: '在新版庭院擂台获得一次胜利。不限模式、人数或庭院事件，也可以从第一关挑战开始。',
     placeholderSymbol: '✊',
     badgeAssetPath: 'app/achievements/ach_rps_battle_supporter_wins.svg',
     progressKind: 'none',
@@ -207,15 +215,15 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     id: 'rpsBattle.conversion_storm',
     groupId: 'rpsBattle',
     gameId: 'rpsBattle',
-    title: '转化风暴',
-    summary: '一局正式对战发生 30 次阵营转化',
-    detail: '正常结束一局正式对战，整场累计发生至少 30 次阵营转化。自定义练习不计入。',
+    title: '热闹开场',
+    summary: '一局发生 12 次转阵',
+    detail: '正常结束一局新版庭院擂台，整场累计发生至少 12 次转阵。所有小队的转阵都算，自定义事件局也计入。',
     placeholderSymbol: '✊',
     badgeAssetPath: 'app/achievements/ach_rps_battle_conversion_storm.svg',
     progressKind: 'none',
-    target: 30,
+    target: 12,
     rule: { type: 'eventFact', eventType: 'sessionEnd',
-      condition: { key: 'conversions', comparison: 'atLeast', value: 30 } },
+      condition: { key: 'conversions', comparison: 'atLeast', value: 12 } },
     enabled: true,
     noticeLevel: 'highlight'
   },
@@ -243,15 +251,15 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'freecell',
     gameId: 'freecell',
     title: '精打细算',
-    summary: '150 步内完成一局',
-    detail: '在 150 步以内将四个花色全部归位。以本局面板显示的步数为准，自动收牌也计步。',
+    summary: '200 步内完成一局',
+    detail: '在 200 步以内将四个花色全部归位。以本局面板显示的步数为准，可以使用提示、撤销和自动整理。',
     placeholderSymbol: '♣',
     badgeAssetPath: 'app/achievements/ach_freecell_efficient_win.svg',
     progressKind: 'none',
     target: 1,
     rule: { type: 'eventAllFacts', eventType: 'sessionEnd', conditions: [
       { key: 'won', comparison: 'equals', value: 1 },
-      { key: 'moves', comparison: 'atMost', value: 150 }
+      { key: 'moves', comparison: 'atMost', value: 200 }
     ] },
     enabled: true,
     noticeLevel: 'normal'
@@ -261,15 +269,15 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'freecell',
     gameId: 'freecell',
     title: '疾速清台',
-    summary: '10 分钟内完成一局',
-    detail: '在 10 分钟内将四个花色全部归位。以本局有效游玩时间为准，暂停和离开期间不计时。',
+    summary: '15 分钟内完成一局',
+    detail: '在 15 分钟内将四个花色全部归位。可以使用自动整理，暂停和离开期间不计时。',
     placeholderSymbol: '♣',
     badgeAssetPath: 'app/achievements/ach_freecell_quick_win.svg',
     progressKind: 'none',
     target: 1,
     rule: { type: 'eventAllFacts', eventType: 'sessionEnd', conditions: [
       { key: 'won', comparison: 'equals', value: 1 },
-      { key: 'elapsedSec', comparison: 'atMost', value: 600 }
+      { key: 'elapsedSec', comparison: 'atMost', value: 900 }
     ] },
     enabled: true,
     noticeLevel: 'highlight'
@@ -298,8 +306,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'minesweeper',
     gameId: 'minesweeper',
     title: '迅捷排雷',
-    summary: '60 秒内完成雷区',
-    detail: '在一局正式扫雷中于 60 秒内完成雷区。',
+    summary: '3 分钟内完成雷区',
+    detail: '在任意难度的庭院探雷中，于 3 分钟内打开所有安全格。暂停期间不计时。',
     placeholderSymbol: '✹',
     badgeAssetPath: 'app/achievements/ach_minesweeper_quick_clear.svg',
     progressKind: 'none',
@@ -309,7 +317,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
       eventType: 'sessionEnd',
       conditions: [
         { key: 'won', comparison: 'equals', value: 1 },
-        { key: 'elapsedSec', comparison: 'atMost', value: 60 }
+        { key: 'elapsedSec', comparison: 'atMost', value: 180 }
       ]
     },
     enabled: true,
@@ -320,8 +328,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'minesweeper',
     gameId: 'minesweeper',
     title: '旗开得胜',
-    summary: '十旗全对完成通关',
-    detail: '在一局正式扫雷中手动正确插满十面旗并完成通关。',
+    summary: '标出全部地雷并通关',
+    detail: '在任意难度通关前，手动为所有地雷插旗。允许撤旗改正；通关后自动补上的旗不计入。',
     placeholderSymbol: '✹',
     badgeAssetPath: 'app/achievements/ach_minesweeper_perfect_flags.svg',
     progressKind: 'none',
@@ -331,8 +339,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
       eventType: 'sessionEnd',
       conditions: [
         { key: 'won', comparison: 'equals', value: 1 },
-        { key: 'manualAllMinesFlagged', comparison: 'equals', value: 1 },
-        { key: 'hasEverFlaggedNonMine', comparison: 'equals', value: 0 }
+        { key: 'manualAllMinesFlagged', comparison: 'equals', value: 1 }
       ]
     },
     enabled: true,
@@ -344,7 +351,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'chicken2048',
     title: '合成小能手',
     summary: '最大方块达到 256',
-    detail: '在一局正式的鸡窝 2048 中首次合成 256 方块。',
+    detail: '在暖光叠数中合成 256 方块，达成时即可解锁，无需等到本局结束。',
     placeholderSymbol: '◆',
     badgeAssetPath: 'app/achievements/ach_chicken2048_reach_256.svg',
     progressKind: 'none',
@@ -358,14 +365,34 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     noticeLevel: 'normal'
   },
   {
+    // Stable badge IDs preserve earned medals when the targets become gentler.
     id: 'chicken2048.reach_1024',
     groupId: 'chicken2048',
     gameId: 'chicken2048',
-    title: '千格高手',
-    summary: '最大方块达到 1024',
-    detail: '在一局正式的鸡窝 2048 中首次合成 1024 方块。',
+    title: '叠数渐佳',
+    summary: '最大方块达到 512',
+    detail: '在暖光叠数中合成 512 方块，达成时即可解锁。',
     placeholderSymbol: '◆',
     badgeAssetPath: 'app/achievements/ach_chicken2048_reach_1024.svg',
+    progressKind: 'none',
+    target: 512,
+    rule: {
+      type: 'eventFact',
+      eventType: 'any',
+      condition: { key: 'maxTile', comparison: 'atLeast', value: 512 }
+    },
+    enabled: true,
+    noticeLevel: 'highlight'
+  },
+  {
+    id: 'chicken2048.reach_2048',
+    groupId: 'chicken2048',
+    gameId: 'chicken2048',
+    title: '千格暖光',
+    summary: '最大方块达到 1024',
+    detail: '在暖光叠数中合成 1024 方块，达成时即可解锁。继续挑战 2048 不影响领取勋章。',
+    placeholderSymbol: '◆',
+    badgeAssetPath: 'app/achievements/ach_chicken2048_reach_2048.svg',
     progressKind: 'none',
     target: 1024,
     rule: {
@@ -377,39 +404,20 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     noticeLevel: 'highlight'
   },
   {
-    id: 'chicken2048.reach_2048',
-    groupId: 'chicken2048',
-    gameId: 'chicken2048',
-    title: '2048 达成',
-    summary: '最大方块达到 2048',
-    detail: '在一局正式的鸡窝 2048 中首次合成 2048 方块。',
-    placeholderSymbol: '◆',
-    badgeAssetPath: 'app/achievements/ach_chicken2048_reach_2048.svg',
-    progressKind: 'none',
-    target: 2048,
-    rule: {
-      type: 'eventFact',
-      eventType: 'any',
-      condition: { key: 'maxTile', comparison: 'atLeast', value: 2048 }
-    },
-    enabled: true,
-    noticeLevel: 'highlight'
-  },
-  {
     id: 'tetris.first_tetris',
     groupId: 'tetris',
     gameId: 'tetris',
-    title: '第一记四消',
-    summary: '单次消除 4 行',
-    detail: '在一局俄罗斯方块中完成一次四消。',
+    title: '第一行光',
+    summary: '消除第一行方块',
+    detail: '在新版方块工坊中完成一次消行，消除一行即可，不必四消。',
     placeholderSymbol: '▣',
     badgeAssetPath: 'app/achievements/ach_tetris_first_tetris.svg',
     progressKind: 'none',
-    target: 4,
+    target: 1,
     rule: {
       type: 'eventFact',
       eventType: 'any',
-      condition: { key: 'maxClearedLines', comparison: 'atLeast', value: 4 }
+      condition: { key: 'maxClearedLines', comparison: 'atLeast', value: 1 }
     },
     enabled: true,
     noticeLevel: 'highlight'
@@ -419,16 +427,16 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'tetris',
     gameId: 'tetris',
     title: '清行不停',
-    summary: '单局累计消除 20 行',
-    detail: '在同一局俄罗斯方块中累计消除二十行。',
+    summary: '单局累计消除 5 行',
+    detail: '在同一局新版方块工坊中累计消除五行，可以逐行完成。',
     placeholderSymbol: '▣',
     badgeAssetPath: 'app/achievements/ach_tetris_twenty_lines.svg',
     progressKind: 'none',
-    target: 20,
+    target: 5,
     rule: {
       type: 'eventFact',
       eventType: 'any',
-      condition: { key: 'totalLines', comparison: 'atLeast', value: 20 }
+      condition: { key: 'totalLines', comparison: 'atLeast', value: 5 }
     },
     enabled: true,
     noticeLevel: 'normal'
@@ -438,16 +446,16 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'tetris',
     gameId: 'tetris',
     title: '方块进阶',
-    summary: '达到等级 3',
-    detail: '在同一局俄罗斯方块中达到等级 3。',
+    summary: '单局累计消除 10 行',
+    detail: '在同一局新版方块工坊中累计消除十行，无需达到高速等级。',
     placeholderSymbol: '▣',
     badgeAssetPath: 'app/achievements/ach_tetris_level_three.svg',
     progressKind: 'none',
-    target: 3,
+    target: 10,
     rule: {
       type: 'eventFact',
       eventType: 'any',
-      condition: { key: 'level', comparison: 'atLeast', value: 3 }
+      condition: { key: 'totalLines', comparison: 'atLeast', value: 10 }
     },
     enabled: true,
     noticeLevel: 'normal'
@@ -457,16 +465,16 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'suika',
     gameId: 'suika',
     title: '瓜摊开张',
-    summary: '本局分数达到 600',
-    detail: '在一局鸡窝水果摊中达到 600 分。',
+    summary: '本局分数达到 100',
+    detail: '在一局新版鸡窝水果摊中达到 100 分，达到时即可解锁。',
     placeholderSymbol: '◉',
     badgeAssetPath: 'app/achievements/ach_suika_score_600.svg',
     progressKind: 'none',
-    target: 600,
+    target: 100,
     rule: {
       type: 'eventFact',
       eventType: 'any',
-      condition: { key: 'score', comparison: 'atLeast', value: 600 }
+      condition: { key: 'score', comparison: 'atLeast', value: 100 }
     },
     enabled: true,
     noticeLevel: 'normal'
@@ -475,17 +483,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     id: 'suika.make_watermelon',
     groupId: 'suika',
     gameId: 'suika',
-    title: '西瓜到手',
-    summary: '首次合成西瓜',
-    detail: '在一局鸡窝水果摊中首次合成普通西瓜。',
+    title: '小瓜到手',
+    summary: '合成一颗小西瓜',
+    detail: '在新版鸡窝水果摊将两颗哈密瓜合成小西瓜即可，也接受更高等级的合成。',
     placeholderSymbol: '◉',
     badgeAssetPath: 'app/achievements/ach_suika_make_watermelon.svg',
     progressKind: 'none',
-    target: 1,
+    target: 6,
     rule: {
       type: 'eventFact',
       eventType: 'any',
-      condition: { key: 'madeWatermelon', comparison: 'equals', value: 1 }
+      condition: { key: 'highestMergeLevel', comparison: 'atLeast', value: 6 }
     },
     enabled: true,
     noticeLevel: 'highlight'
@@ -494,17 +502,17 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     id: 'suika.final_merge',
     groupId: 'suika',
     gameId: 'suika',
-    title: '瓜王诞生',
-    summary: '完成最终合成',
-    detail: '在一局鸡窝水果摊中完成最终水果合成。',
+    title: '西瓜上桌',
+    summary: '合成一颗西瓜',
+    detail: '在新版鸡窝水果摊将两颗小西瓜合成西瓜即可，无需完成最终合成。',
     placeholderSymbol: '◉',
     badgeAssetPath: 'app/achievements/ach_suika_final_merge.svg',
     progressKind: 'none',
-    target: 1,
+    target: 7,
     rule: {
       type: 'eventFact',
       eventType: 'any',
-      condition: { key: 'isFinalMerge', comparison: 'equals', value: 1 }
+      condition: { key: 'highestMergeLevel', comparison: 'atLeast', value: 7 }
     },
     enabled: true,
     noticeLevel: 'highlight'
@@ -544,6 +552,7 @@ export function achievementPrimaryFavoriteCount(gameIds: string[]): number {
   }
   const favorites: string[] = [];
   gameIds.forEach((gameId: string) => {
+    if (!isAchievementSourceGameId(gameId)) return;
     const canonicalId = achievementCanonicalGameId(gameId);
     if (ACHIEVEMENT_PRIMARY_GAME_IDS.includes(canonicalId) && !favorites.includes(canonicalId)) {
       favorites.push(canonicalId);

@@ -25,6 +25,8 @@ export struct FruitMarketPage {
   updateSound: (enabled: boolean) => void = () => {};
   reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
   private achievementRequests: string[] = [];
+  private achievementRetryAt: number = 0;
+  private achievementRetryPending: boolean = false;
   private engine: MarketEngine = new MarketEngine();
   private renderer: MarketRenderer = new MarketRenderer();
   private sounds: MarketAudio = new MarketAudio();
@@ -216,9 +218,9 @@ export struct FruitMarketPage {
     this.sync();
     this.dialogMode = restored && this.engine.round.drops > 0 ? (this.engine.round.ended ? 'result' : 'resume') : '';
     if ((this.backgroundDuringBoot || this.viewport.limited) && this.dialogMode === '') this.dialogMode = 'pause';
-    if (this.score >= 600) this.report('score-600', false);
-    if (this.highest >= 7) this.report('watermelon', false);
-    if (this.highest >= 10) this.report('crown', false);
+    if (this.score >= 100) this.report('score-100-v2', false);
+    if (this.highest >= 6) this.report('small-watermelon-v2', false);
+    if (this.highest >= 7) this.report('watermelon-v2', false);
     if (this.engine.round.ended) this.finish();
     this.draw();
     if (this.dialogMode === '') this.start();
@@ -252,9 +254,13 @@ export struct FruitMarketPage {
       const peak = events.reduce((value: number, event: MarketMerge): number => Math.max(value, event.level), 0);
       this.sounds.play(peak === 10 ? 'crown' : peak >= 6 ? 'bloom' : 'merge');
       this.sync();
-      if (oldHighest < 7 && this.highest >= 7) this.report('watermelon', false);
-      if (oldHighest < 10 && this.highest >= 10) this.report('crown', false);
-      if (oldScore < 600 && this.score >= 600) this.report('score-600', false);
+      if (oldHighest < 6 && this.highest >= 6) this.report('small-watermelon-v2', false);
+      if (oldHighest < 7 && this.highest >= 7) this.report('watermelon-v2', false);
+      if (oldScore < 100 && this.score >= 100) this.report('score-100-v2', false);
+    }
+    if (this.achievementRetryPending && now >= this.achievementRetryAt && this.achievementRequests.length === 0) {
+      this.achievementRetryAt = now + 5000;
+      this.preserveAchievements();
     }
     if (this.engine.round.overflow > 0.5 && !this.engine.round.ended) this.sounds.play('warning');
     const drawStart = MARKET_PROFILE ? marketNow() : 0;
@@ -365,11 +371,18 @@ export struct FruitMarketPage {
     this.save();
   }
 
-  private restartRequested(): void {
+  private async restartRequested(): Promise<void> {
+    if (this.savingExit || !this.gameReady) return;
     if (this.dialogMode !== 'restart' && this.dialogMode !== 'result') { this.pause('restart'); return; }
+    this.stop(); this.savingExit = true;
+    const preserved = await this.preserveAchievements();
+    this.savingExit = false;
+    if (!preserved || this.disposed) { this.saveFailed = !preserved; return; }
     const best = this.engine.round.best;
     this.engine = new MarketEngine();
     this.engine.round.best = best;
+    this.achievementRetryPending = false;
+    this.achievementRetryAt = 0;
     this.renderer.reset();
     this.sync();
     this.dialogMode = '';
@@ -401,7 +414,7 @@ export struct FruitMarketPage {
   private async save(): Promise<boolean> {
     if (!this.gameReady || this.hostContext === undefined) return true;
     const saved = await this.storage.save(this.hostContext, this.engine.serialize());
-    if (!this.disposed) this.saveFailed = !saved;
+    if (!this.disposed) this.saveFailed = !saved || this.achievementRetryPending;
     return saved;
   }
 
@@ -410,7 +423,9 @@ export struct FruitMarketPage {
     this.savingExit = true;
     this.stop();
     this.sounds.silence();
-    const saved = await this.save();
+    const preserved = await this.preserveAchievements();
+    const saved = preserved && await this.save();
+    if (!preserved) this.saveFailed = true;
     this.savingExit = false;
     if (saved && !this.disposed) this.exitToHub();
   }
@@ -426,13 +441,24 @@ export struct FruitMarketPage {
     this.save();
   }
 
-  private async report(key: string, ended: boolean): Promise<void> {
+  private async preserveAchievements(): Promise<boolean> {
+    if (this.achievementRequests.length > 0) return false;
+    const r = this.engine.round;
+    if (r.ended && !r.reported) return this.report('session-end', true);
+    if (r.score >= 100 && !await this.report('score-100-v2', false)) return false;
+    if (r.highest >= 6 && !await this.report('small-watermelon-v2', false)) return false;
+    if (r.highest >= 7 && !await this.report('watermelon-v2', false)) return false;
+    return true;
+  }
+
+  private async report(key: string, ended: boolean): Promise<boolean> {
     const round = this.engine.round;
+    if (ended && round.reported) return true;
     const eventId = `${round.sessionId}:${key}`;
-    if (this.achievementRequests.includes(eventId)) return;
+    if (this.achievementRequests.includes(eventId)) return false;
     this.achievementRequests.push(eventId);
     const accepted = await this.reportAchievementEvent({
-      eventId: eventId, sessionId: round.sessionId, gameId: 'suika',
+      eventId: eventId, sessionId: round.sessionId, gameId: 'suikaNext',
       type: ended ? 'sessionEnd' : 'milestone', occurredAt: Date.now(), isOfficial: true,
       facts: [
         { key: 'score', value: round.score }, { key: 'droppedCount', value: round.drops },
@@ -440,11 +466,15 @@ export struct FruitMarketPage {
         { key: 'isFinalMerge', value: round.highest >= 10 ? 1 : 0 }
       ]
     }).catch(() => false);
+    this.achievementRetryPending = !accepted;
+    if (!accepted) this.achievementRetryAt = Date.now() + 5000;
+    if (!accepted && !this.disposed) this.saveFailed = true;
     if (accepted && ended) {
       round.reported = true;
       this.recordScore(round.score);
       if (round === this.engine.round) await this.save();
     }
     this.achievementRequests = this.achievementRequests.filter((id: string) => id !== eventId);
+    return accepted;
   }
 }

@@ -23,6 +23,7 @@ export struct FreecellRoomPage {
   recordScore: (score: number) => void = () => {};
   reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
   private engine: FreecellSession = new FreecellSession();
+  private achievementSaveFailed: boolean = false;
   private audio: FreecellAudio = new FreecellAudio();
   private storage: FreecellStorage = new FreecellStorage();
   private host: FreecellWindow = new FreecellWindow();
@@ -391,8 +392,12 @@ export struct FreecellRoomPage {
     }
     this.scheduleFinish(590);
   }
-  private newGame(same: boolean): void {
+  private async newGame(same: boolean): Promise<void> {
     if (!this.loaded || this.saving) return;
+    if (this.engine.won() && !this.engine.reported) {
+      await this.reportWin();
+      if (!this.engine.reported || this.disposed) return;
+    }
     this.stopAuto(); this.clearIntent(); this.finishMotion(); this.cancelDrag();
     this.engine.newGame(same ? this.engine.seed : undefined); this.selected = -1; this.started = false;
     this.hintCard = -1; this.hintTarget = -1; this.hintIndex = 0; this.dialog = ''; this.returnMode = '';
@@ -442,11 +447,15 @@ export struct FreecellRoomPage {
     if (!this.loaded || this.context === undefined || this.skipSave) return false;
     const session = this.engine.session;
     const success = await this.storage.save(this.context, this.engine.serialize());
-    if (!this.disposed && this.engine.session === session) this.saveFailed = !success;
+    if (!this.disposed && this.engine.session === session) this.saveFailed = !success || this.achievementSaveFailed;
     return success;
   }
   private async saveAndExit(): Promise<void> {
     if (this.saving) return;
+    if (this.engine.won() && !this.engine.reported) {
+      await this.reportWin();
+      if (!this.engine.reported || this.disposed) return;
+    }
     this.present('exit'); this.saving = true;
     const success = await this.save();
     if (this.disposed) return;
@@ -460,10 +469,11 @@ export struct FreecellRoomPage {
     // Keep the won board recoverable before sending, without acknowledging early.
     const success = await this.save();
     if (!success) { if (!this.disposed) this.saving = false; return; }
-    const event: AchievementEvent = { eventId: `${session}:session-end`, sessionId: session, gameId: 'freecell', type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
+    const event: AchievementEvent = { eventId: `${session}:session-end`, sessionId: session, gameId: 'freecellNext', type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
       facts: [{ key: 'won', value: 1 }, { key: 'moves', value: moves }, { key: 'elapsedSec', value: elapsed }, { key: 'score', value: 520 }] };
     const accepted = await this.reportAchievementEvent(event).catch(() => false);
     if (accepted) this.recordScore(520);
+    if (this.engine.session === session) this.achievementSaveFailed = !accepted;
     if (this.engine.session === session && accepted) {
       this.engine.reported = true;
       await this.save();

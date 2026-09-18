@@ -3,6 +3,7 @@ import {
   ACHIEVEMENT_PROCESSED_EVENT_LIMIT,
   ACHIEVEMENT_SCHEMA_VERSION,
   ACHIEVEMENT_STATE_VERSION,
+  ACHIEVEMENT_RULES_VERSION,
   AchievementApplyResult,
   AchievementDefinition,
   AchievementEvent,
@@ -28,7 +29,8 @@ import {
   achievementDefinitionFor,
   achievementProfileFor,
   isAchievementEventTypeAllowed,
-  isAchievementFactKeyAllowed
+  isAchievementFactKeyAllowed,
+  isAchievementSourceGameId
 } from './AchievementRegistry';
 
 interface SanitizedEventFacts {
@@ -112,6 +114,7 @@ function normalizeCompletedSessionIds(sessionIds: string[] | undefined): string[
 export function emptyAchievementState(): AchievementState {
   return {
     version: ACHIEVEMENT_STATE_VERSION,
+    rulesVersion: ACHIEVEMENT_RULES_VERSION,
     progresses: [],
     processedEventIds: [],
     completedSessionCount: 0,
@@ -138,12 +141,38 @@ export function normalizeAchievementState(state: AchievementState | undefined): 
   }
   return {
     version: ACHIEVEMENT_STATE_VERSION,
+    rulesVersion: normalizedCount(state.rulesVersion ?? 1),
     progresses: progresses,
     processedEventIds: normalizeProcessedEventIds(state.processedEventIds),
     completedSessionCount: normalizedCount(state.completedSessionCount),
     playedGameIds: normalizePlayedGameIds(state.playedGameIds),
     completedSessionIds: normalizeCompletedSessionIds(state.completedSessionIds)
   };
+}
+
+/** Migrate only recorded achievement facts; do not infer achievements from legacy scores. */
+export function migrateAchievementRules(previous: AchievementState, occurredAt: number): AchievementState {
+  const state=normalizeAchievementState(previous);
+  if ((state.rulesVersion ?? 1)>=ACHIEVEMENT_RULES_VERSION) return state;
+  const oldWatermelon=state.progresses.find((p: AchievementProgress) => p.achievementId==='suika.make_watermelon');
+  const watermelonAt=oldWatermelon?.unlockedAt ?? 0;
+  const oldLines=state.progresses.find((p: AchievementProgress) => p.achievementId==='tetris.twenty_lines');
+  const knownLines=oldLines?.current ?? 0;
+  state.progresses.forEach((p: AchievementProgress) => {
+    const d=achievementDefinitionFor(p.achievementId); if(d===undefined)return;
+    if(p.achievementId==='tetris.level_three')p.current=Math.max(knownLines,p.current>=2 ? 10 : 0);
+    if(p.achievementId==='suika.make_watermelon' || p.achievementId==='suika.final_merge')p.current=p.unlockedAt>0 ? d.target : 0;
+    p.current=p.unlockedAt>0 ? d.target : Math.min(d.target,p.current);
+    if(p.unlockedAt===0 && p.current>=d.target)p.unlockedAt=Math.floor(occurredAt);
+  });
+  // The former ordinary-watermelon badge already proves the new highest fruit threshold.
+  if(watermelonAt>0) {
+    const final=state.progresses.find((p: AchievementProgress) => p.achievementId==='suika.final_merge');
+    if(final===undefined)state.progresses.push({achievementId:'suika.final_merge',current:7,unlockedAt:watermelonAt});
+    else if(final.unlockedAt===0) { final.current=7; final.unlockedAt=watermelonAt; }
+  }
+  state.rulesVersion=ACHIEVEMENT_RULES_VERSION;
+  return state;
 }
 
 function progressForState(state: AchievementState, achievementId: string): AchievementProgress | undefined {
@@ -278,6 +307,7 @@ function nextStateForSessionEnd(state: AchievementState, event: AchievementEvent
   }
   return {
     version: ACHIEVEMENT_STATE_VERSION,
+    rulesVersion: state.rulesVersion,
     progresses: state.progresses.slice(),
     processedEventIds: state.processedEventIds.slice(),
     completedSessionCount: state.completedSessionCount + 1,
@@ -311,6 +341,9 @@ export function applyAchievementEvent(
   event: AchievementEvent
 ): AchievementApplyResult {
   const state = normalizeAchievementState(previous);
+  if (event===undefined || event===null || (event.gameId!=='global' && !isAchievementSourceGameId(event.gameId))) {
+    return { state: state, disposition: 'ignored', newlyUnlocked: [] };
+  }
   if (event !== undefined && event !== null) {
     event = { eventId: event.eventId, sessionId: event.sessionId,
       gameId: achievementCanonicalGameId(event.gameId), type: event.type,
@@ -355,6 +388,7 @@ export function applyAchievementEvent(
     }
     nextState = {
       version: ACHIEVEMENT_STATE_VERSION,
+      rulesVersion: nextState.rulesVersion,
       progresses: replacesProgress(nextState.progresses, {
         achievementId: definition.id,
         current: nextCurrent,
@@ -371,6 +405,7 @@ export function applyAchievementEvent(
   });
   nextState = {
     version: ACHIEVEMENT_STATE_VERSION,
+    rulesVersion: nextState.rulesVersion,
     progresses: nextState.progresses.slice(),
     processedEventIds: nextProcessedEventIds(nextState.processedEventIds, event.eventId),
     completedSessionCount: nextState.completedSessionCount,

@@ -23,11 +23,24 @@ export class ArenaEngine {
   contacts: number = 0;
   crowding: number = 0;
   timing: ArenaStepTiming = {steps:0,grid:0,seek:0,move:0,contact:0,rules:0};
-  private buckets: number[][] = [];
-  private losses: number[] = [];
-  private depth: number[] = [];
-  private correctionX: number[] = [];
-  private correctionY: number[] = [];
+  // Counting-sort index: each row range is contiguous in cell order, then entity order.
+  // Queries skip empty cells without changing target ties or contact accumulation order.
+  private cellCounts: Int16Array = new Int16Array(GRID * GRID);
+  private cellOffsets: Int16Array = new Int16Array(GRID * GRID + 1);
+  private cellWrite: Int16Array = new Int16Array(GRID * GRID);
+  private cellOf: Int16Array = new Int16Array(60);
+  private cellOrder: Int16Array = new Int16Array(60);
+  private indexedCount: number = -1;
+  private contactFirst: Int16Array = new Int16Array(GRID * GRID);
+  private contactLast: Int16Array = new Int16Array(GRID * GRID);
+  private contactWidth: Int16Array = new Int16Array(GRID * GRID);
+  private seekFirst: Int16Array = new Int16Array(GRID * GRID);
+  private seekLast: Int16Array = new Int16Array(GRID * GRID);
+  private seekWidth: Int16Array = new Int16Array(GRID * GRID);
+  private losses: Int16Array = new Int16Array(60);
+  private depth: Float64Array = new Float64Array(60);
+  private correctionX: Float64Array = new Float64Array(60);
+  private correctionY: Float64Array = new Float64Array(60);
   private previousX: number[] = [];
   private previousY: number[] = [];
   private accumulator: number = 0;
@@ -43,7 +56,7 @@ export class ArenaEngine {
       supplyLeft: [2,2,2], lowSince: [-1,-1,-1], supplyDue: [-1,-1,-1], conversions: 0,
       traitorId: -1, traitorAt: 0, traitorDone: false, windX: 190, windY: 375,
       finished: false, winner: -1, won: false, stars: 0, reason: '', reported: false, moments: [], history: [] };
-    for (let i = 0; i < GRID * GRID; i += 1) this.buckets.push([]);
+    this.buildQueries();
     this.buildObstacles();
     // Interleave initial identities: the contact order is not grouped by faction.
     for (let n = 0; n < Math.max(c.counts[0], c.counts[1], c.counts[2]); n += 1) {
@@ -97,14 +110,15 @@ export class ArenaEngine {
     let mark=sampleNow!==undefined ? sampleNow() : 0;
     this.rememberPositions(); this.rebuild();
     if(sampleNow!==undefined) { const next=sampleNow(); this.timing.grid+=next-mark; mark=next; }
-    const units = this.round.entities;
+    const units = this.round.entities, tick = this.round.tick;
     for (let i = 0; i < units.length; i += 1) {
-      if ((this.round.tick + units[i].id) % 6 === 0) this.chooseTargets(i);
+      if ((tick + units[i].id) % 6 === 0) this.chooseTargets(i);
     }
     if(sampleNow!==undefined) { const next=sampleNow(); this.timing.seek+=next-mark; mark=next; }
-    for (let i = 0; i < units.length; i += 1) this.move(units[i]);
+    const min = ARENA_INSET + ARENA_RADIUS + this.border();
+    for (let i = 0; i < units.length; i += 1) this.move(units[i],t,min);
     if(sampleNow!==undefined) { const next=sampleNow(); this.timing.move+=next-mark; mark=next; }
-    this.rebuild(); this.collide();
+    this.rebuild(); this.collide(t,min);
     if(sampleNow!==undefined) { const next=sampleNow(); this.timing.contact+=next-mark; mark=next; }
     this.recount();
     this.events();
@@ -174,106 +188,135 @@ export class ArenaEngine {
       vx: (this.nextRandom()-.5)*45, vy: (this.nextRandom()-.5)*45, protectedUntil: this.time()+1,
       shieldUntil: 0, shield: 0, rallyX: x, rallyY: y, rallyUntil: 0, target: -1, predator: -1 });
   }
-  private rebuild(): void {
-    for (let b = 0; b < this.buckets.length; b += 1) this.buckets[b].length = 0;
-    const units = this.round.entities;
-    for (let i = 0; i < units.length; i += 1) {
-      const x = arenaClamp(Math.floor(units[i].x / CELL),0,9), y = arenaClamp(Math.floor(units[i].y / CELL),0,9);
-      this.buckets[y*GRID+x].push(i);
-      this.crowding=Math.max(this.crowding,this.buckets[y*GRID+x].length);
+  private buildQueries(): void {
+    for(let cell=0;cell<GRID*GRID;cell+=1) {
+      const x=cell%GRID, y=Math.floor(cell/GRID);
+      const left=Math.max(0,x-1), farLeft=Math.max(0,x-3);
+      this.contactFirst[cell]=Math.max(0,y-1)*GRID+left;
+      this.contactLast[cell]=Math.min(9,y+1)*GRID+left;
+      this.contactWidth[cell]=Math.min(9,x+1)-left+1;
+      this.seekFirst[cell]=Math.max(0,y-3)*GRID+farLeft;
+      this.seekLast[cell]=Math.min(9,y+3)*GRID+farLeft;
+      this.seekWidth[cell]=Math.min(9,x+3)-farLeft+1;
     }
+  }
+  private rebuild(): void {
+    const units=this.round.entities, count=units.length, counts=this.cellCounts, offsets=this.cellOffsets;
+    const cells=this.cellOf, order=this.cellOrder, write=this.cellWrite;
+    counts.fill(0);
+    let crowding=this.crowding, changed=this.indexedCount!==count;
+    for(let i=0;i<count;i+=1) {
+      const e=units[i], x=arenaClamp(Math.floor(e.x/CELL),0,9), y=arenaClamp(Math.floor(e.y/CELL),0,9);
+      const cell=y*GRID+x, size=counts[cell]+1;
+      if(cells[i]!==cell)changed=true;
+      cells[i]=cell; counts[cell]=size;
+      if(size>crowding)crowding=size;
+    }
+    this.crowding=crowding;
+    // Positions still update and every circle contact is tested. Only the cell index is reused.
+    if(!changed)return;
+    this.indexedCount=count;
+    let offset=0;
+    for(let cell=0;cell<GRID*GRID;cell+=1) {
+      offsets[cell]=offset; write[cell]=offset; offset+=counts[cell];
+    }
+    offsets[GRID*GRID]=offset;
+    for(let i=0;i<count;i+=1) { const cell=cells[i]; order[write[cell]++]=i; }
   }
   private chooseTargets(i: number): void {
-    const units = this.round.entities, e = units[i];
-    const cx = Math.floor(e.x/CELL), cy = Math.floor(e.y/CELL);
-    let prey = -1, predator = -1, best = 1e9, danger = 1e9;
-    for (let y = Math.max(0,cy-3); y <= Math.min(9,cy+3); y += 1) {
-      for (let x = Math.max(0,cx-3); x <= Math.min(9,cx+3); x += 1) {
-        const bucket = this.buckets[y*GRID+x];
-        for (let p = 0; p < bucket.length; p += 1) {
-          const j = bucket[p], other = units[j]; if (e.faction === other.faction) continue;
-          this.scans += 1;
-          const d = (other.x-e.x)*(other.x-e.x)+(other.y-e.y)*(other.y-e.y);
-          if (arenaBeats(e.faction,other.faction) && d < best) { best = d; prey = j; }
-          if (arenaBeats(other.faction,e.faction) && d < danger) { danger = d; predator = j; }
-        }
+    const units=this.round.entities, e=units[i], cell=this.cellOf[i];
+    const offsets=this.cellOffsets, order=this.cellOrder, last=this.seekLast[cell], width=this.seekWidth[cell];
+    const ex=e.x, ey=e.y, faction=e.faction, preyFaction=(faction+1)%3;
+    let prey=-1, predator=-1, best=1e9, danger=1e9, scans=0;
+    for(let row=this.seekFirst[cell];row<=last;row+=GRID) {
+      const end=offsets[row+width];
+      for(let p=offsets[row];p<end;p+=1) {
+        const j=order[p], other=units[j], otherFaction=other.faction;
+        if(faction===otherFaction)continue;
+        scans+=1;
+        const dx=other.x-ex, dy=other.y-ey, d=dx*dx+dy*dy;
+        if(otherFaction===preyFaction) { if(d<best) { best=d; prey=j; } }
+        else if(d<danger) { danger=d; predator=j; }
       }
     }
-    e.target = prey; e.predator = predator;
+    this.scans+=scans; e.target=prey; e.predator=predator;
   }
-  private move(e: ArenaEntity): void {
-    const t = this.time(), units = this.round.entities;
+  private move(e: ArenaEntity, t: number, min: number): void {
+    const units = this.round.entities, ex=e.x, ey=e.y, faction=e.faction;
     const prey = e.target >= 0 ? units[e.target] : undefined;
     const predator = e.predator >= 0 ? units[e.predator] : undefined;
     let tx = 360, ty = 360;
-    if (prey !== undefined && arenaBeats(e.faction,prey.faction)) { tx = prey.x; ty = prey.y; }
+    if (prey !== undefined && arenaBeats(faction,prey.faction)) { tx = prey.x; ty = prey.y; }
     if (this.scenario.rule === 'zones' && e.id % 5 < 3) { tx = 360; ty = 360; }
     if (e.rallyUntil > t) { tx = e.rallyX; ty = e.rallyY; }
-    let dx = tx-e.x, dy = ty-e.y, d = Math.max(1,Math.sqrt(dx*dx+dy*dy));
+    let dx = tx-ex, dy = ty-ey, d = Math.max(1,Math.sqrt(dx*dx+dy*dy));
     let ax = dx/d * 180, ay = dy/d * 180;
-    if (predator !== undefined && arenaBeats(predator.faction,e.faction)) {
-      dx = e.x-predator.x; dy = e.y-predator.y; d = Math.max(1,Math.sqrt(dx*dx+dy*dy));
+    if (predator !== undefined && arenaBeats(predator.faction,faction)) {
+      dx = ex-predator.x; dy = ey-predator.y; d = Math.max(1,Math.sqrt(dx*dx+dy*dy));
       if (d < 200) { ax += dx/d*900*(1-d/200); ay += dy/d*900*(1-d/200); }
     }
     ax += Math.sin(t*1.4+e.id*2.3)*32; ay += Math.cos(t*1.7+e.id*2.3)*32;
-    for (let o = 0; o < this.obstacles.length; o += 1) {
-      const wall = this.obstacles[o]; dx = e.x-wall.x; dy = e.y-wall.y; d = Math.max(1,Math.sqrt(dx*dx+dy*dy));
+    const obstacles=this.obstacles;
+    for (let o = 0; o < obstacles.length; o += 1) {
+      const wall = obstacles[o]; dx = ex-wall.x; dy = ey-wall.y; d = Math.max(1,Math.sqrt(dx*dx+dy*dy));
       if (d < wall.radius+85) { ax += dx/d*250; ay += dy/d*250; }
     }
-    e.vx = (e.vx+ax*STEP)*.982; e.vy = (e.vy+ay*STEP)*.982;
-    const speed = Math.sqrt(e.vx*e.vx+e.vy*e.vy);
-    if (speed > 84) { e.vx *= 84/speed; e.vy *= 84/speed; }
-    e.x += e.vx*STEP; e.y += e.vy*STEP;
-    this.bounds(e);
+    let vx=(e.vx+ax*STEP)*.982, vy=(e.vy+ay*STEP)*.982;
+    const speed = Math.sqrt(vx*vx+vy*vy);
+    if (speed > 84) { vx *= 84/speed; vy *= 84/speed; }
+    e.vx=vx; e.vy=vy; e.x=ex+vx*STEP; e.y=ey+vy*STEP;
+    this.bounds(e,min);
     if (e.shieldUntil < t) e.shield = 0;
   }
-  private bounds(e: ArenaEntity): void {
-    const min = ARENA_INSET+ARENA_RADIUS+this.border(), max = 720-min;
+  private bounds(e: ArenaEntity, min: number = ARENA_INSET+ARENA_RADIUS+this.border()): void {
+    const max = 720-min;
     if (e.x < min || e.x > max) { e.x = arenaClamp(e.x,min,max); e.vx *= -.4; }
     if (e.y < min || e.y > max) { e.y = arenaClamp(e.y,min,max); e.vy *= -.4; }
-    for (let i = 0; i < this.obstacles.length; i += 1) {
-      const o = this.obstacles[i], dx = e.x-o.x, dy = e.y-o.y, d = Math.sqrt(dx*dx+dy*dy), r = o.radius+26;
+    const obstacles=this.obstacles;
+    for (let i = 0; i < obstacles.length; i += 1) {
+      const o = obstacles[i], dx = e.x-o.x, dy = e.y-o.y, d = Math.sqrt(dx*dx+dy*dy), r = o.radius+26;
       if (d < r) { e.x = o.x+(d > .01 ? dx/d : 1)*r; e.y = o.y+(d > .01 ? dy/d : 0)*r; }
     }
   }
-  private collide(): void {
-    const units = this.round.entities, t = this.time();
-    this.losses.length = units.length; this.depth.length = units.length;
-    this.correctionX.length=units.length; this.correctionY.length=units.length;
-    this.losses.fill(-1); this.depth.fill(0);
-    this.correctionX.fill(0); this.correctionY.fill(0);
-    const diameter=ARENA_RADIUS*2;
+  private collide(t: number = this.time(), min: number = ARENA_INSET+ARENA_RADIUS+this.border()): void {
+    const units=this.round.entities, count=units.length, losses=this.losses, depth=this.depth;
+    const correctionX=this.correctionX, correctionY=this.correctionY, offsets=this.cellOffsets, order=this.cellOrder;
+    losses.fill(-1,0,count); depth.fill(0,0,count); correctionX.fill(0,0,count); correctionY.fill(0,0,count);
+    const diameter=ARENA_RADIUS*2, diameterSq=diameter*diameter;
+    let checks=0, contacts=0;
     // Read a single position/faction snapshot. Applying separation inside this scan made the
     // grid stale and let traversal order decide which contacts were seen in a crowded group.
-    for (let i = 0; i < units.length; i += 1) {
-      const a = units[i], cx = Math.floor(a.x/CELL), cy = Math.floor(a.y/CELL);
-      for (let y = Math.max(0,cy-1); y <= Math.min(9,cy+1); y += 1) {
-        for (let x = Math.max(0,cx-1); x <= Math.min(9,cx+1); x += 1) {
-          const bucket = this.buckets[y*GRID+x];
-          for (let p = 0; p < bucket.length; p += 1) {
-            const j = bucket[p]; if (j <= i) continue; this.checks += 1;
-            const b = units[j], dx = b.x-a.x, dy = b.y-a.y, sq = dx*dx+dy*dy;
-            if (sq >= diameter*diameter) continue;
-            this.contacts+=1;
-            const distance = Math.sqrt(sq), nx = distance > .01 ? dx/distance : (a.id < b.id ? 1 : -1), ny = distance > .01 ? dy/distance : 0;
-            const penetration = diameter-distance, shift = penetration*.3;
-            this.correctionX[i]-=nx*shift; this.correctionY[i]-=ny*shift;
-            this.correctionX[j]+=nx*shift; this.correctionY[j]+=ny*shift;
-            if (a.faction === b.faction) continue;
-            const loser = arenaBeats(a.faction,b.faction) ? j : i;
-            const winner = loser === j ? a.faction : b.faction;
-            if (penetration > this.depth[loser]) { this.depth[loser] = penetration; this.losses[loser] = winner; }
-          }
+    for (let i = 0; i < count; i += 1) {
+      const a=units[i], ax=a.x, ay=a.y, faction=a.faction, id=a.id, cell=this.cellOf[i];
+      const last=this.contactLast[cell], width=this.contactWidth[cell];
+      let correctionI_X=correctionX[i], correctionI_Y=correctionY[i];
+      for(let row=this.contactFirst[cell];row<=last;row+=GRID) {
+        const end=offsets[row+width];
+        for(let p=offsets[row];p<end;p+=1) {
+          const j=order[p]; if(j<=i)continue; checks+=1;
+          const b=units[j], dx=b.x-ax, dy=b.y-ay;
+          if(dx>=diameter || dx<=-diameter || dy>=diameter || dy<=-diameter)continue;
+          const sq=dx*dx+dy*dy; if(sq>=diameterSq)continue;
+          contacts+=1;
+          const distance=Math.sqrt(sq), nx=distance>.01 ? dx/distance : (id<b.id ? 1 : -1), ny=distance>.01 ? dy/distance : 0;
+          const penetration=diameter-distance, shift=penetration*.3;
+          correctionI_X-=nx*shift; correctionI_Y-=ny*shift;
+          correctionX[j]+=nx*shift; correctionY[j]+=ny*shift;
+          const otherFaction=b.faction; if(faction===otherFaction)continue;
+          const loser=(faction+1)%3===otherFaction ? j : i;
+          if(penetration>depth[loser]) { depth[loser]=penetration; losses[loser]=loser===j ? faction : otherFaction; }
         }
       }
+      correctionX[i]=correctionI_X; correctionY[i]=correctionI_Y;
     }
-    for (let i = 0; i < units.length; i += 1) {
-      const e = units[i], dx=this.correctionX[i], dy=this.correctionY[i];
+    this.checks=checks; this.contacts=contacts;
+    for (let i = 0; i < count; i += 1) {
+      const e = units[i], dx=correctionX[i], dy=correctionY[i];
       const length=Math.sqrt(dx*dx+dy*dy), scale=length>13 ? 13/length : 1;
-      e.x+=dx*scale; e.y+=dy*scale; this.bounds(e);
-      if (this.losses[i] < 0 || e.protectedUntil > t) continue;
+      e.x+=dx*scale; e.y+=dy*scale; this.bounds(e,min);
+      if (losses[i] < 0 || e.protectedUntil > t) continue;
       if (e.shield > 0 && e.shieldUntil > t) { e.shield = 0; e.protectedUntil = t+.6; continue; }
-      e.faction = this.losses[i]; e.protectedUntil = t+.6; e.rallyUntil = 0; e.target = -1; e.predator = -1;
+      e.faction = losses[i]; e.protectedUntil = t+.6; e.rallyUntil = 0; e.target = -1; e.predator = -1;
       this.round.conversions += 1; this.sound('turn');
     }
   }

@@ -21,7 +21,7 @@ function method(name) {
   return page.slice(match.index, end);
 }
 const methods = ['boot', 'start', 'stop', 'frame', 'touch', 'cancelTouch', 'draw', 'relayout',
-  'sync', 'pause', 'resume', 'exitRequested', 'saveAndExit'].map(method).join('\n');
+  'sync', 'pause', 'resume', 'exitRequested', 'saveAndExit', 'preserveAchievements', 'report'].map(method).join('\n');
 const logic = ['MarketModel.ets', 'MarketEngine.ets', 'MarketLayout.ets']
   .map(file => readFileSync(new URL(file, base), 'utf8')).join('\n');
 const harness = `
@@ -41,6 +41,8 @@ class PageHarness {
     this.lastFrame = Date.now(); this.lastSave = Date.now();
     this.starts = 0; this.stops = 0; this.saves = 0; this.exits = 0; this.paints = 0;
     this.savingExit = false; this.saveFailed = false;
+    this.achievementRequests=[];this.achievementRetryAt=0;this.achievementRetryPending=false;
+    this.reportAchievementEvent=async()=>true;this.recordScore=()=>{};
     this.frameClock = { start: () => { this.starts++; }, stop: () => { this.stops++; } };
     this.sounds = { play: () => {}, silence: () => {} };
     this.renderer = { add: () => {}, draw: () => { this.paints++; return true; } };

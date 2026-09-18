@@ -5,7 +5,8 @@ import {stripTypeScriptTypes} from 'node:module';
 import vm from 'node:vm';
 import {performance} from 'node:perf_hooks';
 const base=new URL('../entry/src/main/ets/gamesNext/coopArena/',import.meta.url);
-const src=['ArenaModel.ets','ArenaEngine.ets'].map(f=>readFileSync(new URL(f,base),'utf8')).join('\n')
+const engineFile=process.argv.find(v=>v.startsWith('--engine='))?.slice('--engine='.length);
+const src=['ArenaModel.ets','ArenaEngine.ets'].map(f=>readFileSync(f==='ArenaEngine.ets'&&engineFile ? engineFile : new URL(f,base),'utf8')).join('\n')
  .replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export /gm,'');
 const {ArenaEngine,arenaDefaultConfig}=vm.runInNewContext(stripTypeScriptTypes(src,{mode:'transform'})+'\n({ArenaEngine,arenaDefaultConfig})');
 const cfg=(mode,seed=71,faction=0,mission=0,count=8)=>({...arenaDefaultConfig(),mode,seed,faction,mission,counts:[count,count,count]});
@@ -31,6 +32,7 @@ for(const n of [8,12,20]){
  const r=run(cfg('zones',72391,0,0,n),1);
  console.log(`HOST ${n*3} units: ${r.steps} steps; avg ${(r.ms/r.steps).toFixed(3)}ms/step; peak ${r.peak.toFixed(2)}ms; pairs ${r.checks.toFixed(1)}; AI scans ${r.scans.toFixed(1)}`);
 }
+if(process.argv.includes('--performance-only'))process.exit(0);
 const wins=[0,0,0,0];let duration=0;
 for(let i=0;i<36;i++){const r=run(cfg('classic',191+i*8171));wins[r.winner<0?3:r.winner]++;duration+=r.seconds;}
 console.log(`Classic 36 seeds: rock/scissors/cloth/draw=${wins.join('/')}; mean ${(duration/36).toFixed(1)}s. Sample only, not proof of balance.`);

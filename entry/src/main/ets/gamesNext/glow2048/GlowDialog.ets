@@ -89,7 +89,7 @@ export struct GlowDialog {
               Text(`最高方块 ${this.maxTile} · ${this.moves} 步`).fontSize(12).fontColor(P.muted(this.dark))
             }.width('100%').padding(14).borderRadius(20).backgroundColor(P.soft(this.dark))
             if (this.saveFailed) {
-              Text('这次进度还没存好，请重试保存。').fontSize(12).fontColor(P.danger(this.dark))
+              Text('进度或成就还没存好，请重试保存。').fontSize(12).fontColor(P.danger(this.dark))
               GlowActionButton({ dark: this.dark, label: '重试保存', icon: 'restart', primary: false,
                 active: !this.saving, action: this.retrySave })
             }

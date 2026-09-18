@@ -1,6 +1,6 @@
 import { AchievementEvent } from './AchievementModule';
 import { CoopAppSnapshot } from './GameModule';
-import { achievementCanonicalGameId, ACHIEVEMENT_PRIMARY_GAME_IDS, achievementPrimaryFavoriteCount } from './AchievementRegistry';
+import { isAchievementSourceGameId, achievementPrimaryFavoriteCount } from './AchievementRegistry';
 
 export interface FavoriteSnapshotToggleResult {
   snapshot: CoopAppSnapshot;
@@ -51,7 +51,7 @@ export function favoriteAchievementEventAfterPersist(
   occurredAt: number,
   sequence: number
 ): AchievementEvent | undefined {
-  if (!ACHIEVEMENT_PRIMARY_GAME_IDS.includes(achievementCanonicalGameId(addedGameId)) || !favorites.includes(addedGameId) ||
+  if (!isAchievementSourceGameId(addedGameId) || !favorites.includes(addedGameId) ||
     !didSave || !didAddFavorite || !Number.isFinite(occurredAt) || occurredAt <= 0 ||
     !Number.isFinite(sequence) || sequence <= 0) {
     return undefined;
@@ -70,4 +70,13 @@ export function favoriteAchievementEventAfterPersist(
     isOfficial: true,
     facts: [{ key: 'favoriteCount', value: favoriteCount }]
   };
+}
+
+/** Reconcile a successfully persisted snapshot after a failed award or app restart. */
+export function favoriteAchievementEventForSnapshot(favorites: string[], occurredAt: number): AchievementEvent | undefined {
+  const count = achievementPrimaryFavoriteCount(favorites);
+  if (count === 0 || !Number.isFinite(occurredAt) || occurredAt <= 0) return undefined;
+  const identifier = `favorites:remakes-v2:${count}`;
+  return { eventId: identifier, sessionId: identifier, gameId: 'global', type: 'milestone',
+    occurredAt: Math.floor(occurredAt), isOfficial: true, facts: [{ key: 'favoriteCount', value: count }] };
 }

@@ -1,5 +1,6 @@
 export const ACHIEVEMENT_SCHEMA_VERSION: number = 1;
 export const ACHIEVEMENT_STATE_VERSION: number = 1;
+export const ACHIEVEMENT_RULES_VERSION: number = 2;
 export const ACHIEVEMENT_PROCESSED_EVENT_LIMIT: number = 32;
 
 export type AchievementFilter = 'all' | 'unlocked' | 'inProgress';
@@ -91,6 +92,7 @@ export interface LegacyAchievementProgress {
 
 export interface AchievementState {
   version: number;
+  rulesVersion?: number;
   progresses: AchievementProgress[];
   processedEventIds: string[];
   completedSessionCount: number;

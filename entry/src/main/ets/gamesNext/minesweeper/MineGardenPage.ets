@@ -23,6 +23,7 @@ export struct MineGardenPage {
   updateSound: (enabled: boolean) => void = () => {};
   reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
   private reportingSession: string = '';
+  private achievementSaveFailed: boolean = false;
   private engine: MineEngine = new MineEngine();
   private audio: MineAudio = new MineAudio();
   private storage: MineStorage = new MineStorage();
@@ -260,30 +261,35 @@ export struct MineGardenPage {
     this.save();
   }
 
-  private async settle(): Promise<void> {
-    if (!this.engine.finished() || this.engine.reported || this.reportingSession === this.engine.session) return;
+  private async settle(): Promise<boolean> {
+    if (!this.engine.finished() || this.engine.reported) return true;
+    if (this.reportingSession === this.engine.session) return false;
     const session = this.engine.session;
     const score = this.engine.score();
     const won = this.engine.phase === 'won';
     this.reportingSession = session;
     const event: AchievementEvent = {
-      eventId: `${this.engine.session}:session-end`, sessionId: this.engine.session, gameId: 'minesweeper',
+      eventId: `${this.engine.session}:session-end`, sessionId: this.engine.session, gameId: 'minesweeperNext',
       type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
-      facts: [ { key: 'won', value: this.phase === 'won' ? 1 : 0 },
+      facts: [ { key: 'won', value: won ? 1 : 0 },
         { key: 'elapsedSec', value: Math.ceil(this.engine.elapsedMs / 1000) },
-        // The existing badge explicitly asks for ten manually placed correct flags.
-        { key: 'manualAllMinesFlagged', value: this.engine.manualAllFlags && this.level.mines === 10 ? 1 : 0 },
+        // Captured by the engine before it automatically flags the remaining mines.
+        { key: 'manualAllMinesFlagged', value: this.engine.manualAllFlags ? 1 : 0 },
         { key: 'hasEverFlaggedNonMine', value: this.engine.everWrongFlag ? 1 : 0 } ]
     };
     this.returnDialog = '';
     this.dialog = 'result';
+    // Persist the unacknowledged result before publishing it, so reopening can retry.
+    if (!await this.save()) { this.reportingSession = ''; return false; }
     const accepted = await this.reportAchievementEvent(event).catch(() => false);
     if (accepted && won) this.recordScore(score);
     if (this.engine.session === session) {
+      this.achievementSaveFailed = !accepted;
       this.engine.reported = accepted;
       await this.save();
     }
     if (this.reportingSession === session) this.reportingSession = '';
+    return accepted;
   }
 
   private sync(): void {
@@ -359,8 +365,14 @@ export struct MineGardenPage {
     else this.present('difficulty');
   }
 
-  private newRound(key: string): void {
+  private async newRound(key: string): Promise<void> {
     if (this.saving) return;
+    if (this.engine.finished()) {
+      this.saving = true;
+      const accepted = await this.settle();
+      this.saving = false;
+      if (!accepted || this.disposed) return;
+    }
     this.audio.silence();
     this.engine.reset(key);
     this.sync();
@@ -421,14 +433,14 @@ export struct MineGardenPage {
     if (!this.loaded || this.context === undefined || this.skipExitSave) return true;
     this.lastSave = Date.now();
     const saved = await this.storage.save(this.context, this.engine.serialize());
-    if (!this.disposed) this.saveFailed = !saved;
+    if (!this.disposed) this.saveFailed = !saved || this.achievementSaveFailed;
     return saved;
   }
 
   private async retrySave(): Promise<void> {
     if (this.saving) return;
     this.saving = true;
-    await this.save();
+    if (await this.save()) await this.settle();
     if (!this.disposed) this.saving = false;
   }
 
@@ -437,7 +449,7 @@ export struct MineGardenPage {
     this.captureTime();
     this.audio.silence();
     this.saving = true;
-    if (await this.save()) {
+    if (await this.save() && await this.settle()) {
       if (!this.disposed) { this.skipExitSave = true; this.exitToHub(); }
     } else if (!this.disposed) {
       this.dialog = 'exit';

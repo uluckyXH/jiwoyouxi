@@ -1,0 +1,762 @@
+{
+  "baseline": "64f40e7",
+  "description": "Unmodified v3 engine; one-second checkpoints, input commands and mid-round save restore; session ID excluded.",
+  "cases": [
+    {
+      "config": {
+        "mode": "classic",
+        "faction": 0,
+        "mission": 0,
+        "seed": 3032101680,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "traitor"
+      },
+      "digest": "5f42b635d215d111c9006d8118ea16ea58f65ec9a52487e5457b3238463ec209",
+      "tick": 132,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "classic",
+        "faction": 1,
+        "mission": 0,
+        "seed": 3032101680,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "traitor"
+      },
+      "digest": "3b15c760c7d5ed647a237d0315a5136d88cffd8cd16c838826d40f83cdba7d75",
+      "tick": 132,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "classic",
+        "faction": 2,
+        "mission": 0,
+        "seed": 3032101680,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "traitor"
+      },
+      "digest": "3badaa0b12ed7af5feaffb5e5afdb9519135ec1b2e267804862a96fe5317c191",
+      "tick": 132,
+      "winner": 0,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72399,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "77bb5d5a28e888487630c77b8ed93eac373d28d0ae84bd856c56595afd6af984",
+      "tick": 5022,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72399,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "garden"
+      },
+      "digest": "ed561c596d9d17c94190cebd5966212e638f1a4b29da52181cb87ec206d716b1",
+      "tick": 3709,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72399,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "wind"
+      },
+      "digest": "23c942eba37a2980ed0d13ca3c8c2fc9543b3db73ced1294e17aa265b2948e6d",
+      "tick": 3817,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72399,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "traitor"
+      },
+      "digest": "0b7f0a536f896360515d410bce7ba5fa60e4a94996f7394f0ca2046c7d34a099",
+      "tick": 5400,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72399,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "shrink"
+      },
+      "digest": "79ea70e188b94538fd9c55ee2db09ad7ab88f474652e1394578f63588fbffa96",
+      "tick": 4519,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72403,
+        "counts": [
+          12,
+          12,
+          12
+        ],
+        "event": "none"
+      },
+      "digest": "9d0f4c7e11a699191eb7df7bd331180b186804ab0fa7e2e8e0861ee0c69d095d",
+      "tick": 3901,
+      "winner": 0,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72403,
+        "counts": [
+          12,
+          12,
+          12
+        ],
+        "event": "garden"
+      },
+      "digest": "8812a246991b7cfbb0845a48ddde3fb2006500a1546724c7e31363d9d0f3c729",
+      "tick": 4068,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72403,
+        "counts": [
+          12,
+          12,
+          12
+        ],
+        "event": "wind"
+      },
+      "digest": "0345756dc046b334c4bbbdf2cf5410ec6559caf72ce8c66b4b10ce25251db432",
+      "tick": 3844,
+      "winner": 0,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72403,
+        "counts": [
+          12,
+          12,
+          12
+        ],
+        "event": "traitor"
+      },
+      "digest": "4f14ff7630f82e8a119d94aea28d6dab460681597e700b804c1b4713c4184b42",
+      "tick": 5296,
+      "winner": 0,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72403,
+        "counts": [
+          12,
+          12,
+          12
+        ],
+        "event": "shrink"
+      },
+      "digest": "3af9fa44cefdd2eb48c32d3b532c426d7215565b864a1aeb7cbcc15294910473",
+      "tick": 4405,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72411,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "none"
+      },
+      "digest": "09b3529b96f21ccaacb94fcd3fa95e7215de226c95e035de96ac965a175b4752",
+      "tick": 2381,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72411,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "garden"
+      },
+      "digest": "b748d5e3d6686461bb06bc901458c8b50f0ea427a7c475b88093cad65dfb0344",
+      "tick": 2226,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72411,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "wind"
+      },
+      "digest": "d0db32fec62f879736cc9ad1b796a36eeb039f9454cbbf0c88f9dec6d7770efb",
+      "tick": 2381,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72411,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "traitor"
+      },
+      "digest": "f4e415d25066c015269748214d986a46336a3166849136b83d721f8ece0f3760",
+      "tick": 2381,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "zones",
+        "faction": 0,
+        "mission": 0,
+        "seed": 72411,
+        "counts": [
+          20,
+          20,
+          20
+        ],
+        "event": "shrink"
+      },
+      "digest": "1b26fb0b9d02521c59d5b2b67e6ac73d987b2b3c04705e316fed5104a13ae395",
+      "tick": 2381,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 0,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "a8a2f9447d63df9e391cbe98e86801f8fe788f76010c6fd39d4167c5caa2ae00",
+      "tick": 3523,
+      "winner": 0,
+      "stars": 3
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 0,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "1f8c75a376b3be860c39a505740effa17f879d363e97222f1f4402f78db88847",
+      "tick": 3523,
+      "winner": 1,
+      "stars": 3
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 0,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "5f5ec3c5c048ce6eefb69f7d34d2c0c816aa64cd7a13c97c94607a02247afdeb",
+      "tick": 3523,
+      "winner": 2,
+      "stars": 3
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 1,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "d38e06d17363d23fd7f25272c5f5df62810d5c8e8871738213855b01b53c96f2",
+      "tick": 3415,
+      "winner": 0,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 1,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "3ce6658201b6337baff023c575721f46a0fcad84b6c46312c2030d836e66e601",
+      "tick": 3415,
+      "winner": 1,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 1,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "b0d77acd6940f8010a50b8ccd013e51080d169a6adb7bcd136af120ba3b5457f",
+      "tick": 3415,
+      "winner": 2,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 2,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "7c993f433558283aa4b6f42ab6231aac59c2aa5765e9f725498f201e7b9cdf52",
+      "tick": 2700,
+      "winner": 0,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 2,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "85e89457fb2f7cb7ac912c59625ec04dec2e68213e17acec5af83976131c42eb",
+      "tick": 2700,
+      "winner": 1,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 2,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "497d115fa037346b84b17e578ecb4ff3fe31ab2bf2acfd95ab89c4afc12495f9",
+      "tick": 2700,
+      "winner": 2,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 3,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "1a7f2b4712248d63d2aa08c7cd80d8f679fd6dd7e2fa9fe19a0bc88a187edd7d",
+      "tick": 4034,
+      "winner": 0,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 3,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "bf19f39ce11a88b27d0f8fe9bac88613f5c421a384e46fb307db2eaf16837b0d",
+      "tick": 4034,
+      "winner": 1,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 3,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "16c73a3f085b124540e0e0de3d22eb2b6c5bf218f4e9e926cceb2e1d22c2aadc",
+      "tick": 4034,
+      "winner": 2,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 4,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "f2f5eecf3e625ffa7974e49299de4d18f493a088cfe992fb252eef8e449af5d9",
+      "tick": 5400,
+      "winner": 1,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 4,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "bd64e645bcd2efee750016320899ec3388b40aef64648d8b448ae7512672ffc2",
+      "tick": 5400,
+      "winner": 2,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 4,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "303dc2405335cbde8d56c9d725d2f1f219bede0d2878b77af313ccda5037e281",
+      "tick": 5400,
+      "winner": 0,
+      "stars": 0
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 5,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "07eb8badccd93a78caaa4e224b5ea2026bf07292c6f463a94032bde0fd55e3f1",
+      "tick": 4525,
+      "winner": 0,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 5,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "254daaef480e34fd04175b643c039b1f73cf6eb49d8692d5a314270f85d248f0",
+      "tick": 4525,
+      "winner": 1,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 5,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "19888d4b6227b213b3ef25912cebcb699d3f778267b86671ff1e68694be2f4df",
+      "tick": 4525,
+      "winner": 2,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 6,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "8f17b24e13b69e7e805c6eec4f2876433fdf4821edb18c184b5e9d2d67c2cc27",
+      "tick": 2421,
+      "winner": 0,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 6,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "e11661c337d473fad317af07958f72920e0123ee4fd1f4210fac375e25dd1e3b",
+      "tick": 2421,
+      "winner": 1,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 6,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "062a3c573b341bd0baeccc837040cbf87ab55827778879712e11c7fdf016daca",
+      "tick": 2421,
+      "winner": 2,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 0,
+        "mission": 7,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "3597d32ac613f274b4de3dc304cb8e8e2b33da0e9cfb728b5cda036eed892369",
+      "tick": 3489,
+      "winner": 0,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 1,
+        "mission": 7,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "041563df2698081418db09e0c0b55d18fab8f481f77d58a5bfc2442f5c04ba97",
+      "tick": 3489,
+      "winner": 1,
+      "stars": 2
+    },
+    {
+      "config": {
+        "mode": "challenge",
+        "faction": 2,
+        "mission": 7,
+        "seed": 1,
+        "counts": [
+          8,
+          8,
+          8
+        ],
+        "event": "none"
+      },
+      "digest": "f225d914ad7efd78c67187d231bef03b6cd4b26f0d97aace69e9d99281d39051",
+      "tick": 3489,
+      "winner": 2,
+      "stars": 2
+    }
+  ]
+}

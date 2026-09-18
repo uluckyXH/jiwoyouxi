@@ -156,7 +156,7 @@ export struct MarketDialog {
             MarketGuide({ dark: this.dark, highest: this.highest })
           }
           if (this.saveFailed) {
-            Text('进度暂未保存成功，请稍后重试。').fontSize(12).fontColor(MarketPalette.danger(this.dark))
+            Text('进度或成就暂未保存成功，请稍后重试。').fontSize(12).fontColor(MarketPalette.danger(this.dark))
             Button('不保存，直接返回大厅').fontSize(12).height(44).backgroundColor(Color.Transparent)
               .fontColor(MarketPalette.danger(this.dark)).onClick(this.exitWithoutSave)
           }

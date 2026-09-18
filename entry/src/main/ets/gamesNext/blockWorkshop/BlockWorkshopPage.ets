@@ -27,6 +27,7 @@ export struct BlockWorkshopPage {
   reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
   private achievementRequests: string[] = [];
   private achievementRetryAt: number = 0;
+  private achievementSaveFailed: boolean = false;
   private engine: BlockEngine = new BlockEngine();
   private renderer: BlockRenderer = new BlockRenderer();
   private canvas: CanvasRenderingContext2D = new CanvasRenderingContext2D(new RenderingContextSettings(true));
@@ -239,7 +240,7 @@ export struct BlockWorkshopPage {
           Text(this.dialogBody()).fontSize(13).lineHeight(23).fontColor(BlockPalette.muted(this.dark))
             .textAlign(TextAlign.Center).width('100%')
           if (this.saveFailed) {
-            Text('进度保存失败，可重试保存后返回。').fontSize(12).fontColor(this.dark ? '#ffbb91' : '#a45430')
+            Text('进度或成就暂未保存，可重试保存后返回。').fontSize(12).fontColor(this.dark ? '#ffbb91' : '#a45430')
           }
           if (this.dialog === 'loading') {
             LoadingProgress().width(36).height(36).color(BlockPalette.accent(this.dark))
@@ -419,11 +420,15 @@ export struct BlockWorkshopPage {
     this.dialog = ''; this.lastTick = this.now(); this.performance.reset(this.lastTick);
     this.sounds.play('tap'); this.schedule();
   }
-  private restart(): void {
+  private async restart(): Promise<void> {
     if (this.saving || !this.ready) return;
-    this.stop();
+    this.stop(); this.saving = true;
+    const preserved = await this.preserveAchievements();
+    this.saving = false;
+    if (!preserved || this.disposed) { this.saveFailed = !preserved; return; }
     const best = this.engine.round.best;
     this.engine = new BlockEngine(); this.engine.round.best = best;
+    this.achievementRetryAt = 0;
     this.renderer.invalidate(); this.sync(); this.paint(); this.save(); this.resume();
   }
   private showHelp(): void {
@@ -458,29 +463,43 @@ export struct BlockWorkshopPage {
     if (!this.loaded || this.context === undefined) return false;
     this.lastSave = this.now();
     const ok = await this.storage.save(this.context, this.engine.serialize());
-    if (!this.disposed) this.saveFailed = !ok;
+    if (!this.disposed) this.saveFailed = !ok || this.achievementSaveFailed;
     return ok;
   }
   private async saveAndExit(): Promise<void> {
     if (this.saving) return;
     if (!this.loaded) { this.exitToHub(); return; }
     this.pause(); this.saving = true;
-    if (await this.save()) { if (!this.disposed) this.exitToHub(); }
+    if (await this.preserveAchievements()) {
+      if (await this.save()) { if (!this.disposed) this.exitToHub(); }
+    } else this.saveFailed = true;
     if (!this.disposed) this.saving = false;
+  }
+
+  private async preserveAchievements(): Promise<boolean> {
+    // Do not replace a round while its durable achievement acknowledgment is pending.
+    if (this.achievementRequests.length > 0) return false;
+    const r = this.engine.round;
+    if (r.phase === 'over' && !r.reported) return this.report('sessionEnd', 'finish');
+    const achieved: boolean[] = [r.maxClear >= 1, r.lines >= 5, r.lines >= 10];
+    for (let i = 0; i < achieved.length; i += 1) {
+      if (achieved[i] && !await this.report('milestone', 'milestone-v2-' + i)) return false;
+    }
+    return true;
   }
 
   private milestones(restoring: boolean = false): void {
     if (Date.now() < this.achievementRetryAt) return;
     const r = this.engine.round;
-    const achieved: boolean[] = [r.maxClear >= 4, r.lines >= 20, r.level >= 3];
+    const achieved: boolean[] = [r.maxClear >= 1, r.lines >= 5, r.lines >= 10];
     for (let i = 0; i < achieved.length; i += 1) {
       const bit = 1 << i;
       if (achieved[i] && (restoring || (r.milestones & bit) === 0)) {
-        this.report('milestone', 'milestone-' + i).then((accepted: boolean) => {
+        this.report('milestone', 'milestone-v2-' + i).then((accepted: boolean) => {
           if (accepted) {
             r.milestones |= bit;
             if (r === this.engine.round) this.save();
-          }
+          } else r.milestones &= ~bit;
         });
       }
     }
@@ -494,13 +513,16 @@ export struct BlockWorkshopPage {
   }
   private async report(type: 'milestone' | 'sessionEnd', suffix: string): Promise<boolean> {
     const r = this.engine.round;
+    if (type === 'sessionEnd' && r.reported) return true;
     const eventId = r.session + ':' + suffix;
     if (this.achievementRequests.includes(eventId)) return false;
     this.achievementRequests.push(eventId);
-    const accepted = await this.reportAchievementEvent({ eventId: eventId, sessionId: r.session, gameId: 'tetris',
+    const accepted = await this.reportAchievementEvent({ eventId: eventId, sessionId: r.session, gameId: 'tetrisNext',
       type: type, occurredAt: Date.now(), isOfficial: true,
       facts: [{ key: 'score', value: r.score }, { key: 'maxClearedLines', value: r.maxClear },
         { key: 'totalLines', value: r.lines }, { key: 'level', value: r.level }] }).catch(() => false);
+    this.achievementSaveFailed = !accepted;
+    if (!accepted && !this.disposed) this.saveFailed = true;
     if (accepted && type === 'sessionEnd') {
       r.reported = true;
       this.recordScore(r.score);

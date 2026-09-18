@@ -14,12 +14,12 @@ export default function achievementFavoriteEventTest(): void {
     it('counts only unique primary-game favorites',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const count = achievementPrimaryFavoriteCount([
-          'rpsBattle',
+          'rpsBattleNext',
           'rps',
-          'freecell',
-          'rpsBattle',
+          'freecellNext',
+          'rpsBattleNext',
           'not-a-game',
-          'minesweeper'
+          'minesweeperNext'
         ]);
 
         expect(count).assertEqual(3);
@@ -28,18 +28,18 @@ export default function achievementFavoriteEventTest(): void {
     it('creates a collector event only after a successful primary favorite write',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const failedWrite = favoriteAchievementEventAfterPersist(
-          'minesweeper',
+          'minesweeperNext',
           false,
           true,
-          ['rpsBattle', 'freecell', 'minesweeper'],
+          ['rpsBattleNext', 'freecellNext', 'minesweeperNext'],
           TEST_OCCURRED_AT,
           1
         );
         const removal = favoriteAchievementEventAfterPersist(
-          'minesweeper',
+          'minesweeperNext',
           true,
           false,
-          ['rpsBattle', 'freecell'],
+          ['rpsBattleNext', 'freecellNext'],
           TEST_OCCURRED_AT,
           2
         );
@@ -52,10 +52,10 @@ export default function achievementFavoriteEventTest(): void {
           3
         );
         const event = favoriteAchievementEventAfterPersist(
-          'minesweeper',
+          'minesweeperNext',
           true,
           true,
-          ['rpsBattle', 'freecell', 'minesweeper'],
+          ['rpsBattleNext', 'freecellNext', 'minesweeperNext'],
           TEST_OCCURRED_AT,
           4
         );
@@ -78,10 +78,10 @@ export default function achievementFavoriteEventTest(): void {
     it('does not use existing primary favorites to reward adding an unrelated game',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const event = favoriteAchievementEventAfterPersist(
-          'rps', true, true, ['rps', 'rpsBattle', 'freecell', 'minesweeper'], TEST_OCCURRED_AT, 5
+          'rps', true, true, ['rps', 'rpsBattleNext', 'freecellNext', 'minesweeperNext'], TEST_OCCURRED_AT, 5
         );
         const missingGame = favoriteAchievementEventAfterPersist(
-          'suika', true, true, ['rpsBattle', 'freecell', 'minesweeper'], TEST_OCCURRED_AT, 6
+          'suikaNext', true, true, ['rpsBattleNext', 'freecellNext', 'minesweeperNext'], TEST_OCCURRED_AT, 6
         );
         expect(event === undefined).assertEqual(true);
         expect(missingGame === undefined).assertEqual(true);
@@ -90,7 +90,7 @@ export default function achievementFavoriteEventTest(): void {
     it('restores the previous favorite snapshot when persistence fails',
       TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
         const previousSnapshot = emptySnapshot();
-        const toggleResult = favoriteSnapshotAfterToggle(previousSnapshot, 'rpsBattle');
+        const toggleResult = favoriteSnapshotAfterToggle(previousSnapshot, 'rpsBattleNext');
         const restoredSnapshot = favoriteSnapshotAfterPersist(
           previousSnapshot,
           toggleResult.snapshot,
@@ -106,7 +106,7 @@ export default function achievementFavoriteEventTest(): void {
         expect(toggleResult.snapshot.favorites.length).assertEqual(1);
         expect(restoredSnapshot.favorites.length).assertEqual(0);
         expect(savedSnapshot.favorites.length).assertEqual(1);
-        expect(savedSnapshot.favorites[0]).assertEqual('rpsBattle');
+        expect(savedSnapshot.favorites[0]).assertEqual('rpsBattleNext');
       });
   });
 }

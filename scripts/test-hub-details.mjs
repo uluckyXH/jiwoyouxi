@@ -55,7 +55,7 @@ await a.CoopStorage.savePlayDays({}, [today + 1]);
 assert.deepEqual(Array.from(await a.CoopStorage.loadPlayDays({})), [today - 1, today, today + 1],
   'a partial in-memory history must not overwrite previously saved days');
 
-const event = { eventId: 'filter:session:1', sessionId: 'session:1', gameId: 'tetris', type: 'sessionEnd',
+const event = { eventId: 'filter:session:1', sessionId: 'session:1', gameId: 'tetrisNext', type: 'sessionEnd',
   occurredAt: now, isOfficial: true, facts: [{ key: 'score', value: 100 }] };
 const state = a.applyAchievementEvent(a.emptyAchievementState(), event).state;
 const global = filter => a.achievementGroupsForState(state, filter).find(group => group.definition.id === 'global');

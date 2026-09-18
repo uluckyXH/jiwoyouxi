@@ -102,7 +102,7 @@ export struct MineDialog {
               }.layoutWeight(1)
             }.width('100%').padding(16).borderRadius(18).backgroundColor(P.soft(this.dark))
             if (this.saveFailed) {
-              Text('这次进度还没存好，请重试保存。').fontSize(12).fontColor(P.danger(this.dark))
+              Text('进度或成就还没存好，请重试保存。').fontSize(12).fontColor(P.danger(this.dark))
               MineActionButton({ label: '重试保存', icon: 'restart', dark: this.dark, primary: false,
                 actionEnabled: !this.saving, action: this.retrySave })
             }

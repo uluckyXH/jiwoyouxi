@@ -120,7 +120,7 @@ await test('failed exit save stays paused; retry leaves once saved',async()=>{
 await test('natural result reported once after persistence; reload cannot increment again',async()=>{
  const p=fresh();p.engine.round.finished=true;p.engine.round.won=true;p.engine.round.winner=0;
  await p.publishResult();await p.publishResult();assert.equal(p.scoresRecorded.length,1);assert.equal(p.achievements.length,1);
- assert.equal(p.achievements[0].gameId,'rpsBattle');assert.equal(p.achievements[0].facts.find(f=>f.key==='supportWon').value,1);
+ assert.equal(p.achievements[0].gameId,'rpsBattleNext');assert.equal(p.achievements[0].facts.find(f=>f.key==='supportWon').value,1);
  assert.equal(p.profile.rounds,1);const raw=p.saves.at(-1);
  const q=fresh();q.storage.load=async()=>raw;await q.boot();await Promise.resolve();assert.equal(q.dialog,'result');assert.equal(q.achievements.length,0);assert.equal(q.profile.rounds,1);
 });
@@ -138,9 +138,9 @@ await test('rejected achievement acknowledgment preserves the result across repl
  p.reportAchievementEvent=async e=>{p.achievements.push(e);return true;};await p.toSetup();
  assert.equal(p.dialog,'setup');assert.equal(p.achievements.length,1);assert.equal(p.profile.rounds,1);
 });
-await test('practice result and abandoning a running round never award official wins',async()=>{
+await test('custom results award achievements but no official wins; abandoning a running round awards neither',async()=>{
  const p=fresh();p.newRound({...context.makeConfig(),counts:[3,4,5]});p.engine.round.finished=true;p.engine.round.won=true;
- await p.publishResult();assert.equal(p.achievements.length,0);assert.equal(p.scoresRecorded.length,0);assert.equal(p.profile.rounds,0);
+ await p.publishResult();assert.equal(p.achievements.length,1);assert.equal(p.engine.round.reported,true);assert.equal(p.scoresRecorded.length,0);assert.equal(p.profile.rounds,0);
  const q=fresh();q.resume();walk(q,120);q.pause();q.toSetup();await Promise.resolve();assert.equal(q.dialog,'setup');assert.equal(q.achievements.length,0);
 });
 await test('result sound is emitted after stopping the game clock',async()=>{

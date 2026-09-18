@@ -79,7 +79,7 @@ export struct FreecellPanel {
             Text(this.mode === 'restart' ? '重玩或换一局会替换当前进度。' : this.mode === 'win' ? '这一桌整齐的花色，是你的好思路。' : '纸牌停在原处，准备好再继续。')
               .fontSize(13).fontColor(P.muted(this.dark)).textAlign(TextAlign.Center)
             if (this.saveFailed) {
-              Text('进度尚未保存，请重试。').fontSize(12).fontColor(P.red(this.dark))
+              Text('进度或成就尚未保存，请重试。').fontSize(12).fontColor(P.red(this.dark))
               FCButton({ dark: this.dark, icon: 'restart', label: '重试保存', active: !this.saving, action: this.retry })
             }
             if (this.mode === 'restart') {

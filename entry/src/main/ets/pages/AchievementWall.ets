@@ -102,7 +102,7 @@ export struct AchievementWall {
               .fontColor(this.inkColor())
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text('收集你在鸡窝里的小高光')
+            Text('收集六款新版游戏里的小高光')
               .fontSize(12)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.mutedColor())

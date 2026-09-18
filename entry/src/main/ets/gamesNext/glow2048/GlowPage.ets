@@ -25,6 +25,7 @@ export struct GlowPage {
   updateSound: (enabled: boolean) => void = () => {};
   reportAchievementEvent: (event: AchievementEvent) => Promise<boolean> = async () => false;
   private reportingSession: string = '';
+  private achievementSaveFailed: boolean = false;
   private engine: GlowEngine = new GlowEngine();
   private audio: GlowAudio = new GlowAudio();
   private storage: GlowStorage = new GlowStorage();
@@ -299,29 +300,49 @@ export struct GlowPage {
     this.streak = this.engine.streak;
     this.ended = this.engine.ended;
   }
-  private reportMilestone(): void {
-    const event: AchievementEvent = { eventId: `${this.engine.session}:tile:${this.maxTile}`,
-      sessionId: this.engine.session, gameId: 'chicken2048', type: 'milestone', occurredAt: Date.now(), isOfficial: true,
-      facts: [{ key: 'maxTile', value: this.maxTile }] };
-    this.reportAchievementEvent(event);
+  private async reportMilestone(): Promise<boolean> {
+    const maxTile = glowMax(this.engine.tiles);
+    if (maxTile < 256) return true;
+    const session = this.engine.session;
+    const event: AchievementEvent = { eventId: `${session}:tile-v2:${maxTile}`,
+      sessionId: this.engine.session, gameId: 'chicken2048Next', type: 'milestone', occurredAt: Date.now(), isOfficial: true,
+      facts: [{ key: 'maxTile', value: maxTile }] };
+    const accepted = await this.reportAchievementEvent(event).catch(() => false);
+    if (this.engine.session === session) {
+      this.achievementSaveFailed = !accepted;
+      if (!accepted && !this.disposed) this.saveFailed = true;
+    }
+    return accepted;
   }
-  private async reportEnd(): Promise<void> {
-    if (!this.engine.ended || this.engine.reported || this.engine.moves === 0 ||
-      this.reportingSession === this.engine.session) return;
+  private async reportEnd(): Promise<boolean> {
+    if (!this.engine.ended || this.engine.reported || this.engine.moves === 0) return true;
+    if (this.reportingSession === this.engine.session) return false;
     const session = this.engine.session;
     const score = this.engine.score;
     this.reportingSession = session;
     const event: AchievementEvent = { eventId: `${this.engine.session}:session-end`, sessionId: this.engine.session,
-      gameId: 'chicken2048', type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
+      gameId: 'chicken2048Next', type: 'sessionEnd', occurredAt: Date.now(), isOfficial: true,
       facts: [{ key: 'maxTile', value: glowMax(this.engine.tiles) }, { key: 'movesMade', value: this.engine.moves },
         { key: 'score', value: this.engine.score }] };
+    if (!await this.save()) { this.reportingSession = ''; return false; }
     const accepted = await this.reportAchievementEvent(event).catch(() => false);
     if (accepted) this.recordScore(score);
     if (this.engine.session === session) {
+      this.achievementSaveFailed = !accepted;
       this.engine.reported = accepted;
       await this.save();
     }
     if (this.reportingSession === session) this.reportingSession = '';
+    return accepted;
+  }
+  private async preserveAchievements(): Promise<boolean> {
+    if (!await this.save()) return false;
+    // A session-end event includes the tile facts too. An unfinished board only
+    // publishes milestones, so restarting never counts as completing a game.
+    if (this.engine.ended && !this.engine.reported) return this.reportEnd();
+    const accepted = await this.reportMilestone();
+    if (!this.disposed && accepted) this.saveFailed = false;
+    return accepted;
   }
   private present(mode: string): void {
     if (!this.loaded || this.saving) return;
@@ -344,13 +365,19 @@ export struct GlowPage {
     if (this.engine.moves > 0 && !this.engine.ended) this.present('restart');
     else this.newRound();
   }
-  private newRound(): void {
+  private async newRound(): Promise<void> {
     if (this.saving) return;
     this.finishMotion(false);
+    if (this.engine.ended || glowMax(this.engine.tiles) >= 256) {
+      this.saving = true;
+      const accepted = await this.preserveAchievements();
+      this.saving = false;
+      if (!accepted || this.disposed) return;
+    }
     // Preserve the score of an abandoned attempt without counting a completed game.
     if (!this.engine.ended && this.engine.moves > 0) this.recordScore(this.engine.score);
-    this.reportEnd();
     this.engine.reset();
+    this.achievementSaveFailed = false;
     this.tiles = [];
     this.spawned = 0;
     this.merged = [];
@@ -394,13 +421,13 @@ export struct GlowPage {
   private async save(): Promise<boolean> {
     if (!this.loaded || this.context === undefined || this.skipSave) return true;
     const ok = await this.storage.save(this.context, this.engine.serialize());
-    if (!this.disposed) this.saveFailed = !ok;
+    if (!this.disposed) this.saveFailed = !ok || this.achievementSaveFailed;
     return ok;
   }
   private async retrySave(): Promise<void> {
     if (this.saving) return;
     this.saving = true;
-    await this.save();
+    await this.preserveAchievements();
     if (!this.disposed) this.saving = false;
   }
   private async saveAndExit(): Promise<void> {
@@ -408,7 +435,7 @@ export struct GlowPage {
     this.finishMotion(false);
     this.audio.silence();
     this.saving = true;
-    const saved = await this.save();
+    const saved = await this.preserveAchievements();
     if (this.disposed) return;
     this.saving = false;
     if (saved) { this.skipSave = true; this.exitToHub(); }

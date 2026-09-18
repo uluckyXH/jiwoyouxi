@@ -108,7 +108,7 @@ export struct ArenaSetup {
                 }.width('100%')
                 ArenaEventCard({event:this.event,dark:this.dark})
                 Text('事件时间从开局算起；若对局提前结束，后续事件不再发生。').fontSize(11).lineHeight(18).fontColor(P.muted(this.dark))
-                Text(arenaPractice(this.config()) ? '自由练习：不计胜场与成就，尽管试试不同组合。' : '均衡对局：正常记录胜场与成就。')
+                Text(arenaPractice(this.config()) ? '自由练习：不计正式胜场，成就照常记录。' : '均衡对局：正常记录胜场与成就。')
                   .fontSize(12).lineHeight(19).fontColor(P.muted(this.dark))
               }.padding(14).borderRadius(20).backgroundColor(P.surface(this.dark))
             }

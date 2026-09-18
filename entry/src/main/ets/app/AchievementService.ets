@@ -7,7 +7,8 @@ import {
 import {
   applyAchievementEvent,
   emptyAchievementState,
-  normalizeAchievementState
+  normalizeAchievementState,
+  migrateAchievementRules
 } from '../shell/AchievementEngine';
 import { CoopStorage } from './CoopStorage';
 
@@ -37,7 +38,12 @@ export class AchievementService {
   }
 
   private async refreshNow(context: common.Context): Promise<AchievementState> {
-    this.state = await CoopStorage.loadAchievementState(context);
+    const loaded=await CoopStorage.loadAchievementState(context);
+    const migrated=migrateAchievementRules(loaded,Date.now());
+    if(JSON.stringify(migrated)!==JSON.stringify(loaded) && !await CoopStorage.saveAchievementState(context,migrated)) {
+      throw new Error('Unable to persist achievement rules migration.');
+    }
+    this.state = migrated;
     this.initialized = true;
     return this.currentState();
   }

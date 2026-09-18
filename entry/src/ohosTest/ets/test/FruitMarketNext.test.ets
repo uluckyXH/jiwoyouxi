@@ -412,9 +412,11 @@ export default function fruitMarketNextTest(): void {
       expect(partial.limited).assertTrue();
     });
 
-    it('counts both editions as one fruit game in favorite achievements', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
+    it('counts only remake favorites and excludes every legacy edition', TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0, () => {
       expect(achievementPrimaryFavoriteCount(['suika', 'suikaNext'])).assertEqual(1);
-      expect(achievementPrimaryFavoriteCount(['suikaNext', 'minesweeper', 'tetris', 'freecell'])).assertEqual(4);
+      expect(achievementPrimaryFavoriteCount(['suikaNext', 'minesweeper', 'tetris', 'freecell'])).assertEqual(1);
+      expect(achievementPrimaryFavoriteCount(['suikaNext', 'minesweeperNext', 'tetrisNext', 'freecellNext'])).assertEqual(4);
+      expect(achievementPrimaryFavoriteCount(['suika', 'minesweeper', 'tetris', 'freecell'])).assertEqual(0);
       const event = favoriteAchievementEventAfterPersist('suikaNext', true, true, ['suikaNext'], 12345, 1);
       expect(event !== undefined).assertTrue();
       if (event !== undefined) expect(event.facts[0].value).assertEqual(1);

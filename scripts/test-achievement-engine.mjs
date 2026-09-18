@@ -90,7 +90,7 @@ const api = loadAchievementEngine();
   const first = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'tetris-1:four-line-clear:1',
     sessionId: 'tetris-1',
-    gameId: 'tetris',
+    gameId: 'tetrisNext',
     facts: [
       { key: 'maxClearedLines', value: 4 },
       { key: 'totalLines', value: 4 },
@@ -101,13 +101,13 @@ const api = loadAchievementEngine();
   assert.equal(first.disposition, 'applied');
   assert.equal(first.newlyUnlocked.length, 1);
   assert.equal(first.newlyUnlocked[0].achievementId, 'tetris.first_tetris');
-  assert.equal(progressFor(api, first.state, 'tetris.first_tetris').current, 4);
+  assert.equal(progressFor(api, first.state, 'tetris.first_tetris').current, 1);
   assert.equal(progressFor(api, first.state, 'tetris.first_tetris').unlockedAt, 1787617800000);
 
   const repeated = api.applyAchievementEvent(first.state, event({
     eventId: 'tetris-1:four-line-clear:1',
     sessionId: 'tetris-1',
-    gameId: 'tetris',
+    gameId: 'tetrisNext',
     facts: [{ key: 'maxClearedLines', value: 4 }]
   }));
   assert.equal(repeated.disposition, 'duplicate');
@@ -119,7 +119,7 @@ const api = loadAchievementEngine();
   const lowTile = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: '2048-1:max-tile:1',
     sessionId: '2048-1',
-    gameId: 'chicken2048',
+    gameId: 'chicken2048Next',
     facts: [{ key: 'maxTile', value: 128 }]
   }));
   assert.equal(lowTile.newlyUnlocked.length, 0);
@@ -128,21 +128,21 @@ const api = loadAchievementEngine();
   const highTile = api.applyAchievementEvent(lowTile.state, event({
     eventId: '2048-1:max-tile:2',
     sessionId: '2048-1',
-    gameId: 'chicken2048',
+    gameId: 'chicken2048Next',
     facts: [{ key: 'maxTile', value: 2048 }]
   }));
   assert.equal(highTile.newlyUnlocked.length, 3);
   assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_256').current, 256);
-  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_1024').current, 1024);
-  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_2048').current, 2048);
+  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_1024').current, 512);
+  assert.equal(progressFor(api, highTile.state, 'chicken2048.reach_2048').current, 1024);
 
   const lowerTileAgain = api.applyAchievementEvent(highTile.state, event({
     eventId: '2048-2:max-tile:1',
     sessionId: '2048-2',
-    gameId: 'chicken2048',
+    gameId: 'chicken2048Next',
     facts: [{ key: 'maxTile', value: 256 }]
   }));
-  assert.equal(progressFor(api, lowerTileAgain.state, 'chicken2048.reach_2048').current, 2048,
+  assert.equal(progressFor(api, lowerTileAgain.state, 'chicken2048.reach_2048').current, 1024,
     'an unlocked high-water mark must never regress');
   assert.equal(lowerTileAgain.newlyUnlocked.length, 0);
 }
@@ -151,7 +151,7 @@ const api = loadAchievementEngine();
   const result = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'rps-battle-1:session-end:1',
     sessionId: 'rps-battle-1',
-    gameId: 'rpsBattle',
+    gameId: 'rpsBattleNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 1 },
@@ -195,11 +195,11 @@ const api = loadAchievementEngine();
   const perfectRun = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'minesweeper-1:session-end',
     sessionId: 'minesweeper-1',
-    gameId: 'minesweeper',
+    gameId: 'minesweeperNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 1 },
-      { key: 'elapsedSec', value: 60 },
+      { key: 'elapsedSec', value: 180 },
       { key: 'manualAllMinesFlagged', value: 1 },
       { key: 'hasEverFlaggedNonMine', value: 0 }
     ]
@@ -209,18 +209,18 @@ const api = loadAchievementEngine();
     'minesweeper.first_clear',
     'minesweeper.quick_clear',
     'minesweeper.perfect_flags'
-  ].join(','), 'the 60-second perfect run should preserve the global-to-game unlock order');
+  ].join(','), 'the 180-second perfect run should preserve the global-to-game unlock order');
   assert.equal(progressFor(api, perfectRun.state, 'minesweeper.quick_clear').unlockedAt, 1787617800000);
   assert.equal(progressFor(api, perfectRun.state, 'minesweeper.perfect_flags').unlockedAt, 1787617800000);
 
   const slowWin = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'minesweeper-2:session-end',
     sessionId: 'minesweeper-2',
-    gameId: 'minesweeper',
+    gameId: 'minesweeperNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 1 },
-      { key: 'elapsedSec', value: 61 },
+      { key: 'elapsedSec', value: 181 },
       { key: 'manualAllMinesFlagged', value: 1 },
       { key: 'hasEverFlaggedNonMine', value: 0 }
     ]
@@ -231,7 +231,7 @@ const api = loadAchievementEngine();
   const wrongFlagWin = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'minesweeper-3:session-end',
     sessionId: 'minesweeper-3',
-    gameId: 'minesweeper',
+    gameId: 'minesweeperNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 1 },
@@ -241,12 +241,12 @@ const api = loadAchievementEngine();
     ]
   }));
   assert.equal(progressFor(api, wrongFlagWin.state, 'minesweeper.quick_clear').unlockedAt, 1787617800000);
-  assert.equal(api.achievementProgressForState(wrongFlagWin.state, 'minesweeper.perfect_flags'), undefined);
+  assert.equal(progressFor(api, wrongFlagWin.state, 'minesweeper.perfect_flags').unlockedAt, 1787617800000);
 
   const autoFlagWin = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'minesweeper-4:session-end',
     sessionId: 'minesweeper-4',
-    gameId: 'minesweeper',
+    gameId: 'minesweeperNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 1 },
@@ -260,7 +260,7 @@ const api = loadAchievementEngine();
   const devAssistedSession = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'minesweeper-dev:session-end',
     sessionId: 'minesweeper-dev',
-    gameId: 'minesweeper',
+    gameId: 'minesweeperNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 1 },
@@ -278,7 +278,7 @@ const api = loadAchievementEngine();
   const failedSession = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'minesweeper-5:session-end',
     sessionId: 'minesweeper-5',
-    gameId: 'minesweeper',
+    gameId: 'minesweeperNext',
     type: 'sessionEnd',
     facts: [
       { key: 'won', value: 0 },
@@ -300,7 +300,7 @@ const api = loadAchievementEngine();
     state = api.applyAchievementEvent(state, event({
       eventId: `session-${index}:end:1`,
       sessionId: `session-${index}`,
-      gameId: gameId,
+      gameId: gameId + 'Next',
       type: 'sessionEnd',
       facts: []
     })).state;
@@ -318,7 +318,7 @@ const api = loadAchievementEngine();
   const unofficial = api.applyAchievementEvent(officialState, event({
     eventId: '2048-dev:max-tile:1',
     sessionId: '2048-dev',
-    gameId: 'chicken2048',
+    gameId: 'chicken2048Next',
     isOfficial: false,
     facts: [{ key: 'maxTile', value: 2048 }]
   }));
@@ -331,7 +331,7 @@ const api = loadAchievementEngine();
   const unknownFact = api.applyAchievementEvent(api.emptyAchievementState(), event({
     eventId: 'suika-1:unknown-fact:1',
     sessionId: 'suika-1',
-    gameId: 'suika',
+    gameId: 'suikaNext',
     facts: [{ key: 'notRegistered', value: 999 }]
   }));
   assert.equal(unknownFact.disposition, 'applied');
@@ -340,7 +340,7 @@ const api = loadAchievementEngine();
   const invalidKnownFact = api.applyAchievementEvent(unknownFact.state, event({
     eventId: 'suika-1:invalid-score:1',
     sessionId: 'suika-1',
-    gameId: 'suika',
+    gameId: 'suikaNext',
     facts: [{ key: 'score', value: Number.NaN }]
   }));
   assert.equal(invalidKnownFact.disposition, 'ignored');
@@ -383,7 +383,7 @@ const api = loadAchievementEngine();
     state = api.applyAchievementEvent(state, event({
       eventId: `suika-queue:${index}`,
       sessionId: `suika-${index}`,
-      gameId: 'suika',
+      gameId: 'suikaNext',
       facts: []
     })).state;
   }

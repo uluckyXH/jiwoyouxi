@@ -321,7 +321,7 @@ export struct CoopArenaPage {
     this.stop(); this.hasRound=false; this.dialog='setup'; this.save();
   }
   private async preserveResult(): Promise<boolean> {
-    if (!this.hasRound || !this.engine.round.finished || arenaPractice(this.configuration) || this.engine.round.reported) return true;
+    if (!this.hasRound || !this.engine.round.finished || this.engine.round.reported) return true;
     await this.publishResult();
     return this.engine.round.reported && !this.saveFailed;
   }
@@ -365,7 +365,7 @@ export struct CoopArenaPage {
   }
   private perfScene(): ArenaPerfScene {
     const r=this.engine.round;
-    return {session:r.session,label:arenaSceneLabel(r.config),seed:r.config.seed,initial:r.config.counts.join('/'),
+    return {session:r.session,label:arenaSceneLabel(r.config),seed:r.config.seed,faction:r.config.faction,initial:r.config.counts.join('/'),
       window:`${this.pageWidth.toFixed(1)}×${this.pageHeight.toFixed(1)}`,board:this.viewport.board.width,density:this.pixelRatio,fold:this.fold.status,
       dark:this.dark,reduced:this.profile.reducedMotion,sound:this.soundEnabled};
   }
@@ -405,6 +405,7 @@ export struct CoopArenaPage {
     if (this.saving) return;
     this.pause();
     if (!this.loaded) { this.exitToHub(); return; }
+    if (!await this.preserveResult()) return;
     this.saving=true; const ok=await this.save(); this.saving=false;
     if (ok && !this.disposed) this.exitToHub();
   }
@@ -424,13 +425,13 @@ export struct CoopArenaPage {
     arenaApplyResult(profile,r); this.profile=profile;
     const wasReported=r.reported;
     const ok=await this.save();
-    if (ok && !wasReported && !arenaPractice(r.config)) {
-      const accepted=await this.reportAchievementEvent({eventId:`${r.session}:finish`,sessionId:r.session,gameId:'rpsBattle',type:'sessionEnd',
+    if (ok && !wasReported) {
+      const accepted=await this.reportAchievementEvent({eventId:`${r.session}:finish`,sessionId:r.session,gameId:'rpsBattleNext',type:'sessionEnd',
         occurredAt:Date.now(),isOfficial:true,facts:[{key:'won',value:r.won ? 1 : 0},{key:'supportWon',value:r.won ? 1 : 0},
           {key:'conversions',value:r.conversions},{key:'elapsedSec',value:this.engine.time()},{key:'score',value:r.counts[r.config.faction]}]}).catch(() => false);
       if (accepted) {
         r.reported=true;
-        this.recordScore(profile.stars.reduce((a:number,b:number):number => a+b,0));
+        if(!arenaPractice(r.config))this.recordScore(profile.stars.reduce((a:number,b:number):number => a+b,0));
         if (r===this.engine.round) await this.save();
       } else if (!this.disposed) this.saveFailed=true;
     }

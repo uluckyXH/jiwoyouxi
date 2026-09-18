@@ -19,7 +19,7 @@ function method(name) {
 }
 const names = ['boot','now','playing','step','schedule','action','startHold','repeat','endHold','cancelHold',
   'stop','flush','sync','paint','pause','resume','restart','showHelp','closeHelp','exitRequested','windowChanged','relayout','save',
-  'saveAndExit','milestones','finish','report'];
+  'saveAndExit','preserveAchievements','milestones','finish','report'];
 const logic = ['BlockModel.ets','BlockEngine.ets','BlockLayout.ets','BlockRenderer.ets']
   .map(name => readFileSync(new URL(name, base), 'utf8')).join('\n');
 const harness = `class PageHarness {
@@ -39,7 +39,7 @@ const harness = `class PageHarness {
     this.exitToHub=()=>{this.exits++;}; this.scores=[]; this.achievements=[];
     this.recordScore=score=>this.scores.push(score);
     this.reportAchievementEvent=async event=>{this.achievements.push(event);return true;};
-    this.achievementRequests=[];this.achievementRetryAt=0;
+    this.achievementRequests=[];this.achievementRetryAt=0;this.achievementSaveFailed=false;
   }
   ${names.map(method).join('\n')}
 }
@@ -107,7 +107,7 @@ function fresh() { timers.clear();now=0;return context.createPage(); }
   const p=fresh(); p.resume();p.showHelp();
   assert.equal(p.dialog,'help');assert.equal(p.helpReturn,'paused');assert.equal(timers.size,0);
   const before=p.engine.serialize();p.action('drop');assert.equal(p.engine.serialize(),before);
-  p.engine.round.best=1234;p.restart();assert.equal(p.engine.round.best,1234);assert.equal(p.engine.round.score,0);
+  p.engine.round.best=1234;await p.restart();assert.equal(p.engine.round.best,1234);assert.equal(p.engine.round.score,0);
   assert.equal(p.dialog,'');assert.equal(timers.size,1);
   console.log('PASS help freezes input and restart retains best score with only one new timer');
 }
@@ -183,7 +183,7 @@ function fresh() { timers.clear();now=0;return context.createPage(); }
   p.engine.round.phase='over';p.engine.round.score=700;p.engine.round.best=700;p.finish();p.finish();
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(p.scores.join(','),'700');assert.equal(p.achievements.length,4);
-  assert.equal(p.achievements[3].gameId,'tetris');assert.equal(p.achievements[3].type,'sessionEnd');
+  assert.equal(p.achievements[3].gameId,'tetrisNext');assert.equal(p.achievements[3].type,'sessionEnd');
   assert.equal(timers.size,0);
   const raw=p.engine.serialize();const q=fresh();q.storage.load=async()=>raw;await q.boot();
   assert.equal(q.dialog,'over');assert.equal(q.scores.length,0);assert.equal(q.achievements.length,3);assert.ok(q.achievements.every(event=>event.type==='milestone'));
