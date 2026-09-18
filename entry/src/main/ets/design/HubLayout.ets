@@ -36,11 +36,15 @@ export function hubInsets(): HubInsets {
   return { top: 24, right: 0, bottom: 16, left: 0 };
 }
 
+export function hubCardLogoSize(cardWidth: number): number {
+  return cardWidth < 200 ? 32 : 36;
+}
+
 export function hubCardStacked(cardWidth: number, textScale: number): boolean {
-  // A phone tile only needs room for five title characters beside its artwork.
-  // Reserve the taller layout for genuinely constrained / large-type windows.
-  const logoSize = cardWidth < 200 ? 44 : 52;
-  return cardWidth - 24 - 8 - logoSize < 70 * Math.max(1, textScale);
+  // Reserve border, left padding, artwork gap and the independent 44 vp favorite target.
+  // Four 12 fp characters per line fit the longest current title in two lines.
+  const textWidth = cardWidth - 2 - 12 - hubCardLogoSize(cardWidth) - 6 - 44;
+  return textWidth < 52 * Math.max(1, textScale);
 }
 
 function positive(value: number, fallback: number): number {

@@ -21,7 +21,7 @@ const context = { console, Date, preferences: { getPreferences: async () => ({
 vm.runInNewContext(`${stripTypeScriptTypes(source, { mode: 'transform' })}
 this.api = { localPlayDay, normalizePlayDays, playDaysWithLegacyRecords, currentPlayStreak, recentPlayWeek,
   emptyAchievementState, applyAchievementEvent, achievementGroupsForState, achievementGroupRenderKey,
-  achievementGroupCountLabel, hubLayout, hubCardStacked, CoopStorage };`, context);
+  achievementGroupCountLabel, hubLayout, hubCardLogoSize, hubCardStacked, CoopStorage };`, context);
 const a = context.api;
 const now = new Date(2026, 8, 18, 0, 10).getTime();
 const today = a.localPlayDay(now);
@@ -78,9 +78,9 @@ for (const width of [320, 360, 390, 420, 600, 820, 1440]) {
   for (const scale of [1, 1.3, 1.6, 2]) {
     const layout = a.hubLayout(width, 844, undefined, [], scale);
     const stacked = a.hubCardStacked(layout.cardWidth, scale);
-    const logoSize = layout.cardWidth < 200 ? 44 : 52;
-    const textWidth = layout.cardWidth - (stacked ? 24 : 24 + 8 + logoSize);
-    assert.ok(textWidth >= 70 * scale, `five readable title characters at ${width} vp / ${scale}x`);
+    const logoSize = a.hubCardLogoSize(layout.cardWidth);
+    const textWidth = layout.cardWidth - (stacked ? 26 : 2 + 12 + logoSize + 6 + 44);
+    assert.ok(textWidth >= 48 * scale, `four title characters clear artwork and favorite at ${width} vp / ${scale}x`);
   }
 }
 assert.equal(a.hubCardStacked(a.hubLayout(390, 844).cardWidth, 1), false, 'phone cards keep compact artwork beside the title');

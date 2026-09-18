@@ -1,5 +1,5 @@
 import { CoopMotion } from '../design/CoopMotion';
-import { hubCardStacked } from '../design/HubLayout';
+import { hubCardLogoSize, hubCardStacked } from '../design/HubLayout';
 import { GameModule } from '../shell/GameModule';
 import { moduleById } from '../shell/GameRegistry';
 import { HubGameLogoTile } from './HubGameLogoTile';
@@ -19,30 +19,27 @@ export struct HubGameCard {
   @State private pressed: boolean = false;
 
   build() {
-    Stack({ alignContent: Alignment.TopEnd }) {
+    Stack({ alignContent: this.stacked() ? Alignment.TopEnd : Alignment.End }) {
       Button({ type: ButtonType.Normal, stateEffect: false }) {
-        Stack({ alignContent: Alignment.TopStart }) {
-          Row().width(34).height(3).borderRadius(2)
-            .backgroundColor(this.game.accent).opacity(this.dark ? 0.72 : 0.58)
-            .position({ x: 12, y: 13 })
-          if (this.stacked()) {
-            Column({ space: 6 }) {
-              Row() {
-                HubGameLogoTile({ gameId: this.game.id, tileSize: 44, imageSize: 40, isDarkMode: this.dark })
-                Blank()
-              }.width('100%')
-              this.CardText()
-            }.width('100%').padding({ left: 12, right: 12, top: 22, bottom: 6 })
-          } else {
-            Row({ space: 8 }) {
+        if (this.stacked()) {
+          Column({ space: 6 }) {
+            Row() {
               HubGameLogoTile({ gameId: this.game.id, tileSize: this.logoSize(), imageSize: this.logoSize() - 4,
                 isDarkMode: this.dark })
-              Column() { this.CardText() }.layoutWeight(1)
-            }.width('100%').height('100%').alignItems(VerticalAlign.Center)
-            // Keep text below the complete 44 vp favorite target, even with two title lines.
-            .padding({ left: 12, right: 12, top: 44, bottom: 6 })
-          }
-        }.width('100%').height('100%')
+              Blank()
+            }.width('100%').height(36)
+            this.CardText()
+          }.width('100%').height('100%').justifyContent(FlexAlign.Center)
+          .padding({ left: 12, right: 12, top: 8, bottom: 12 })
+        } else {
+          Row({ space: 6 }) {
+            HubGameLogoTile({ gameId: this.game.id, tileSize: this.logoSize(), imageSize: this.logoSize() - 4,
+              isDarkMode: this.dark })
+            Column() { this.CardText() }.layoutWeight(1)
+          }.width('100%').height('100%').alignItems(VerticalAlign.Center)
+          // The favorite has its own trailing space, so content can stay vertically centered.
+          .padding({ left: 12, right: 44, top: 12, bottom: 12 })
+        }
       }
       .width('100%').height('100%').padding(0).borderRadius(20)
       .backgroundColor(Color.Transparent)
@@ -52,9 +49,7 @@ export struct HubGameCard {
       })
       .onClick(() => this.launch(this.game.id))
 
-      Column() {
-        this.FavoriteButton()
-      }.width(44).height(44).margin({ right: 2, top: 0 })
+      this.FavoriteButton()
     }
     .width('100%').height(this.cardHeight())
     .borderRadius(20)
@@ -70,11 +65,11 @@ export struct HubGameCard {
   @Builder
   CardText() {
     Column({ space: 2 }) {
-      Text(this.game.title).width('100%').fontSize(14).lineHeight(18)
-        .fontWeight(FontWeight.Bold).fontColor(this.ink())
+      Text(this.game.title).width('100%').fontSize(12).lineHeight(16)
+        .fontWeight(600).fontColor(this.ink())
         .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
       Text(this.detail.length > 0 ? this.detail : this.subtitle).width('100%')
-        .fontSize(10).lineHeight(14).fontWeight(FontWeight.Medium).fontColor(this.muted())
+        .fontSize(9).lineHeight(12).fontWeight(FontWeight.Medium).fontColor(this.muted())
         .maxLines(this.detail.length > 0 ? 2 : 1).textOverflow({ overflow: TextOverflow.Ellipsis })
     }.width('100%').alignItems(HorizontalAlign.Start)
   }
@@ -85,12 +80,12 @@ export struct HubGameCard {
       Stack() {
         // Keep the SVG's explicit fill: tinting an outline SVG makes both states look filled.
         Image($rawfile(`app/home/favorite_${this.favorite ? 'on' : 'off'}_${this.dark ? 'dark' : 'light'}.svg`))
-          .width(18).height(18).objectFit(ImageFit.Contain)
+          .width(16).height(16).objectFit(ImageFit.Contain)
           .draggable(false).hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
       }
-      .width(26).height(26).borderRadius(13)
+      .width(24).height(24).borderRadius(12)
       .backgroundColor(this.favorite ? (this.dark ? '#62431E' : '#FFE3A4') : (this.dark ? '#312C25' : '#FFFDF8'))
-      .border({ width: 1.5, radius: 13,
+      .border({ width: 1, radius: 12,
         color: this.favorite ? (this.dark ? '#B98A3F' : '#D9A33B') : (this.dark ? '#80705A' : '#CDBB9F') })
     }
     .width(44).height(44).padding(0).backgroundColor(Color.Transparent)
@@ -101,10 +96,11 @@ export struct HubGameCard {
   private ink(): string { return this.dark ? '#FFF2DF' : '#2F1D14'; }
   private stacked(): boolean { return hubCardStacked(this.cardWidth, this.textScale); }
   private cardHeight(): number {
-    const baseHeight = this.stacked() ? 132 : 104;
-    // Only saved-game details need a second subtitle line; normal home cards stay short.
-    return baseHeight + (this.detail.length > 0 ? 14 : 0) + 64 * (this.textScale - 1);
+    const baseHeight = this.stacked() ? 112 : 80;
+    const hasDetail = this.detail.length > 0;
+    // Allow two title lines and scale the text area only when system type grows.
+    return baseHeight + (hasDetail ? 12 : 0) + (hasDetail ? 56 : 44) * (this.textScale - 1);
   }
-  private logoSize(): number { return this.cardWidth < 200 ? 44 : 52; }
+  private logoSize(): number { return hubCardLogoSize(this.cardWidth); }
   private muted(): string { return this.dark ? '#C8B7A2' : '#786555'; }
 }
