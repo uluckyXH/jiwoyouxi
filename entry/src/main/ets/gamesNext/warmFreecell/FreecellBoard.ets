@@ -47,11 +47,19 @@ export struct FreecellBoard {
     this.scrollTimer = setInterval(() => {
       const x = this.originX + this.dx - this.startX + this.layout.card / 2;
       const y = this.originY + this.dy - this.startY + 12;
-      const vx = x < 24 ? -6 : x > this.layout.board.width - 24 ? 6 : 0;
-      const vy = y < 26 ? -7 : y > this.layout.board.height - 26 ? 7 : 0;
+      const currentX = this.horizontal.currentOffset().xOffset;
+      const currentY = this.vertical.currentOffset().yOffset;
+      const maxX = Math.max(0, this.layout.surfaceWidth - this.layout.board.width);
+      const maxY = Math.max(0, this.surfaceHeight - this.layout.board.height);
+      // Never push a scroller past its boundary. Repeated outward requests can
+      // fight its rebound while a card is held over the top foundation slots.
+      const vx = x < 24 ? -Math.min(6, Math.max(0, currentX)) :
+        x > this.layout.board.width - 24 ? Math.min(6, Math.max(0, maxX - currentX)) : 0;
+      const vy = y < 26 ? -Math.min(7, Math.max(0, currentY)) :
+        y > this.layout.board.height - 26 ? Math.min(7, Math.max(0, maxY - currentY)) : 0;
       if (vx !== 0) this.horizontal.scrollBy(vx, 0);
       if (vy !== 0) this.vertical.scrollBy(0, vy);
-      this.update(this.dx, this.dy);
+      if (vx !== 0 || vy !== 0) this.update(this.dx, this.dy);
     }, 32);
   }
   private update(dx: number, dy: number): void {
@@ -98,10 +106,12 @@ export struct FreecellBoard {
           }, (card: FCCardView) => `${this.session}:${card.id}`)
         }.width(this.layout.surfaceWidth).height(this.surfaceHeight)
       }.width(this.layout.surfaceWidth).height(this.layout.board.height).scrollable(ScrollDirection.Vertical)
+      .edgeEffect(EdgeEffect.None)
       .enableScrollInteraction(this.dragging < 0)
       .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
       .scrollBar(this.surfaceHeight > this.layout.board.height + 1 ? BarState.Auto : BarState.Off).align(Alignment.TopStart)
     }.width(this.layout.board.width).height(this.layout.board.height).scrollable(ScrollDirection.Horizontal)
+    .edgeEffect(EdgeEffect.None)
     .enableScrollInteraction(this.dragging < 0)
     .nestedScroll({ scrollForward: NestedScrollMode.PARENT_FIRST, scrollBackward: NestedScrollMode.PARENT_FIRST })
     .scrollBar(this.layout.surfaceWidth > this.layout.board.width + 1 ? BarState.Auto : BarState.Off)
