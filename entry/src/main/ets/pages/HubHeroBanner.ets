@@ -9,10 +9,35 @@ const START_BUTTON_HEIGHT: number = 48;
 export struct HubHeroBanner {
   @Prop isDarkMode: boolean = false;
   @Prop gameTitle: string = '鸡窝水果摊';
+  @Prop spacious: boolean = false;
+  @Prop compact: boolean = false;
+  @Prop bannerHeight: number = 218;
   startGame: () => void = () => {};
   @State private buttonPressed: boolean = false;
 
   build() {
+    if (this.spacious || this.compact) {
+      Row({ space: 20 }) {
+        Image($rawfile(this.isDarkMode ? 'app/home/home_illustration_dark.svg' : 'app/home/home_illustration_light.svg'))
+          .width(this.compact ? 104 : '34%')
+          .height(this.bannerHeight - 36)
+          .objectFit(ImageFit.Contain).borderRadius(18).clip(true)
+          .draggable(false).accessibilityLevel('no')
+        Column({ space: this.compact ? 5 : 10 }) {
+          Text('随时来一局').fontSize(11).fontColor(this.secondaryColor()).letterSpacing(2)
+          Text('没网也能玩一窝')
+            .fontSize(this.compact ? 21 : 28).fontWeight(FontWeight.Bold)
+            .fontColor(this.isDarkMode ? '#FFF0D2' : '#634226')
+          Text(this.gameTitle).fontSize(12).fontColor(this.secondaryColor())
+            .maxLines(2).textOverflow({ overflow: TextOverflow.Ellipsis })
+          this.StartButton()
+        }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+      }
+      .width('100%').height(this.bannerHeight).padding({ left: 24, right: 24 })
+      .borderRadius(24).clip(true)
+      .backgroundColor(this.isDarkMode ? '#302C27' : '#FFF0D5')
+      .border({ width: 1, color: this.isDarkMode ? '#584A36' : '#DFC197' })
+    } else {
     Stack({ alignContent: Alignment.End }) {
       Image($rawfile(this.isDarkMode ? 'app/home/home_poster_dark.svg' : 'app/home/home_poster_light.svg'))
         .width('100%')
@@ -39,8 +64,9 @@ export struct HubHeroBanner {
         Text('没网也能玩一窝')
           .fontSize(11)
           .fontColor(this.secondaryColor())
-          .height(18)
-          .maxLines(1)
+          .constraintSize({ minHeight: 18 })
+          .maxLines(2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
         this.StartButton()
       }
       .width('50%')
@@ -53,6 +79,7 @@ export struct HubHeroBanner {
     .clip(true)
     .backgroundColor(this.isDarkMode ? '#302C27' : '#FFF0D5')
     .border({ width: 1, color: this.isDarkMode ? '#584A36' : '#DFC197' })
+    }
   }
 
   @Builder

@@ -1,3 +1,4 @@
+import { HubSession } from '../design/HubSession';
 import { common } from '@kit.AbilityKit';
 import { AchievementService } from '../app/AchievementService';
 import { CoopStorage } from '../app/CoopStorage';
@@ -47,6 +48,7 @@ struct Index {
   private snapshotSaveQueue: Promise<boolean> = Promise.resolve(true);
   private snapshotRevision: number = 0;
   private favoriteAchievementEventSequence: number = 0;
+  @State private hubSession: HubSession = new HubSession();
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
@@ -83,6 +85,16 @@ struct Index {
       this.glow2048ExitRequest += 1;
       return true;
     }
+    if (this.activeGame === 'hub') {
+      if (this.hubSession.activeTab === 2 && this.hubSession.detailOpen) {
+        this.hubSession.detailOpen = false;
+        return true;
+      }
+      if (this.hubSession.activeTab !== 0) {
+        this.hubSession.activeTab = 0;
+        return true;
+      }
+    }
     if (this.activeGame === 'minesweeperNext') {
       this.mineGardenExitRequest += 1;
       return true;
@@ -112,6 +124,7 @@ struct Index {
       if (this.activeGame === 'hub') {
         GameSceneTransition({ role: 'hub', sceneDirection: this.sceneDirection }) {
           HubPage({
+            session: this.hubSession,
             snapshot: this.snapshot,
             achievementState: this.achievementState,
             openGame: (gameId: string) => {

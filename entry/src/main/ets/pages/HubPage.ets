@@ -1,45 +1,27 @@
+import { common } from '@kit.AbilityKit';
 import { AppIcon } from '../components/AppIcon';
-import { MotionPressable } from '../components/MotionPressable';
-import { CoopMotion } from '../design/CoopMotion';
-import { CoopTheme } from '../design/CoopTheme';
-import { CoopViewport } from '../design/CoopViewport';
+import { HubInsets, HubLayout, HubRect, hubInsets, hubLayout } from '../design/HubLayout';
+import { HubSession } from '../design/HubSession';
+import { HubWindow } from '../design/HubWindow';
 import { achievementSummaryForState } from '../shell/AchievementEngine';
 import { AchievementState } from '../shell/AchievementModule';
-import {
-  APPEARANCE_DARK,
-  APPEARANCE_LIGHT,
-  CoopAppSnapshot,
-  GameModule,
-  GameRecord
-} from '../shell/GameModule';
-import { GAME_MODULES, moduleById } from '../shell/GameRegistry';
+import { APPEARANCE_DARK, APPEARANCE_LIGHT, CoopAppSnapshot, GameModule, GameRecord } from '../shell/GameModule';
+import { GAME_MODULES, moduleById, gameLogoPath } from '../shell/GameRegistry';
 import { AchievementWall } from './AchievementWall';
-import { HubBottomTabBar } from './HubBottomTabBar';
-import { HubGameLogoTile } from './HubGameLogoTile';
+import { HubGameCard } from './HubGameCard';
 import { HubHeroBanner } from './HubHeroBanner';
+import { HubNavigation, hubNavigationSurface } from './HubNavigation';
+import { HubScroll } from './HubScroll';
 import { HubSettingsPanel } from './HubSettingsPanel';
 import { HubStatsPanel } from './HubStatsPanel';
 
 const HOME_GAME_ORDER: string[] = ['suikaNext', 'suika', 'minesweeperNext', 'minesweeper', 'tetris', 'chicken2048Next', 'chicken2048', 'freecell', 'rps', 'rpsBattle'];
-const HOME_SIDE_PADDING: number = 20;
-const HOME_TOP_PADDING: number = 56;
-const HOME_CONTENT_BOTTOM_SPACE: number = 108;
-const HOME_HEADER_ACTION_SIZE: number = 42;
-const HOME_HEADER_ICON_SIZE: number = 22;
-const HOME_GAME_CARD_HEIGHT: number = 108;
-const HOME_GAME_CARD_SLOT_HEIGHT: number = 122;
-const HOME_GAME_GRID_GAP: number = 10;
-const HOME_GAME_LOGO_TILE_SIZE: number = 62;
-const HOME_GAME_LOGO_IMAGE_SIZE: number = 56;
-const HOME_FAVORITE_CARD_HEIGHT: number = 138;
-const HOME_FAVORITE_CARD_SLOT_HEIGHT: number = 152;
-const HOME_FAVORITE_LOGO_TILE_SIZE: number = 58;
-const HOME_FAVORITE_LOGO_IMAGE_SIZE: number = 52;
 
 @Component
 export struct HubPage {
-  @Prop snapshot: CoopAppSnapshot;
+  @Prop @Watch('appearanceChanged') snapshot: CoopAppSnapshot;
   @Prop achievementState: AchievementState;
+  @ObjectLink session: HubSession;
   openGame: (gameId: string) => void = () => {};
   resetAchievements: () => Promise<boolean> = async (): Promise<boolean> => false;
   refreshAchievements: () => Promise<void> = async (): Promise<void> => {};
@@ -47,459 +29,363 @@ export struct HubPage {
   updateSound: (enabled: boolean) => void = () => {};
   updateHaptic: (enabled: boolean) => void = () => {};
   updateAppearanceMode: (appearanceMode: string) => void = () => {};
-  @State activeTab: number = 0;
-  @State pageWidth: number = CoopViewport.phoneDefaultWidth;
-  @State pageHeight: number = CoopViewport.phoneDefaultHeight;
+  @State private layout: HubLayout = hubLayout(390, 844);
+  @State private feedback: string = '';
+  private pageWidth: number = 390;
+  private pageHeight: number = 844;
+  private insets: HubInsets = hubInsets();
+  private creases: HubRect[] = [];
+  private windowObserver: HubWindow = new HubWindow();
+  private feedbackTimer: number = -1;
+  private launching: boolean = false;
+
+  aboutToAppear(): void {
+    const ui = this.getUIContext();
+    const context = ui.getHostContext();
+    this.windowObserver.setDark(this.isDarkMode());
+    if (context !== undefined) {
+      this.windowObserver.attach(context, (px: number): number => ui.px2vp(px),
+        (insets: HubInsets, creases: HubRect[]) => {
+          ui.runScopedTask(() => {
+            this.insets = insets;
+            this.creases = creases;
+            this.relayout();
+          });
+        });
+    }
+  }
+
+  aboutToDisappear(): void {
+    this.windowObserver.release();
+    if (this.feedbackTimer >= 0) clearTimeout(this.feedbackTimer);
+  }
 
   build() {
-    Stack({ alignContent: Alignment.Center }) {
-      Stack({ alignContent: Alignment.Bottom }) {
-        Scroll() {
-          Column({ space: 14 }) {
-            this.ActiveTabContent()
-            Blank()
-              .height(HOME_CONTENT_BOTTOM_SPACE)
+    Stack({ alignContent: Alignment.TopStart }) {
+      if (this.layout.navigation === 'bottom') {
+        // Carry the bar surface behind the system gesture area, without moving its controls.
+        Row()
+          .width(this.layout.frame.width)
+          .height(this.layout.navigationHeight + this.navigationBottomInset())
+          .position({ x: this.layout.frame.x,
+            y: this.layout.frame.y + this.layout.frame.height - this.layout.navigationHeight })
+          .backgroundColor(hubNavigationSurface(this.isDarkMode()))
+          .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
+      }
+      Column() {
+        Row() {
+          if (this.layout.navigation !== 'bottom') {
+            this.Navigation()
           }
-          .width('100%')
-          .constraintSize({ minHeight: '100%' })
-          .padding({ left: HOME_SIDE_PADDING, right: HOME_SIDE_PADDING, top: HOME_TOP_PADDING, bottom: 18 })
+          Column() {
+            this.ActiveTabContent()
+          }
+          .width(this.layout.frame.width - this.layout.navigationWidth)
+          .height('100%')
+          .padding({ left: this.layout.padding, right: this.layout.padding,
+            top: this.layout.padding, bottom: this.layout.bottomPadding })
+          .alignItems(HorizontalAlign.Center)
         }
         .width('100%')
-        .height('100%')
-        .scrollBar(BarState.Off)
-
-        HubBottomTabBar({
-          activeTab: this.activeTab,
-          isDarkMode: this.isDarkMode(),
-          onTabSelected: (index: number) => {
-            this.switchTab(index);
-          }
-        })
+        .height(this.layout.frame.height - this.layout.navigationHeight)
+        .alignItems(VerticalAlign.Top)
+        if (this.layout.navigation === 'bottom') {
+          this.Navigation()
+        }
       }
-      .width(this.homeFrameWidth())
-      .height(this.homeFrameHeight())
-      .backgroundColor(this.homeBgColor())
+      .width(this.layout.frame.width)
+      .height(this.layout.frame.height)
+      .position({ x: this.layout.frame.x, y: this.layout.frame.y })
+      if (this.layout.navigation === 'bottom') {
+        // Blend the scrolling edge into the bar instead of clipping shadows above a fixed empty strip.
+        Row()
+          .width(this.layout.frame.width).height(14)
+          .position({ x: this.layout.frame.x,
+            y: this.layout.frame.y + this.layout.frame.height - this.layout.navigationHeight - 14 })
+          .linearGradient({ direction: GradientDirection.Bottom,
+            colors: [[this.isDarkMode() ? '#00171613' : '#00FFF7EA', 0],
+              [hubNavigationSurface(this.isDarkMode()), 1]] })
+          .hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
+      }
+      if (this.feedback.length > 0) {
+        Text(this.feedback)
+          .fontSize(13).fontColor(this.inkColor())
+          .padding({ left: 18, right: 18, top: 12, bottom: 12 })
+          .backgroundColor(this.panelColor()).borderRadius(22)
+          .border({ width: 1, color: this.lineColor() })
+          .constraintSize({ maxWidth: Math.max(100, this.layout.frame.width - 32) })
+          .position({ x: this.layout.frame.x + 16,
+            y: this.layout.frame.y + this.layout.frame.height - this.layout.navigationHeight - 58 })
+          .hitTestBehavior(HitTestMode.None)
+          .accessibilityText(this.feedback)
+      }
     }
-    .width('100%')
-    .height('100%')
+    .width('100%').height('100%')
     .backgroundColor(this.homeBgColor())
-    .onAreaChange((oldArea, newArea) => {
-      this.handlePageAreaChange(newArea);
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM, SafeAreaEdge.START, SafeAreaEdge.END])
+    .onAreaChange((oldArea, area) => {
+      const width = Number(area.width);
+      const height = Number(area.height);
+      if (width > 0 && height > 0 && (width !== this.pageWidth || height !== this.pageHeight)) {
+        this.pageWidth = width;
+        this.pageHeight = height;
+        this.relayout();
+        this.windowObserver.measure();
+      }
     })
   }
 
   @Builder
+  Navigation() {
+    HubNavigation({ mode: this.layout.navigation, activeTab: this.session.activeTab,
+      dark: this.isDarkMode(), short: this.layout.short, select: (tab: number) => this.switchTab(tab) })
+  }
+
+  @Builder
   ActiveTabContent() {
-    if (this.activeTab === 0) {
-      Stack() {
-        this.HomeContent()
-      }
-      .width('100%')
-      .transition(this.tabTransition())
-    } else if (this.activeTab === 1) {
-      Stack() {
-        this.FavoriteList()
-      }
-      .width('100%')
-      .transition(this.tabTransition())
-    } else if (this.activeTab === 2) {
-      Stack() {
-        this.Achievements()
-      }
-      .width('100%')
-      .transition(this.tabTransition())
+    if (this.session.activeTab === 0) {
+      Column() {
+        HubScroll({ session: this.session, slot: 0 }) {
+          this.HomeContent()
+        }
+      }.width(this.layout.contentWidth).height('100%')
+    } else if (this.session.activeTab === 1) {
+      Column() {
+        HubScroll({ session: this.session, slot: 1 }) {
+          this.FavoriteList()
+        }
+      }.width(this.layout.contentWidth).height('100%')
+    } else if (this.session.activeTab === 2) {
+      AchievementWall({ achievementState: this.achievementState, session: this.session,
+        isDarkMode: this.isDarkMode(), splitDetail: this.layout.splitDetail,
+        detailWidth: this.layout.detailWidth })
+        .width(this.layout.contentWidth).height('100%')
     } else {
-      Stack() {
-        this.Settings()
+      Column() {
+      HubScroll({ session: this.session, slot: 3 }) {
+        HubSettingsPanel({ appearanceMode: this.snapshot.appearanceMode,
+          roomy: this.layout.contentWidth >= 700, resetAchievements: this.resetAchievements,
+          updateAppearanceMode: this.updateAppearanceMode })
       }
-      .width('100%')
-      .transition(this.tabTransition())
+      }.width(Math.min(900, this.layout.contentWidth)).height('100%')
     }
   }
 
   @Builder
   HomeContent() {
-    Column({ space: 14 }) {
+    Column({ space: this.layout.gap + 2 }) {
       this.WelcomeHeader()
-      HubHeroBanner({
-        isDarkMode: this.isDarkMode(),
-        gameTitle: moduleById(this.heroGameId()).title + (this.heroGameId() === 'suikaNext' ? ' · 重构中' : ''),
-        startGame: () => this.openGame(this.heroGameId())
-      })
-      this.SectionTitleRow('精选游戏', 'app/ui/chicken.svg', true)
-      this.HomeGameGrid()
-      HubStatsPanel({
-        playStreak: this.playStreak(),
-        unlockedBadges: this.unlockedBadges(),
-        badgeTotal: this.badgeTotal(),
-        isDarkMode: this.isDarkMode()
-      })
-    }
-    .width('100%')
+      if (this.layout.showOverview) {
+        Row({ space: 20 }) {
+          HubHeroBanner({ isDarkMode: this.isDarkMode(), gameTitle: this.heroTitle(), spacious: true,
+            bannerHeight: 252, startGame: () => this.launchGame(this.heroGameId()) }).layoutWeight(1)
+          this.Overview()
+        }.width('100%').alignItems(VerticalAlign.Top)
+      } else {
+        HubHeroBanner({ isDarkMode: this.isDarkMode(), gameTitle: this.heroTitle(),
+          spacious: this.layout.contentWidth >= 500, compact: this.layout.short,
+          bannerHeight: this.layout.heroHeight, startGame: () => this.launchGame(this.heroGameId()) })
+      }
+      this.SectionTitle(false)
+      this.GameGrid(false)
+      if (!this.layout.showOverview) {
+        HubStatsPanel({ playStreak: this.playStreak(), unlockedBadges: this.unlockedBadges(),
+          badgeTotal: this.badgeTotal(), isDarkMode: this.isDarkMode() })
+      }
+    }.width('100%').alignItems(HorizontalAlign.Start)
   }
 
   @Builder
   WelcomeHeader() {
-    Row() {
-      Column({ space: 4 }) {
-        Text(this.greetingTitle())
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.inkColor())
-        Text('今天玩什么呢？')
-          .fontSize(13)
-          .fontWeight(FontWeight.Medium)
-          .fontColor(this.mutedColor())
+    Row({ space: 12 }) {
+      Column({ space: 5 }) {
+        Text(this.greetingTitle()).fontSize(this.layout.navigation === 'bottom' ? 22 : 28)
+          .fontWeight(FontWeight.Bold).fontColor(this.inkColor())
+        Text('今天玩什么呢？').fontSize(13).fontColor(this.mutedColor())
+      }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+      Button({ type: ButtonType.Circle }) {
+        AppIcon({ name: this.isDarkMode() ? 'sun' : 'moon', iconSize: 22, tint: this.activeColor() })
       }
-      .alignItems(HorizontalAlign.Start)
-      .layoutWeight(1)
-
-      Row({ space: 10 }) {
-        Stack({ alignContent: Alignment.Center }) {
-          AppIcon({
-            name: this.isDarkMode() ? 'sun' : 'moon',
-            iconSize: HOME_HEADER_ICON_SIZE,
-            tint: this.activeColor()
-          })
-        }
-          .width(HOME_HEADER_ACTION_SIZE)
-          .height(HOME_HEADER_ACTION_SIZE)
-          .backgroundColor(this.iconButtonBgColor())
-          .border({ width: 1, color: this.lineColor() })
-          .borderRadius(HOME_HEADER_ACTION_SIZE / 2)
-          .shadow(this.softShadow())
-          .accessibilityText(this.isDarkMode() ? '切换到浅色模式' : '切换到深色模式')
-          .onClick(() => {
-            this.toggleAppearanceMode();
-          })
-        Image($rawfile('app/ui/chicken.svg'))
-          .width(HOME_HEADER_ACTION_SIZE)
-          .height(HOME_HEADER_ACTION_SIZE)
-          .padding(3)
-          .objectFit(ImageFit.Contain)
-          .accessibilityText('鸡窝游戏')
-          .borderRadius(HOME_HEADER_ACTION_SIZE / 2)
-          .backgroundColor(this.iconButtonBgColor())
-          .border({ width: 1, color: this.lineColor() })
-          .shadow(this.softShadow())
+      .width(44).height(44).backgroundColor(this.panelColor())
+      .border({ width: 1, color: this.lineColor() })
+      .accessibilityText(this.isDarkMode() ? '切换到浅色模式' : '切换到深色模式')
+      .onClick(() => this.updateAppearanceMode(this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK))
+      if (this.layout.navigation === 'bottom' && this.layout.frame.width >= 360) {
+        Image($rawfile('app/ui/chicken.svg')).width(42).height(42)
+          .objectFit(ImageFit.Contain).accessibilityLevel('no')
       }
-    }
-    .width('100%')
+    }.width('100%').alignItems(VerticalAlign.Center)
   }
 
   @Builder
-  SectionTitleRow(title: string, icon: string, showMore: boolean) {
-    Row() {
-      Row({ space: 8 }) {
-        Image($rawfile(icon))
-          .width(28)
-          .height(28)
-          .padding(2)
-          .objectFit(ImageFit.Contain)
-          .accessibilityLevel('no')
-          .backgroundColor(this.sectionIconBgColor())
-          .borderRadius(14)
-          .border({ width: 1, color: this.lineColor() })
-        Text(title)
-          .fontSize(17)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.inkColor())
+  SectionTitle(favorites: boolean) {
+    Row({ space: 12 }) {
+      Text(favorites ? '我的收藏' : '精选游戏')
+        .fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.inkColor()).layoutWeight(1)
+      Text(favorites ? `${this.favoriteModules().length} 款常玩游戏` : `${this.homeModules().length} 款随心玩`)
+        .fontSize(11).fontColor(this.mutedColor()).maxLines(1)
+    }.width('100%').padding({ top: 6, bottom: 2 })
+  }
+
+  @Builder
+  GameGrid(favorites: boolean) {
+    Flex({ wrap: FlexWrap.Wrap, alignItems: ItemAlign.Start }) {
+      ForEach(favorites ? this.favoriteModules() : this.homeModules(), (game: GameModule, index: number) => {
+        HubGameCard({ game: game, subtitle: this.homeTag(game.id),
+          detail: favorites ? this.favoriteRecordText(game) : '', favorite: this.isFavorite(game.id),
+          dark: this.isDarkMode(), textScale: this.layout.textScale,
+          launch: (id: string) => this.launchGame(id), toggleFavorite: (id: string) => this.changeFavorite(id) })
+          .width(this.layout.cardWidth)
+          .margin({ right: (index + 1) % this.layout.columns === 0 ? 0 : this.layout.gap,
+            bottom: this.layout.gap })
+      }, (game: GameModule) => game.id)
+    }.width('100%')
+  }
+
+  @Builder
+  Overview() {
+    Column({ space: 12 }) {
+      Row() {
+        Text('最近玩过').fontSize(14).fontWeight(FontWeight.Bold).fontColor(this.inkColor())
+        Blank()
+        Text('随时再来一局').fontSize(10).fontColor(this.mutedColor())
+      }.width('100%')
+      if (this.recentGames().length > 0) {
+        ForEach(this.recentGames(), (game: GameModule) => {
+          Button({ type: ButtonType.Normal }) {
+            Row({ space: 10 }) {
+              Image($rawfile(gameLogoPath(game.id))).width(36).height(36).objectFit(ImageFit.Contain)
+              Column({ space: 3 }) {
+                Text(game.title).fontSize(13).fontWeight(FontWeight.Medium).fontColor(this.inkColor())
+                  .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+                Text(this.homeTag(game.id)).fontSize(10).fontColor(this.mutedColor())
+              }.layoutWeight(1).alignItems(HorizontalAlign.Start)
+              AppIcon({ name: 'play', iconSize: 15, tint: this.activeColor() })
+            }.width('100%')
+          }.width('100%').height(52).padding(8).borderRadius(12)
+          .backgroundColor(this.isDarkMode() ? '#30291F' : '#FFF1D9')
+          .onClick(() => this.launchGame(game.id))
+        }, (game: GameModule) => game.id)
+      } else {
+        Text('从喜欢的一款开始，\n你的游玩足迹会留在这里。')
+          .fontSize(12).lineHeight(22).fontColor(this.mutedColor())
+          .width('100%').layoutWeight(1)
       }
       Blank()
-      if (showMore) {
-        Stack({ alignContent: Alignment.Center }) {
-          AppIcon({ name: 'chevron_right', iconSize: 20, tint: this.inkColor() })
-        }
-          .width(34)
-          .height(30)
-          .backgroundColor(this.sectionActionBgColor())
-          .borderRadius(15)
-          .border({ width: 1, color: this.lineColor() })
-          .responseRegion({ x: -3, y: -5, width: 40, height: 40 })
-          .accessibilityText('查看精选游戏')
-          .onClick(() => {
-            this.activeTab = 0;
-          })
-      }
+      Button({ type: ButtonType.Normal }) {
+        Row() {
+          AppIcon({ name: 'medal', iconSize: 20, tint: this.activeColor() })
+          Text(`已收集 ${this.unlockedBadges()} / ${this.badgeTotal()} 枚徽章`)
+            .fontSize(12).fontColor(this.inkColor()).layoutWeight(1).margin({ left: 8 })
+          AppIcon({ name: 'chevron_right', iconSize: 16, tint: this.mutedColor() })
+        }.width('100%')
+      }.width('100%').height(42).padding(0).backgroundColor(Color.Transparent)
+      .onClick(() => this.switchTab(2))
     }
-    .width('100%')
-    .margin({ top: 2 })
-  }
-
-  @Builder
-  HomeGameGrid() {
-    Grid() {
-      ForEach(this.homeModules(), (item: GameModule) => {
-        GridItem() {
-          this.HomeGameCard(item)
-        }
-        .padding({ top: 2, bottom: 10 })
-      }, (item: GameModule) => item.id)
-    }
-    .columnsTemplate('1fr 1fr')
-    .rowsGap(HOME_GAME_GRID_GAP)
-    .columnsGap(HOME_GAME_GRID_GAP)
-    .width('100%')
-    .height(this.homeGridHeight())
-  }
-
-  @Builder
-  HomeGameCard(module: GameModule) {
-    MotionPressable({
-      action: () => {
-        this.openGame(module.id);
-      }
-    }) {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Row()
-          .width(42)
-          .height(4)
-          .borderRadius(2)
-          .backgroundColor(module.accent)
-          .opacity(this.isDarkMode() ? 0.72 : 0.58)
-          .position({ x: 14, y: 10 })
-        Row({ space: 12 }) {
-          HubGameLogoTile({
-            gameId: module.id,
-            tileSize: HOME_GAME_LOGO_TILE_SIZE,
-            imageSize: HOME_GAME_LOGO_IMAGE_SIZE,
-            showFavorite: true,
-            isFavorite: this.isFavorite(module.id),
-            isDarkMode: this.isDarkMode(),
-            toggleFavorite: this.toggleFavorite
-          })
-
-          Column({ space: 6 }) {
-            Text(module.title)
-              .fontSize(15)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.inkColor())
-              .maxLines(2)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(this.homeTag(module.id))
-              .fontSize(10)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(module.id === 'suikaNext' ? this.activeColor() : this.mutedColor())
-              .backgroundColor(module.id === 'suikaNext' ? this.panelSoftColor() : Color.Transparent)
-              .padding({ left: module.id === 'suikaNext' ? 6 : 0, right: 6, top: 2, bottom: 2 })
-              .borderRadius(6)
-              .maxLines(1)
-          }
-          .alignItems(HorizontalAlign.Start)
-          .layoutWeight(1)
-        }
-        .width('100%')
-        .height('100%')
-        .alignItems(VerticalAlign.Center)
-      }
-      .width('100%')
-      .height(HOME_GAME_CARD_HEIGHT)
-      .padding({ left: 12, right: 12, top: 16, bottom: 12 })
-      .borderRadius(20)
-      .backgroundColor(this.gameCardBgColor())
-      .border({ width: 1, color: this.gameCardLineColor() })
-      .shadow(this.cardShadow())
-    }
+    .width(284).height(252).padding(18).borderRadius(24)
+    .alignItems(HorizontalAlign.Start)
+    .backgroundColor(this.panelColor()).border({ width: 1, color: this.lineColor() })
   }
 
   @Builder
   FavoriteList() {
-    Column({ space: 12 }) {
-      this.SectionTitleRow('我的收藏', 'app/ui/favorites_empty.svg', false)
-      if (this.visibleFavoriteIds().length === 0) {
-        this.FavoriteEmptyPanel()
-      } else {
-        this.FavoriteGrid()
-      }
-    }
-    .width('100%')
-  }
-
-  @Builder
-  FavoriteGrid() {
-    Grid() {
-      ForEach(this.visibleFavoriteIds(), (gameId: string) => {
-        GridItem() {
-          this.FavoriteGameCard(moduleById(gameId))
-        }
-        .padding({ top: 2, bottom: 10 })
-      }, (gameId: string) => gameId)
-    }
-    .columnsTemplate('1fr 1fr')
-    .rowsGap(HOME_GAME_GRID_GAP)
-    .columnsGap(HOME_GAME_GRID_GAP)
-    .width('100%')
-    .height(this.favoriteGridHeight())
-  }
-
-  @Builder
-  FavoriteGameCard(module: GameModule) {
-    MotionPressable({
-      action: () => {
-        this.openGame(module.id);
-      }
-    }) {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Row()
-          .width(34)
-          .height(4)
-          .borderRadius(2)
-          .backgroundColor(module.accent)
-          .opacity(this.isDarkMode() ? 0.70 : 0.52)
-          .position({ x: 12, y: 10 })
-
-        Column({ space: 8 }) {
-          Row() {
-            HubGameLogoTile({
-              gameId: module.id,
-              tileSize: HOME_FAVORITE_LOGO_TILE_SIZE,
-              imageSize: HOME_FAVORITE_LOGO_IMAGE_SIZE,
-              isDarkMode: this.isDarkMode()
-            })
-            Blank()
-            AppIcon({ name: 'star_filled', iconSize: 24, tint: this.favoriteActiveColor() })
-          }
-          .width('100%')
-          .alignItems(VerticalAlign.Top)
-
-          Column({ space: 4 }) {
-            Text(module.title)
-              .fontSize(15)
-              .fontWeight(FontWeight.Bold)
-              .fontColor(this.inkColor())
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text(this.favoriteRecordText(module))
-              .fontSize(11)
-              .fontWeight(FontWeight.Medium)
-              .fontColor(this.mutedColor())
-              .maxLines(1)
-              .textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .width('100%')
-          .alignItems(HorizontalAlign.Start)
-        }
+    Column({ space: 14 }) {
+      this.SectionTitle(true)
+      Text('把喜欢的留在身边，想玩时一眼就找到。').fontSize(13).fontColor(this.mutedColor())
         .width('100%')
-        .height('100%')
-        .alignItems(HorizontalAlign.Start)
-      }
-      .width('100%')
-      .height(HOME_FAVORITE_CARD_HEIGHT)
-      .padding({ left: 12, right: 12, top: 16, bottom: 12 })
-      .borderRadius(20)
-      .backgroundColor(this.gameCardBgColor())
-      .border({ width: 1, color: this.gameCardLineColor() })
-      .shadow(this.cardShadow())
-    }
-  }
-
-  @Builder
-  FavoriteEmptyPanel() {
-    Column({ space: 10 }) {
-      Image($rawfile('app/ui/favorites_empty.svg'))
-        .width(72)
-        .height(72)
-        .objectFit(ImageFit.Contain)
-        .accessibilityLevel('no')
-      Text('还没有收藏')
-        .fontSize(17)
-        .fontWeight(FontWeight.Bold)
-        .fontColor(this.inkColor())
-      Text('去首页挑几个常玩的游戏。')
-        .fontSize(12)
-        .fontColor(this.mutedColor())
-        .textAlign(TextAlign.Center)
-      MotionPressable({
-        pressScale: 0.97,
-        action: () => {
-          this.switchTab(0);
+      if (this.favoriteModules().length > 0) {
+        this.GameGrid(true)
+      } else {
+        Column({ space: 14 }) {
+          Image($rawfile('app/ui/favorites_empty.svg')).width(84).height(84).objectFit(ImageFit.Contain)
+            .accessibilityLevel('no')
+          Text('还没有收藏').fontSize(20).fontWeight(FontWeight.Bold).fontColor(this.inkColor())
+          Text('点亮游戏卡片上的星星，\n在这里安放你的心头好。')
+            .fontSize(13).lineHeight(22).fontColor(this.mutedColor()).textAlign(TextAlign.Center)
+          Button('去首页看看').fontSize(14).fontColor('#493018').backgroundColor('#F7C66B')
+            .height(44).padding({ left: 24, right: 24 }).onClick(() => this.switchTab(0))
         }
-      }) {
-        Text('去首页看看')
-          .width(132)
-          .height(38)
-          .borderRadius(19)
-          .fontSize(13)
-          .fontWeight(FontWeight.Bold)
-          .fontColor(this.favoriteActionTextColor())
-          .textAlign(TextAlign.Center)
-          .backgroundColor(this.favoriteActionBgColor())
+        .width('100%').constraintSize({ maxWidth: 480 })
+        .padding({ top: 40, bottom: 40, left: 24, right: 24 })
+        .backgroundColor(this.panelColor()).borderRadius(24)
+        .border({ width: 1, color: this.lineColor() }).margin({ top: 16 })
       }
-    }
-    .width('100%')
-    .padding({ left: 18, right: 18, top: 28, bottom: 24 })
-    .alignItems(HorizontalAlign.Center)
-    .borderRadius(22)
-    .backgroundColor(this.panelColor())
-    .border({ width: 1, color: this.lineColor() })
-    .shadow(this.softShadow())
+    }.width('100%')
   }
 
-  @Builder
-  Achievements() {
-    AchievementWall({
-      achievementState: this.achievementState,
-      isDarkMode: this.isDarkMode(),
-      resetAchievements: this.resetAchievements
-    })
+  private navigationBottomInset(): number {
+    const remaining = this.pageHeight - this.layout.frame.y - this.layout.frame.height;
+    // A half-folded pane can end at a hinge instead of at the physical bottom of the window.
+    return remaining <= this.insets.bottom + 1 ? Math.max(0, remaining) : 0;
   }
 
-  @Builder
-  Settings() {
-    HubSettingsPanel({
-      appearanceMode: this.snapshot.appearanceMode,
-      updateAppearanceMode: (appearanceMode: string) => {
-        this.updateAppearanceMode(appearanceMode);
-      }
-    })
+  private relayout(): void {
+    const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    const fontScale = context?.config?.fontSizeScale ?? 1;
+    this.layout = hubLayout(this.pageWidth, this.pageHeight, this.insets, this.creases, fontScale);
+  }
+
+  private async launchGame(id: string): Promise<void> {
+    if (this.launching) return;
+    this.launching = true;
+    // Restore the hub's window policy before mounting a game, not after its exit transition.
+    await this.windowObserver.release();
+    this.openGame(id);
+  }
+
+  private appearanceChanged(): void { this.windowObserver.setDark(this.isDarkMode()); }
+
+  private switchTab(tab: number): void {
+    if (tab === this.session.activeTab) return;
+    this.feedback = '';
+    this.session.activeTab = tab;
+    if (tab === 2) this.refreshAchievements();
+  }
+
+  private changeFavorite(id: string): void {
+    const removing = this.isFavorite(id);
+    this.toggleFavorite(id);
+    this.feedback = removing ? '已取消收藏' : '已加入收藏';
+    if (this.feedbackTimer >= 0) clearTimeout(this.feedbackTimer);
+    this.feedbackTimer = setTimeout(() => { this.feedback = ''; }, 1600);
   }
 
   private homeModules(): GameModule[] {
-    const modules: GameModule[] = [];
+    const ordered: GameModule[] = [];
     HOME_GAME_ORDER.forEach((id: string) => {
-      modules.push(moduleById(id));
+      const game = GAME_MODULES.find((item: GameModule) => item.id === id);
+      if (game !== undefined) ordered.push(game);
     });
-    return modules;
+    // Newly registered games appear without requiring a second shell integration.
+    GAME_MODULES.forEach((game: GameModule) => {
+      if (!HOME_GAME_ORDER.includes(game.id)) ordered.push(game);
+    });
+    return ordered;
   }
-
-  private homeGridHeight(): number {
-    const rows = Math.ceil(this.homeModules().length / 2);
-    return rows * HOME_GAME_CARD_SLOT_HEIGHT + Math.max(0, rows - 1) * HOME_GAME_GRID_GAP;
+  private favoriteModules(): GameModule[] {
+    const favorites: GameModule[] = [];
+    this.snapshot.favorites.forEach((id: string) => {
+      const game = GAME_MODULES.find((item: GameModule) => item.id === id);
+      if (game !== undefined) favorites.push(game);
+    });
+    return favorites;
   }
-
-  private favoriteGridHeight(): number {
-    const rows = Math.ceil(this.visibleFavoriteIds().length / 2);
-    return rows * HOME_FAVORITE_CARD_SLOT_HEIGHT + Math.max(0, rows - 1) * HOME_GAME_GRID_GAP;
+  private recentGames(): GameModule[] {
+    return this.homeModules().filter((game: GameModule) => this.snapshot.recent.includes(game.id))
+      .sort((a: GameModule, b: GameModule) => this.snapshot.recent.indexOf(a.id) - this.snapshot.recent.indexOf(b.id))
+      .slice(0, 2);
   }
-
-  private homeFrameWidth(): number {
-    return this.pageWidth;
-  }
-
-  private homeFrameHeight(): number {
-    return this.pageHeight;
-  }
-
-  private handlePageAreaChange(newArea: Area): void {
-    const width = Number.parseFloat(`${newArea.width}`);
-    const height = Number.parseFloat(`${newArea.height}`);
-    if (Number.isFinite(width) && width > 0 && Number.isFinite(height) && height > 0) {
-      const frame = CoopViewport.frame(width, height);
-      this.pageWidth = frame.width;
-      this.pageHeight = frame.height;
-    }
-  }
-
-  private heroGameId(): string {
-    for (let index = 0; index < this.snapshot.recent.length; index += 1) {
-      const id = this.snapshot.recent[index];
-      const found = GAME_MODULES.find((item: GameModule) => item.id === id);
-      if (found !== undefined && this.isVisibleGameId(id)) {
-        return id;
-      }
-    }
-    return 'suika';
-  }
+  private heroGameId(): string { return this.recentGames().length > 0 ? this.recentGames()[0].id : 'suika'; }
+  private heroTitle(): string { return `${moduleById(this.heroGameId()).title} · ${this.homeTag(this.heroGameId())}`; }
+  private isFavorite(id: string): boolean { return this.snapshot.favorites.includes(id); }
+  private isVisibleGameId(id: string): boolean { return GAME_MODULES.some((game: GameModule) => game.id === id); }
+  private isDarkMode(): boolean { return this.snapshot.appearanceMode === APPEARANCE_DARK; }
+  private homeBgColor(): string { return this.isDarkMode() ? '#101110' : '#FFF4E4'; }
+  private inkColor(): string { return this.isDarkMode() ? '#FFF2DF' : '#39291E'; }
+  private mutedColor(): string { return this.isDarkMode() ? '#C8B7A2' : '#806A54'; }
+  private activeColor(): string { return this.isDarkMode() ? '#FFD083' : '#A76720'; }
+  private panelColor(): string { return this.isDarkMode() ? '#211F1B' : '#FFFAF2'; }
+  private lineColor(): string { return this.isDarkMode() ? '#44392B' : '#E9D9C1'; }
 
   private homeTag(gameId: string): string {
     if (gameId === 'rpsBattle') return '鸡窝乱斗';
@@ -509,14 +395,16 @@ export struct HubPage {
     if (gameId === 'chicken2048') return '经典版';
     if (gameId === 'minesweeperNext') return '新版 · 庭院探雷';
     if (gameId === 'minesweeper') return '经典版';
-    if (gameId === 'tetris') return '方块下蛋';
+    if (gameId === 'tetris') return '经典版';
     if (gameId === 'freecell') return '纸牌归位';
-    return '鸡窝乱斗';
+    return moduleById(gameId).tags.slice(0, 2).join(' · ');
   }
+
+
 
   private favoriteRecordText(module: GameModule): string {
     const record = this.recordFor(module.id);
-    return `${module.id === 'suikaNext' ? '重构中 · ' : ''}${module.highScoreLabel} ${record.highScore} · ${record.playCount} 局`;
+    return record.playCount > 0 ? `${module.highScoreLabel} ${record.highScore} · ${record.playCount} 局` : '还没玩过，来试试吧';
   }
 
   private greetingTitle(): string {
@@ -528,146 +416,6 @@ export struct HubPage {
     return '还不睡，鸡仔？';
   }
 
-  private isFavorite(gameId: string): boolean {
-    return this.snapshot.favorites.includes(gameId);
-  }
-
-  private isVisibleGameId(gameId: string): boolean {
-    return HOME_GAME_ORDER.includes(gameId);
-  }
-
-  private visibleFavoriteIds(): string[] {
-    return this.snapshot.favorites.filter((gameId: string) => this.isVisibleGameId(gameId));
-  }
-
-  private isDarkMode(): boolean {
-    return this.snapshot.appearanceMode === APPEARANCE_DARK;
-  }
-
-  private toggleAppearanceMode(): void {
-    const nextMode = this.isDarkMode() ? APPEARANCE_LIGHT : APPEARANCE_DARK;
-    this.getUIContext().animateTo({
-      duration: CoopMotion.modalDuration,
-      curve: Curve.EaseOut
-    }, () => {
-      this.updateAppearanceMode(nextMode);
-    });
-  }
-
-  private homeBgColor(): string {
-    return this.isDarkMode() ? '#101110' : CoopTheme.appSurface;
-  }
-
-  private inkColor(): string {
-    return this.isDarkMode() ? '#fff2df' : CoopTheme.ink;
-  }
-
-  private mutedColor(): string {
-    return this.isDarkMode() ? '#c8b7a2' : '#786555';
-  }
-
-  private activeColor(): string {
-    return this.isDarkMode() ? '#FFD083' : '#A76720';
-  }
-
-  private favoriteActiveColor(): string {
-    return this.isDarkMode() ? '#FFD083' : '#B47628';
-  }
-
-  private favoriteActionBgColor(): string {
-    return this.isDarkMode() ? '#d99632' : CoopTheme.brand;
-  }
-
-  private favoriteActionTextColor(): string {
-    return this.isDarkMode() ? '#21160a' : '#ffffff';
-  }
-
-  private panelColor(): string {
-    return this.isDarkMode() ? '#211f1b' : '#fffaf2';
-  }
-
-  private panelSoftColor(): string {
-    return this.isDarkMode() ? '#2a2621' : '#fff0da';
-  }
-
-  private lineColor(): string {
-    return this.isDarkMode() ? 'rgba(255,236,205,0.14)' : 'rgba(132,91,45,0.12)';
-  }
-
-  private iconButtonBgColor(): string {
-    return this.panelColor();
-  }
-
-  private sectionIconBgColor(): string {
-    return this.panelSoftColor();
-  }
-
-  private sectionActionBgColor(): string {
-    return this.panelSoftColor();
-  }
-
-  private gameCardBgColor(): string {
-    return this.isDarkMode() ? '#25221e' : '#fffdf8';
-  }
-
-  private gameCardLineColor(): string {
-    return this.isDarkMode() ? 'rgba(255,231,196,0.18)' : 'rgba(126,78,35,0.16)';
-  }
-
-  private softShadow(): ShadowOptions {
-    if (this.isDarkMode()) {
-      return {
-        radius: 26,
-        color: 'rgba(0,0,0,0.42)',
-        offsetX: 0,
-        offsetY: 12
-      };
-    }
-    return {
-      radius: 26,
-      color: 'rgba(112,73,34,0.18)',
-      offsetX: 0,
-      offsetY: 12
-    };
-  }
-
-  private cardShadow(): ShadowOptions {
-    if (this.isDarkMode()) {
-      return {
-        radius: 30,
-        color: 'rgba(0,0,0,0.48)',
-        offsetX: 0,
-        offsetY: 16
-      };
-    }
-    return {
-      radius: 30,
-      color: 'rgba(112,69,28,0.22)',
-      offsetX: 0,
-      offsetY: 16
-    };
-  }
-
-  private tabTransition(): TransitionEffect {
-    return TransitionEffect.OPACITY
-      .combine(TransitionEffect.translate({ x: 0, y: CoopMotion.tabOffsetVp }))
-      .animation({ duration: CoopMotion.tabDuration, curve: Curve.EaseOut });
-  }
-
-  private switchTab(index: number): void {
-    if (index === 2) {
-      this.refreshAchievements();
-    }
-    if (this.activeTab === index) {
-      return;
-    }
-    this.getUIContext().animateTo({
-      duration: CoopMotion.tabDuration,
-      curve: Curve.EaseOut
-    }, () => {
-      this.activeTab = index;
-    });
-  }
 
   private recordFor(gameId: string): GameRecord {
     const found = this.snapshot.records.find((item: GameRecord) => item.gameId === gameId);

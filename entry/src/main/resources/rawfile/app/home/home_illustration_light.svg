@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="344" height="448" viewBox="0 0 344 448">
+  <!-- Left-hand crop of the original home poster, reused by the wide native banner. -->
+  <rect width="720" height="448" fill="#FFF0D5"/>
+  <path d="M0 345c137-21 234-9 354 0s239 19 366-5v108H0Z" fill="#ECD1A6"/>
+  <path d="M0 383c145-15 241-9 375 4m63 5 201 10M41 422l200-7m373 17 106 4" fill="none" stroke="#D4B388" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M321 0v331M329 14v287M0 344h42m260-4 74 4" fill="none" stroke="#E8CCA0" stroke-width="2.5"/>
+  <!-- A little arched coop window. -->
+  <path d="M36 255V123a119 119 0 0 1 238 0v132Z" fill="#D4AF7F" stroke="#895A39" stroke-width="4"/>
+  <path d="M48 240V124a107 107 0 0 1 214 0v116Z" fill="#E3E9DA"/>
+  <circle cx="101" cy="79" r="25" fill="#F4D88E"/><path d="M180 76c6-13 18-13 24-3 13-6 23 4 21 13h-58c-2-6 5-12 13-10Z" fill="#FFF8E4"/>
+  <path d="M48 198c41-37 60-15 92-20s73-39 122-9v71H48Z" fill="#B9CAA7"/>
+  <path d="M48 221c47-31 64 10 118-2s62-26 96-18v39H48Z" fill="#A0B98B"/>
+  <path d="M155 17v226M46 139h218" fill="none" stroke="#D4AF7F" stroke-width="9"/>
+  <path d="M155 19v224M46 139h217" fill="none" stroke="#895A39" stroke-width="2.5"/>
+  <rect x="26" y="244" width="258" height="17" rx="7" fill="#D4AF7F" stroke="#895A39" stroke-width="3.5"/>
+  <!-- Paper garland, the quiet top border of the poster. -->
+  <path d="M301 0c105 36 265 37 419-2" fill="none" stroke="#BE9869" stroke-width="2.5"/>
+  <g stroke="#895A39" stroke-width="2.5" stroke-linejoin="round">
+    <path d="m354 17 11 24 15-20Z" fill="#ACBF94"/>
+    <path d="m421 29 12 21 15-20Z" fill="#E8AD91"/>
+    <path d="m493 31 14 22 13-24Z" fill="#F0CA7B"/>
+    <path d="m566 25 17 20 9-24Z" fill="#ACBF94"/>
+    <path d="m634 13 20 19 6-25Z" fill="#E8AD91"/>
+  </g>
+  <!-- Cushion and a plump chicken holding its little controller. -->
+  <ellipse cx="174" cy="376" rx="130" ry="17" fill="#D0AC7E"/>
+  <g stroke="#895A39" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M70 315c46-20 148-20 201 0l9 37c-1 15-42 23-110 23S58 366 59 352Z" fill="#8EA782"/>
+    <ellipse cx="170" cy="319" rx="101" ry="26" fill="#BED0A5"/>
+    <path d="M88 340c34 12 128 13 166 1m-154 11 6 9m30-4 2 11m38-10v11m35-13-2 10m34-16-3 10" fill="none" stroke="#718B67" stroke-width="2.5"/>
+    <path d="M101 253C63 247 46 217 49 185c-22 26-25 58-12 82 11 19 32 26 56 18" fill="#E8C992"/>
+    <path d="M62 221c1 18 9 32 24 41" fill="none" stroke="#D2AF75" stroke-width="3"/>
+    <path d="M142 149c-20-13-22-37-7-40 11-3 18 9 19 16-4-25 6-38 19-31 8 4 7 14 5 25 12-19 29-21 34-8 4 12-7 27-18 34Z" fill="#E89F85"/>
+    <path d="M129 147c27-18 71-13 90 11 13 17 19 38 26 58 5 15 19 25 16 46-5 37-40 63-86 63-46 0-83-19-87-54-2-18 9-31 12-47 5-27 5-61 29-77Z" fill="#FFF8E4"/>
+    <path d="M127 160c-8 8-12 20-13 32" fill="none" stroke="#FFFCF2" stroke-width="5"/>
+    <path d="M161 193c7-4 14-4 20-1m29-2c6-3 13-1 17 2" fill="none" stroke="#D2AF75" stroke-width="3"/>
+    <path d="M164 207c4 5 9 5 13 0m34-1c4 5 9 5 13 0" fill="none" stroke-width="4"/>
+    <ellipse cx="153" cy="223" rx="12" ry="7" fill="#F0C0A2" stroke="none"/>
+    <ellipse cx="234" cy="221" rx="11" ry="6" fill="#F0C0A2" stroke="none"/>
+    <path d="m187 214 15-4 11 9-16 9Z" fill="#EBC270" stroke-width="3"/>
+    <path d="M195 229c0 10 10 14 15 7 3-5-2-10-7-11" fill="#E89F85" stroke-width="2.5"/>
+    <path d="M146 318c-9 6-14 14-9 18 4 4 11 1 15 1 3 6 12 7 14 1l-3-18m47-2c-1 7 2 17 6 18 7 3 10-3 12-6 7 2 13 1 12-5-1-5-10-9-17-11" fill="#EBC270" stroke-width="3"/>
+    <path d="M149 248c19-7 40-6 59-1 10-3 25-4 32 5 8 11 14 33 5 40-8 6-17-8-23-12h-58c-9 7-17 16-25 10-8-7-1-35 10-42Z" fill="#DAA98C" stroke-width="3.5"/>
+    <path d="M153 260v15m-7-7h15" fill="none" stroke-width="4"/>
+    <circle cx="222" cy="263" r="4" fill="#A4BE8D" stroke-width="2"/>
+    <circle cx="233" cy="272" r="4" fill="#F3D28D" stroke-width="2"/>
+    <path d="M183 266h13" fill="none" stroke="#AA7552" stroke-width="3"/>
+    <path d="M108 246c13-10 29-10 40 0 8 8 6 17-3 19-7 1-14-5-18-7" fill="#F6DCA8" stroke-width="3.5"/>
+    <path d="M243 241c16-1 26 9 23 20-2 8-10 13-17 8-6-4-5-11-4-15" fill="#F6DCA8" stroke-width="3.5"/>
+  </g>
+  <!-- A few game-night objects, all below the copy area. -->
+  <g stroke="#895A39" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="31" y="350" width="29" height="29" rx="5" fill="#E8AD91"/>
+    <rect x="31" y="379" width="29" height="29" rx="5" fill="#F0CA7B"/>
+    <rect x="60" y="379" width="29" height="29" rx="5" fill="#ACBF94"/>
+    <path d="M40 358h9m-9 30h9m20 0h9" fill="none" stroke="#FFFCF2" stroke-width="2.5"/>
+    <path d="M299 343h29v36h-29Z" fill="#FFF5DD" transform="rotate(12 314 361)"/>
+    <path d="M314 367s-9-5-9-11c0-5 6-7 9-2 3-5 9-3 9 2 0 6-9 11-9 11Z" fill="#E8AD91" stroke-width="2"/>
+    <path d="M655 391c-7-29-3-54 9-75m-8 45c-28-4-40-21-33-35 22-2 35 17 33 35Zm3-17c2-29 19-42 34-35-1 22-16 36-34 35Z" fill="#93AF82"/>
+    <path d="m632 380 6 34c1 8 32 8 34 0l6-34Z" fill="#DAA17E"/>
+    <path d="M632 380c7-6 38-6 46 0" fill="none"/>
+    <path d="m681 116 4 9 9 3-9 4-4 9-3-9-9-4 9-3Z" fill="#F0CA7B" stroke-width="2.5"/>
+    <path d="m348 282 3 7 7 2-7 3-3 7-3-7-7-3 7-2Z" fill="#F0CA7B" stroke-width="2"/>
+    <path d="M567 407c5-12 17-17 30-16-2 13-14 21-27 21m0 0 18-14" fill="#ACBF94" stroke-width="2.5"/>
+  </g>
+</svg>

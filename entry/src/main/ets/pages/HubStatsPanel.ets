@@ -46,7 +46,7 @@ export struct HubStatsPanel {
         .accessibilityLevel('no')
     }
     .layoutWeight(1)
-    .height(84)
+    .constraintSize({ minHeight: 84 })
     .padding(14)
     .borderRadius(22)
     .backgroundColor(this.panelColor())

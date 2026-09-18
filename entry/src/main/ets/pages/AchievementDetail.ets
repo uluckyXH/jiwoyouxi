@@ -11,6 +11,7 @@ export struct AchievementDetail {
   @Prop item: AchievementViewItem;
   @Prop achievementState: AchievementState;
   @Prop isDarkMode: boolean = false;
+  @Prop embedded: boolean = false;
   close: () => void = () => {};
 
   build() {
@@ -67,13 +68,13 @@ export struct AchievementDetail {
             .width('100%')
             .textAlign(TextAlign.Center)
         }
-        Text('知道了')
+        Button(this.embedded ? '收起详情' : '知道了')
           .width('100%')
-          .height(44)
+          .constraintSize({ minHeight: 44 })
+          .padding({ top: 12, bottom: 12 })
           .fontSize(14)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.isDarkMode ? '#21160A' : '#FFFFFF')
-          .textAlign(TextAlign.Center)
           .backgroundColor(this.goldColor())
           .borderRadius(22)
           .onClick(() => this.close())
@@ -84,7 +85,7 @@ export struct AchievementDetail {
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .backgroundColor(this.isDarkMode ? AchievementTheme.detailSurfaceDark : AchievementTheme.detailSurfaceLight)
   }
 
