@@ -2,15 +2,6 @@ import { GameModule } from './GameModule';
 
 export const GAME_MODULES: GameModule[] = [
   {
-    id: 'bloomLines',
-    title: '五子连珠',
-    subtitle: '花窗连珠 · 给彩珠找条小路，连成五颗开花',
-    icon: '✿',
-    tags: ['消除', '寻路', '休闲'],
-    accent: '#4D7048',
-    highScoreLabel: '最高分'
-  },
-  {
     id: 'tangram',
     title: '七巧板',
     subtitle: '七巧小院 · 七块拼板，拼出一院小风景',
@@ -135,6 +126,33 @@ export const GAME_MODULES: GameModule[] = [
     tags: ['乱斗', '指挥', '多屏'],
     accent: '#527342',
     highScoreLabel: '挑战星数'
+  },
+  {
+    id: 'bloomLines',
+    title: '五子连珠',
+    subtitle: '花窗连珠 · 给彩珠找条小路，连成五颗开花',
+    icon: '✿',
+    tags: ['消除', '寻路', '休闲'],
+    accent: '#4D7048',
+    highScoreLabel: '最高分'
+  },
+  {
+    id: 'memoryPairs',
+    title: '记忆翻牌',
+    subtitle: '庭院寻双 · 翻开小欢喜，记住每一次相遇',
+    icon: '❀',
+    tags: ['记忆', '配对', '休闲'],
+    accent: '#28745D',
+    highScoreLabel: '完成桌数'
+  },
+  {
+    id: 'starPop',
+    title: '消灭星星',
+    subtitle: '星星小院 · 把相邻的小欢喜，收在一起',
+    icon: '✦',
+    tags: ['消除', '闯关', '休闲'],
+    accent: '#497143',
+    highScoreLabel: '最佳旅程'
   }
 ];
 
@@ -148,6 +166,8 @@ export function moduleById(id: string): GameModule {
 }
 
 export function gameLogoPath(gameId: string): string {
+  if (gameId === 'starPop') return 'gamesNext/starPop/scene/logo.svg';
+  if (gameId === 'memoryPairs') return 'gamesNext/memoryGarden/scene/logo.svg';
   if (gameId === 'bloomLines') return 'gamesNext/bloomLines/scene/logo.svg';
   if (gameId === 'tangram') return 'gamesNext/tangramGarden/scene/logo.svg';
   // App shell identities only; game scenes own their artwork under rawfile/games/.

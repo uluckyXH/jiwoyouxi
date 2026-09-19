@@ -25,7 +25,7 @@ const stored = new Map();
 const api = vm.runInNewContext(stripTypeScriptTypes(source.replace(/^import[\s\S]*?;\s*$/gm, '').replace(/^export /gm, '')) + `\n({
   Hub, Gateway, moduleById, emptySnapshot, emptyAchievementState, normalizeAchievementState, applyAchievementEvent,
   achievementGroupsForState, achievementGroupsForSnapshot, achievementSummaryForState, achievementSummaryForSnapshot,
-  achievementViewItemForState, achievementViewItemFor, achievementNoticeItemsForUnlocks, CoopStorage
+  ACHIEVEMENT_DEFINITIONS, isGameHidden, achievementViewItemForState, achievementViewItemFor, achievementNoticeItemsForUnlocks, CoopStorage
 })`, { console, preferences: { async getPreferences() { return {
   async get(key, fallback) { return stored.get(key) ?? fallback; },
   async put(key, value) { stored.set(key, value); }, async flush() {}
@@ -67,7 +67,7 @@ assert.ok(medals.every(id => state.progresses.some(p => p.achievementId === id &
 for (const filter of ['all', 'unlocked', 'inProgress']) {
   assert.ok(api.achievementGroupsForState(state, filter).every(group => group.definition.gameId !== 'tangram'));
 }
-assert.equal(api.achievementSummaryForState(state).total, 25);
+assert.equal(api.achievementSummaryForState(state).total, api.ACHIEVEMENT_DEFINITIONS.filter(d => d.enabled && !api.isGameHidden(d.gameId)).length);
 assert.equal(api.achievementSummaryForState(state).unlocked, 1, 'retained Tangram medals do not inflate visible completion');
 assert.equal(api.achievementViewItemForState(state, 'tangram.first'), undefined);
 const notices = api.achievementNoticeItemsForUnlocks(result.newlyUnlocked);
@@ -82,7 +82,7 @@ page.snapshot.achievements = medals.map(achievementId => ({ achievementId, curre
 for (const filter of ['all', 'unlocked', 'inProgress']) {
   assert.ok(api.achievementGroupsForSnapshot(page.snapshot, filter).every(group => group.definition.gameId !== 'tangram'));
 }
-assert.equal(api.achievementSummaryForSnapshot(page.snapshot).total, 25);
+assert.equal(api.achievementSummaryForSnapshot(page.snapshot).total, api.ACHIEVEMENT_DEFINITIONS.filter(d => d.enabled && !api.isGameHidden(d.gameId)).length);
 assert.equal(api.achievementSummaryForSnapshot(page.snapshot).unlocked, 0);
 assert.equal(api.achievementViewItemFor(page.snapshot, 'tangram.first'), undefined);
 await api.CoopStorage.save({}, page.snapshot);

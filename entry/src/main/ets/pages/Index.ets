@@ -1,5 +1,7 @@
+import { StarPage } from '../gamesNext/starPop/StarPage';
 import { HubSession } from '../design/HubSession';
 import { BloomPage } from '../gamesNext/bloomLines/BloomPage';
+import { MemoryPage } from '../gamesNext/memoryGarden/MemoryPage';
 import { TangramPage } from '../gamesNext/tangramGarden/TangramPage';
 import { localPlayDay, normalizePlayDays, playDaysWithLegacyRecords } from '../design/PlayActivity';
 import { BlockWorkshopPage } from '../gamesNext/blockWorkshop/BlockWorkshopPage';
@@ -68,6 +70,8 @@ struct Index {
   @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
   @State bloomLinesExitRequest: number = 0;
+  @State starPopExitRequest: number = 0;
+  @State memoryPairsExitRequest: number = 0;
   @State tangramExitRequest: number = 0;
   @State tetrisSession: number = 0;
   @State blockWorkshopExitRequest: number = 0;
@@ -125,6 +129,14 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'memoryPairs') {
+      this.memoryPairsExitRequest += 1;
+      return true;
+    }
+    if (this.activeGame === 'starPop') {
+      this.starPopExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'bloomLines') {
       this.bloomLinesExitRequest += 1;
       return true;
@@ -302,6 +314,29 @@ struct Index {
             recordScore: (score: number) => {
               this.recordGameResult('minesweeper', score);
             }
+          })
+        }
+      } else if (this.activeGame === 'memoryPairs') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          MemoryPage({
+            dark: this.isDarkMode(),
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.memoryPairsExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (tables: number) => this.recordGameResult('memoryPairs', tables),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
+          })
+        }
+      } else if (this.activeGame === 'starPop') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          StarPage({
+            dark: this.isDarkMode(), soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.starPopExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('starPop', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })
         }
       } else if (this.activeGame === 'bloomLines') {

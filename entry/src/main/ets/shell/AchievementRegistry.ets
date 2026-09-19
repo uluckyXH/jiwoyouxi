@@ -18,14 +18,15 @@ export const ACHIEVEMENT_ORIGINAL_GAME_IDS: string[] = [
 ];
 
 export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
-  ...ACHIEVEMENT_ORIGINAL_GAME_IDS, 'bloomLines', 'tangram'
+  ...ACHIEVEMENT_ORIGINAL_GAME_IDS, 'starPop', 'bloomLines', 'tangram', 'memoryPairs'
 ];
 
 // Source routes are separate from stable badge/storage IDs. Legacy games cannot report.
 export const ACHIEVEMENT_SOURCE_GAME_IDS: string[] = [
+  'starPop',
   'bloomLines',
   'tangram',
-  'rpsBattleNext', 'freecellNext', 'minesweeperNext', 'chicken2048Next', 'tetrisNext', 'suikaNext'
+  'rpsBattleNext', 'freecellNext', 'minesweeperNext', 'chicken2048Next', 'tetrisNext', 'suikaNext', 'memoryPairs'
 ];
 export function isAchievementSourceGameId(gameId: string): boolean {
   return ACHIEVEMENT_SOURCE_GAME_IDS.includes(gameId);
@@ -34,8 +35,6 @@ export function isAchievementSourceGameId(gameId: string): boolean {
 const ACHIEVEMENT_BADGE_ASSET_DIRECTORY: string = 'app/achievements/';
 
 export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
-  { id: 'bloomLines', title: '五子连珠 · 花窗连珠', gameId: 'bloomLines', placeholderSymbol: '✿' },
-  { id: 'tangram', title: '七巧板 · 七巧小院', gameId: 'tangram', placeholderSymbol: '△' },
   {
     id: 'global',
     title: '合集里程碑',
@@ -77,10 +76,16 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
     title: '鸡窝水果摊',
     gameId: 'suika',
     placeholderSymbol: '◉'
-  }
+  },
+  { id: 'tangram', title: '七巧板 · 七巧小院', gameId: 'tangram', placeholderSymbol: '△' },
+  { id: 'bloomLines', title: '五子连珠 · 花窗连珠', gameId: 'bloomLines', placeholderSymbol: '✿' },
+  { id: 'memoryPairs', title: '记忆翻牌 · 庭院寻双', gameId: 'memoryPairs', placeholderSymbol: '❀' },
+  { id: 'starPop', title: '消灭星星 · 星星小院', gameId: 'starPop', placeholderSymbol: '✦' }
 ];
 
 export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
+  { gameId: 'starPop', factKeys: ['totalCleared', 'maxGroup', 'score'], eventTypes: ['milestone', 'sessionEnd'] },
+  { gameId: 'memoryPairs', factKeys: ['totalPairs', 'totalTables', 'pairs', 'attempts'], eventTypes: ['milestone', 'sessionEnd'] },
   { gameId: 'bloomLines', factKeys: ['totalCleared', 'bestScore', 'score', 'moves'], eventTypes: ['milestone', 'sessionEnd'] },
   { gameId: 'tangram', factKeys: ['won', 'collected'], eventTypes: ['sessionEnd'] },
   {
@@ -575,6 +580,54 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     },
     enabled: true,
     noticeLevel: 'highlight'
+  },
+  {
+    id: 'memoryPairs.first_pair', groupId: 'memoryPairs', gameId: 'memoryPairs', title: '找到你啦',
+    summary: '完成第一次配对', detail: '在庭院寻双找到第一对相同图案，任何模式都可以。',
+    placeholderSymbol: '❀', badgeAssetPath: 'app/achievements/ach_memory_first_pair.svg',
+    progressKind: 'none', target: 1,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalPairs', comparison: 'atLeast', value: 1 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'memoryPairs.first_table', groupId: 'memoryPairs', gameId: 'memoryPairs', title: '一桌小欢喜',
+    summary: '配完任意一桌', detail: '在庭院寻双找齐一桌所有配对。不限模式、翻牌次数与用时。',
+    placeholderSymbol: '❀', badgeAssetPath: 'app/achievements/ach_memory_first_table.svg',
+    progressKind: 'none', target: 1,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalTables', comparison: 'atLeast', value: 1 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'memoryPairs.collector', groupId: 'memoryPairs', gameId: 'memoryPairs', title: '庭院好记性',
+    summary: '累计配对 30 对', detail: '在庭院寻双累计找到 30 对小伙伴，允许分多桌、多次游玩完成，所有模式共享进度。',
+    placeholderSymbol: '❀', badgeAssetPath: 'app/achievements/ach_memory_collector.svg',
+    progressKind: 'none', target: 30,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalPairs', comparison: 'atLeast', value: 30 } },
+    enabled: true, noticeLevel: 'highlight'
+  },
+  {
+    id: 'starPop.first', groupId: 'starPop', gameId: 'starPop', title: '星星见面礼',
+    summary: '完成第一次消除', detail: '在星星小院消除第一组相邻同色彩块，轻松和经典模式都可以。',
+    placeholderSymbol: '✦', badgeAssetPath: 'app/achievements/ach_star_first.svg',
+    progressKind: 'none', target: 2,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalCleared', comparison: 'atLeast', value: 2 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'starPop.cluster', groupId: 'starPop', gameId: 'starPop', title: '一捧小星光',
+    summary: '一次消除 8 块', detail: '在星星小院一次消除至少 8 块。可以使用提示和撤销，不限关卡。',
+    placeholderSymbol: '✦', badgeAssetPath: 'app/achievements/ach_star_cluster.svg',
+    progressKind: 'none', target: 8,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'maxGroup', comparison: 'atLeast', value: 8 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'starPop.collector', groupId: 'starPop', gameId: 'starPop', title: '装满星星罐',
+    summary: '累计消除 100 块', detail: '在星星小院累计消除 100 块，两种模式共享进度，可分多次游玩完成。撤销后重走同一段不会重复累计。',
+    placeholderSymbol: '✦', badgeAssetPath: 'app/achievements/ach_star_collector.svg',
+    progressKind: 'none', target: 100,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalCleared', comparison: 'atLeast', value: 100 } },
+    enabled: true, noticeLevel: 'highlight'
   }
 ];
 

@@ -18,9 +18,8 @@ import { PlayStreakSheet } from './PlayStreakSheet';
 import { currentPlayStreak } from '../design/PlayActivity';
 
 const HOME_GAME_ORDER: string[] = [
-  'bloomLines',
-  'tangram',
-  'suikaNext', 'minesweeperNext', 'tetrisNext', 'chicken2048Next', 'freecellNext', 'rpsBattleNext'
+  'suikaNext', 'minesweeperNext', 'tetrisNext', 'chicken2048Next', 'freecellNext', 'rpsBattleNext',
+  'tangram', 'bloomLines', 'memoryPairs', 'starPop'
 ];
 
 // Hide classic entry points on Home while retaining their routes, saves and favorites.
@@ -415,7 +414,9 @@ export struct HubPage {
   private lineColor(): string { return this.isDarkMode() ? '#44392B' : '#E9D9C1'; }
 
   private homeTag(gameId: string): string {
+    if (gameId === 'starPop') return '星星小院';
     if (gameId === 'bloomLines') return '花窗连珠';
+    if (gameId === 'memoryPairs') return '庭院寻双';
     if (gameId === 'rpsBattle') return '鸡窝乱斗';
     if (gameId === 'tangram') return '七巧小院';
     if (gameId === 'rpsBattleNext') return '庭院擂台';
