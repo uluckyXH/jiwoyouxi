@@ -10,6 +10,13 @@ export interface GameModule {
   highScoreLabel: string;
 }
 
+// Shelved games keep their routes, assets and saved progress, but have no public entries.
+export const HIDDEN_GAME_IDS: string[] = ['tangram'];
+
+export function isGameHidden(gameId: string): boolean {
+  return HIDDEN_GAME_IDS.includes(gameId);
+}
+
 export interface GameRecord {
   gameId: string;
   highScore: number;

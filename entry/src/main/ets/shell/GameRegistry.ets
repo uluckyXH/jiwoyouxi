@@ -2,6 +2,24 @@ import { GameModule } from './GameModule';
 
 export const GAME_MODULES: GameModule[] = [
   {
+    id: 'bloomLines',
+    title: '五子连珠',
+    subtitle: '花窗连珠 · 给彩珠找条小路，连成五颗开花',
+    icon: '✿',
+    tags: ['消除', '寻路', '休闲'],
+    accent: '#4D7048',
+    highScoreLabel: '最高分'
+  },
+  {
+    id: 'tangram',
+    title: '七巧板',
+    subtitle: '七巧小院 · 七块拼板，拼出一院小风景',
+    icon: '△',
+    tags: ['拼图', '图鉴', '休闲'],
+    accent: '#779563',
+    highScoreLabel: '收集作品'
+  },
+  {
     id: 'rps',
     title: '石头剪刀布大作战',
     subtitle: '三方自动追捕，机制全开也能离线玩',
@@ -130,6 +148,8 @@ export function moduleById(id: string): GameModule {
 }
 
 export function gameLogoPath(gameId: string): string {
+  if (gameId === 'bloomLines') return 'gamesNext/bloomLines/scene/logo.svg';
+  if (gameId === 'tangram') return 'gamesNext/tangramGarden/scene/logo.svg';
   // App shell identities only; game scenes own their artwork under rawfile/games/.
   if (gameId === 'suika' || gameId === 'suikaNext') {
     return 'app/game_logos/game_icon_suika.svg';

@@ -4,6 +4,7 @@ import {
   AchievementUnlock
 } from './AchievementModule';
 import { achievementDefinitionFor } from './AchievementRegistry';
+import { isGameHidden } from './GameModule';
 
 export const ACHIEVEMENT_NOTICE_INDIVIDUAL_LIMIT: number = 3;
 
@@ -33,7 +34,7 @@ function definitionsForUnlocks(unlocks: AchievementUnlock[]): AchievementDefinit
       return;
     }
     const definition = achievementDefinitionFor(unlock.achievementId);
-    if (definition !== undefined && definition.enabled) {
+    if (definition !== undefined && definition.enabled && !isGameHidden(definition.gameId)) {
       definitions.push(definition);
     }
   });

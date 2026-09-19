@@ -26,6 +26,9 @@ function loadAchievementEngine() {
   vm.runInNewContext(`${runtimeSource}
 globalThis.__achievementEngine = {
   ACHIEVEMENT_DEFINITIONS,
+  ACHIEVEMENT_GROUPS,
+  isGameHidden,
+  ACHIEVEMENT_ORIGINAL_GAME_IDS,
   ACHIEVEMENT_PROCESSED_EVENT_LIMIT,
   ACHIEVEMENT_NOTICE_INDIVIDUAL_LIMIT,
   isAchievementBadgeAssetPathValid,
@@ -66,7 +69,8 @@ const api = loadAchievementEngine();
 {
   const state = api.emptyAchievementState();
   assert.equal(api.achievementRegistryIssues().length, 0, 'registry definitions must be internally consistent');
-  assert.equal(api.ACHIEVEMENT_DEFINITIONS.length, 22, 'the documented first batch should remain intact');
+  assert.equal(api.ACHIEVEMENT_DEFINITIONS.filter(item => item.gameId === 'global' ||
+    api.ACHIEVEMENT_ORIGINAL_GAME_IDS.includes(item.gameId)).length, 22, 'the original six-game batch remains intact');
   for (const item of api.ACHIEVEMENT_DEFINITIONS) {
     assert.equal(api.isAchievementBadgeAssetPathValid(item.badgeAssetPath), true);
     assert.equal(existsSync(resolve(projectRoot, 'entry/src/main/resources/rawfile', item.badgeAssetPath)), true,
@@ -80,8 +84,8 @@ const api = loadAchievementEngine();
   assert.equal(state.completedSessionCount, 0);
   assert.equal(state.playedGameIds.length, 0);
   assert.equal(api.achievementSummaryForState(state).unlocked, 0);
-  assert.equal(api.achievementSummaryForState(state).total, 22);
-  assert.equal(api.achievementGroupsForState(state, 'all').length, 7);
+  assert.equal(api.achievementSummaryForState(state).total, api.ACHIEVEMENT_DEFINITIONS.filter(item => !api.isGameHidden(item.gameId)).length);
+  assert.equal(api.achievementGroupsForState(state, 'all').length, api.ACHIEVEMENT_GROUPS.filter(item => !api.isGameHidden(item.gameId)).length);
   assert.equal(api.achievementGroupsForState(state, 'unlocked').length, 0);
   assert.equal(api.achievementGroupsForState(state, 'inProgress').length, 0);
 }
@@ -184,8 +188,8 @@ const api = loadAchievementEngine();
   assert.equal(tenSessions.target, 10);
   assert.equal(favorite.status, 'locked');
   assert.equal(favorite.target, 3);
-  assert.equal(allGroups.length, 7);
-  assert.equal(itemCount, 22);
+  assert.equal(allGroups.length, api.ACHIEVEMENT_GROUPS.filter(item => !api.isGameHidden(item.gameId)).length);
+  assert.equal(itemCount, api.ACHIEVEMENT_DEFINITIONS.filter(item => !api.isGameHidden(item.gameId)).length);
   assert.equal(unlockedGroups.length, 2);
   assert.equal(inProgressGroups.length, 1);
   assert.equal(inProgressGroups[0].definition.id, 'global');

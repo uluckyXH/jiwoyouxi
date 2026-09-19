@@ -1,4 +1,4 @@
-import { CoopAppSnapshot, GameRecord } from './GameModule';
+import { CoopAppSnapshot, GameRecord, isGameHidden } from './GameModule';
 import {
   ACHIEVEMENT_PROCESSED_EVENT_LIMIT,
   ACHIEVEMENT_SCHEMA_VERSION,
@@ -24,6 +24,7 @@ import {
   ACHIEVEMENT_DEFINITIONS,
   ACHIEVEMENT_GROUPS,
   ACHIEVEMENT_PRIMARY_GAME_IDS,
+  ACHIEVEMENT_ORIGINAL_GAME_IDS,
   achievementPrimaryFavoriteCount,
   achievementCanonicalGameId,
   achievementDefinitionFor,
@@ -216,7 +217,8 @@ function candidateForRule(
     return event.type === 'sessionEnd' ? state.completedSessionCount : undefined;
   }
   if (rule.type === 'globalPlayedGamesAtLeast') {
-    return event.type === 'sessionEnd' ? state.playedGameIds.length : undefined;
+    return event.type === 'sessionEnd' ? state.playedGameIds.filter((id: string) =>
+      ACHIEVEMENT_ORIGINAL_GAME_IDS.includes(id)).length : undefined;
   }
   if (!eventTypeMatches(rule.eventType, event.type)) {
     return undefined;
@@ -426,13 +428,16 @@ export function achievementProgressForState(
 export function achievementSummaryForState(state: AchievementState): AchievementSummary {
   const normalized = normalizeAchievementState(state);
   let unlocked = 0;
+  let total = 0;
   ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
+    if (isGameHidden(definition.gameId)) return;
+    total += 1;
     const progress = progressForState(normalized, definition.id);
     if (definition.enabled && progress !== undefined && progress.unlockedAt > 0) {
       unlocked += 1;
     }
   });
-  return { unlocked: unlocked, total: ACHIEVEMENT_DEFINITIONS.length };
+  return { unlocked: unlocked, total: total };
 }
 
 function stateViewTarget(definition: AchievementDefinition): number {
@@ -489,6 +494,7 @@ export function achievementGroupsForState(
   const normalized = normalizeAchievementState(state);
   const groups: AchievementGroupView[] = [];
   ACHIEVEMENT_GROUPS.forEach((group) => {
+    if (isGameHidden(group.gameId)) return;
     const items: AchievementViewItem[] = [];
     ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
       if (definition.groupId === group.id) {
@@ -510,7 +516,7 @@ export function achievementViewItemForState(
   achievementId: string
 ): AchievementViewItem | undefined {
   const definition = achievementDefinitionFor(achievementId);
-  if (definition === undefined) {
+  if (definition === undefined || isGameHidden(definition.gameId)) {
     return undefined;
   }
   return stateViewItemFor(normalizeAchievementState(state), definition);
@@ -607,7 +613,7 @@ function legacyProgressValueForDefinition(snapshot: CoopAppSnapshot, definition:
   if (definition.progressKind === 'playedGames') {
     const playedGameIds: string[] = [];
     snapshot.records.forEach((record: GameRecord) => {
-      if (isPrimaryGameId(record.gameId) && normalizedCount(record.playCount) > 0 &&
+      if (ACHIEVEMENT_ORIGINAL_GAME_IDS.includes(record.gameId) && normalizedCount(record.playCount) > 0 &&
         !playedGameIds.includes(record.gameId)) {
         playedGameIds.push(record.gameId);
       }
@@ -629,13 +635,16 @@ function maxLegacyProgress(definition: AchievementDefinition, previous: number, 
 
 export function achievementSummaryForSnapshot(snapshot: CoopAppSnapshot): AchievementSummary {
   let unlocked = 0;
+  let total = 0;
   ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
+    if (isGameHidden(definition.gameId)) return;
+    total += 1;
     const progress = legacyProgressFor(snapshot, definition.id);
     if (progress !== undefined && progress.unlockedAt > 0) {
       unlocked += 1;
     }
   });
-  return { unlocked: unlocked, total: ACHIEVEMENT_DEFINITIONS.length };
+  return { unlocked: unlocked, total: total };
 }
 
 export function achievementGroupsForSnapshot(
@@ -644,6 +653,7 @@ export function achievementGroupsForSnapshot(
 ): AchievementGroupView[] {
   const groups: AchievementGroupView[] = [];
   ACHIEVEMENT_GROUPS.forEach((group) => {
+    if (isGameHidden(group.gameId)) return;
     const items: AchievementViewItem[] = [];
     ACHIEVEMENT_DEFINITIONS.forEach((definition: AchievementDefinition) => {
       if (definition.groupId === group.id) {
@@ -665,7 +675,7 @@ export function achievementViewItemFor(
   achievementId: string
 ): AchievementViewItem | undefined {
   const definition = achievementDefinitionFor(achievementId);
-  return definition === undefined ? undefined : legacyViewItemFor(snapshot, definition);
+  return definition === undefined || isGameHidden(definition.gameId) ? undefined : legacyViewItemFor(snapshot, definition);
 }
 
 export function hasRegisteredAchievementId(achievementId: string): boolean {

@@ -1,4 +1,6 @@
 import { HubSession } from '../design/HubSession';
+import { BloomPage } from '../gamesNext/bloomLines/BloomPage';
+import { TangramPage } from '../gamesNext/tangramGarden/TangramPage';
 import { localPlayDay, normalizePlayDays, playDaysWithLegacyRecords } from '../design/PlayActivity';
 import { BlockWorkshopPage } from '../gamesNext/blockWorkshop/BlockWorkshopPage';
 import { common } from '@kit.AbilityKit';
@@ -22,7 +24,7 @@ import {
   AchievementState
 } from '../shell/AchievementModule';
 import { achievementNoticeItemsForUnlocks, emptyAchievementNoticeItem } from '../shell/AchievementNotice';
-import { CoopAppSnapshot, emptySnapshot, GameRecord, isDarkAppearance, normalizeAppearanceMode } from '../shell/GameModule';
+import { CoopAppSnapshot, emptySnapshot, GameRecord, isDarkAppearance, isGameHidden, normalizeAppearanceMode } from '../shell/GameModule';
 import { GameEntryBadge } from '../shell/GameEntryBadge';
 import { GameSceneTransition } from '../shell/GameSceneTransition';
 import { HubPage } from './HubPage';
@@ -65,6 +67,8 @@ struct Index {
   @State snapshot: CoopAppSnapshot = emptySnapshot();
   @State achievementState: AchievementState = emptyAchievementState();
   @State activeGame: string = 'hub';
+  @State bloomLinesExitRequest: number = 0;
+  @State tangramExitRequest: number = 0;
   @State tetrisSession: number = 0;
   @State blockWorkshopExitRequest: number = 0;
   @State sceneDirection: string = 'push';
@@ -121,12 +125,20 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'bloomLines') {
+      this.bloomLinesExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'rpsBattleNext') {
       this.coopArenaExitRequest += 1;
       return true;
     }
     if (this.activeGame === 'freecellNext') {
       this.freecellRoomExitRequest += 1;
+      return true;
+    }
+    if (this.activeGame === 'tangram') {
+      this.tangramExitRequest += 1;
       return true;
     }
     if (this.activeGame === 'chicken2048Next') {
@@ -292,6 +304,18 @@ struct Index {
             }
           })
         }
+      } else if (this.activeGame === 'bloomLines') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          BloomPage({
+            dark: this.isDarkMode(),
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.bloomLinesExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('bloomLines', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
+          })
+        }
       } else if (this.activeGame === 'chicken2048Next') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           GlowPage({
@@ -343,6 +367,18 @@ struct Index {
             }
           })
         }
+      } else if (this.activeGame === 'tangram') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          TangramPage({
+            dark: this.isDarkMode(),
+            soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.tangramExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (score: number) => this.recordGameResult('tangram', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
+          })
+        }
       } else if (this.activeGame === 'suikaNext') {
         GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
           FruitMarketPage({
@@ -392,7 +428,7 @@ struct Index {
   }
 
   private openGame(gameId: string): void {
-    if (this.sceneTransitioning || this.activeGame === gameId) {
+    if (isGameHidden(gameId) || this.sceneTransitioning || this.activeGame === gameId) {
       return;
     }
     this.suspendAchievementNotices();

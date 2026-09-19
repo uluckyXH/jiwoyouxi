@@ -5,7 +5,7 @@ import { HubSession } from '../design/HubSession';
 import { HubWindow } from '../design/HubWindow';
 import { achievementSummaryForState } from '../shell/AchievementEngine';
 import { AchievementState } from '../shell/AchievementModule';
-import { APPEARANCE_DARK, APPEARANCE_LIGHT, APPEARANCE_SYSTEM, CoopAppSnapshot, GameModule, GameRecord } from '../shell/GameModule';
+import { APPEARANCE_DARK, APPEARANCE_LIGHT, APPEARANCE_SYSTEM, CoopAppSnapshot, GameModule, GameRecord, isGameHidden } from '../shell/GameModule';
 import { GAME_MODULES, moduleById, gameLogoPath } from '../shell/GameRegistry';
 import { AchievementWall } from './AchievementWall';
 import { HubGameCard } from './HubGameCard';
@@ -18,6 +18,8 @@ import { PlayStreakSheet } from './PlayStreakSheet';
 import { currentPlayStreak } from '../design/PlayActivity';
 
 const HOME_GAME_ORDER: string[] = [
+  'bloomLines',
+  'tangram',
   'suikaNext', 'minesweeperNext', 'tetrisNext', 'chicken2048Next', 'freecellNext', 'rpsBattleNext'
 ];
 
@@ -382,13 +384,13 @@ export struct HubPage {
     GAME_MODULES.forEach((game: GameModule) => {
       if (!HOME_GAME_ORDER.includes(game.id)) ordered.push(game);
     });
-    return ordered.filter((game: GameModule) => !HIDDEN_HOME_GAME_IDS.includes(game.id));
+    return ordered.filter((game: GameModule) => !HIDDEN_HOME_GAME_IDS.includes(game.id) && !isGameHidden(game.id));
   }
   private favoriteModules(): GameModule[] {
     const favorites: GameModule[] = [];
     this.snapshot.favorites.forEach((id: string) => {
       const game = GAME_MODULES.find((item: GameModule) => item.id === id);
-      if (game !== undefined) favorites.push(game);
+      if (game !== undefined && !isGameHidden(game.id)) favorites.push(game);
     });
     return favorites;
   }
@@ -400,7 +402,7 @@ export struct HubPage {
   private heroGameId(): string { return this.recentGames().length > 0 ? this.recentGames()[0].id : 'suikaNext'; }
   private heroTitle(): string { return `${moduleById(this.heroGameId()).title} · ${this.homeTag(this.heroGameId())}`; }
   private isFavorite(id: string): boolean { return this.snapshot.favorites.includes(id); }
-  private isVisibleGameId(id: string): boolean { return GAME_MODULES.some((game: GameModule) => game.id === id); }
+  private isVisibleGameId(id: string): boolean { return !isGameHidden(id) && GAME_MODULES.some((game: GameModule) => game.id === id); }
   private appearanceMenuLabel(mode: string, label: string): string {
     return this.snapshot.appearanceMode === mode ? `${label} · 已选择` : label;
   }
@@ -413,7 +415,9 @@ export struct HubPage {
   private lineColor(): string { return this.isDarkMode() ? '#44392B' : '#E9D9C1'; }
 
   private homeTag(gameId: string): string {
+    if (gameId === 'bloomLines') return '花窗连珠';
     if (gameId === 'rpsBattle') return '鸡窝乱斗';
+    if (gameId === 'tangram') return '七巧小院';
     if (gameId === 'rpsBattleNext') return '庭院擂台';
     if (gameId === 'suikaNext') return '鲜果合成';
     if (gameId === 'suika') return '经典版';

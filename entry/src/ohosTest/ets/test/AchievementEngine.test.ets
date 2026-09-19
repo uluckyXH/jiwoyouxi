@@ -1,3 +1,4 @@
+import { isGameHidden } from '../../../main/ets/shell/GameModule';
 import { describe, expect, it, Level, Size, TestType } from '@ohos/hypium';
 import {
   achievementGroupsForState,
@@ -10,6 +11,8 @@ import {
 } from '../../../main/ets/shell/AchievementEngine';
 import {
   achievementRegistryIssues,
+  ACHIEVEMENT_DEFINITIONS,
+  ACHIEVEMENT_GROUPS,
   isAchievementBadgeAssetPathValid
 } from '../../../main/ets/shell/AchievementRegistry';
 import {
@@ -58,8 +61,8 @@ export default function achievementEngineTest(): void {
         expect(state.completedSessionCount).assertEqual(0);
         expect(state.playedGameIds.length).assertEqual(0);
         expect(achievementSummaryForState(state).unlocked).assertEqual(0);
-        expect(achievementSummaryForState(state).total).assertEqual(22);
-        expect(achievementGroupsForState(state, 'all').length).assertEqual(7);
+        expect(achievementSummaryForState(state).total).assertEqual(ACHIEVEMENT_DEFINITIONS.filter(item => !isGameHidden(item.gameId)).length);
+        expect(achievementGroupsForState(state, 'all').length).assertEqual(ACHIEVEMENT_GROUPS.filter(item => !isGameHidden(item.gameId)).length);
         expect(achievementGroupsForState(state, 'unlocked').length).assertEqual(0);
         expect(achievementGroupsForState(state, 'inProgress').length).assertEqual(0);
         expect(isAchievementBadgeAssetPathValid('')).assertEqual(true);
@@ -311,8 +314,8 @@ export default function achievementEngineTest(): void {
         expect(tenSessions.target).assertEqual(10);
         expect(favorite.status).assertEqual('locked');
         expect(favorite.target).assertEqual(3);
-        expect(allGroups.length).assertEqual(7);
-        expect(itemCount).assertEqual(22);
+        expect(allGroups.length).assertEqual(ACHIEVEMENT_GROUPS.filter(item => !isGameHidden(item.gameId)).length);
+        expect(itemCount).assertEqual(ACHIEVEMENT_DEFINITIONS.filter(item => !isGameHidden(item.gameId)).length);
         expect(unlockedGroups.length).assertEqual(2);
         expect(inProgressGroups.length).assertEqual(1);
         expect(inProgressGroups[0].definition.id).assertEqual('global');

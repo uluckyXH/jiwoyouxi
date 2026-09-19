@@ -28,7 +28,7 @@ const commonCode = commonFiles.map(read).join('\n') + '\nclass Gateway {' +
     .map(name=>method(read('pages/Index.ets'),name)).join('\n') + '\n}';
 const common = vm.runInNewContext(stripTypeScriptTypes(clean(commonCode), {mode:'transform'}) + `\n({
   AchievementService,Gateway,emptyAchievementState,applyAchievementEvent,achievementSummaryForState,
-  achievementGroupsForState,achievementNoticeItemsForUnlocks,ACHIEVEMENT_DEFINITIONS,
+  achievementGroupsForState,achievementNoticeItemsForUnlocks,ACHIEVEMENT_DEFINITIONS,isGameHidden,
   favoriteAchievementEventAfterPersist,achievementCanonicalGameId,achievementPrimaryFavoriteCount})`,
   {CoopStorage,console,setTimeout:()=>1,clearTimeout:()=>{},CoopMotion:{achievementNoticeEnterDuration:180,achievementNoticeNormalHoldDuration:2000},Curve:{Friction:0}});
 function reset() {
@@ -171,12 +171,12 @@ await test('庭院擂台：完整固定步长模拟，可真实达成 12 次转�
   expectBadges(['rpsBattle.first_battle','rpsBattle.supporter_wins','rpsBattle.conversion_storm']);
   assert.equal(p.events.length,1);assert.equal(winner.round.reported,true);
 });
-await test('合集：新版六款各一局、收藏三个不同游戏、累计十局 → 全部 22 枚均可达成并保存',async()=>{
+await test('合集：原六款各一局、收藏三个不同游戏、累计十局 → 原有 22 枚均可达成并保存',async()=>{
   const event=common.favoriteAchievementEventAfterPersist('suikaNext',true,true,['suikaNext','freecellNext','tetrisNext'],Date.now(),1);
   assert.ok(event);await gateway.reportAchievementEvent(event);
   while(durable.completedSessionCount<10){const p=controller(mine,clearMine());await p.settle();}
   expectBadges(['global.first_settlement','global.play_six_games','global.favorite_three','global.complete_ten_sessions']);
-  const summary=common.achievementSummaryForState(durable);assert.equal(summary.total,22);assert.equal(summary.unlocked,22);
+  const summary=common.achievementSummaryForState(durable);assert.equal(summary.total,common.ACHIEVEMENT_DEFINITIONS.filter(item=>!common.isGameHidden(item.gameId)).length);assert.equal(summary.unlocked,22);
   const reloaded=new common.AchievementService();const state=await reloaded.initialize({});assert.equal(common.achievementSummaryForState(state).unlocked,22);
   assert.equal(common.achievementGroupsForState(state,'inProgress').length,0);
 });
@@ -397,4 +397,4 @@ await test('实际存储适配器读取异常/损坏 JSON 会拒绝；显式重�
   unavailable=false;value='{broken';const service=new api.AchievementService();await assert.rejects(()=>service.initialize({}));
   await service.reset({});assert.equal(JSON.parse(value).completedSessionCount,0);
 });
-console.log(`\n${count} integration groups passed; all 22 achievements exercised. Native toast appearance remains device QA.`);
+console.log(`\n${count} integration groups passed; the original six games' 22 achievements exercised. Native toast appearance remains device QA.`);

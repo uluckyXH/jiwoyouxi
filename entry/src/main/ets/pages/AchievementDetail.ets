@@ -3,7 +3,7 @@ import { AppIcon } from '../components/AppIcon';
 import { AchievementTheme } from '../design/AchievementTheme';
 import { CoopTheme } from '../design/CoopTheme';
 import { AchievementState, AchievementViewItem } from '../shell/AchievementModule';
-import { ACHIEVEMENT_PRIMARY_GAME_IDS } from '../shell/AchievementRegistry';
+import { ACHIEVEMENT_ORIGINAL_GAME_IDS } from '../shell/AchievementRegistry';
 import { moduleById } from '../shell/GameRegistry';
 
 @Component
@@ -113,7 +113,7 @@ export struct AchievementDetail {
         .fontWeight(FontWeight.Bold)
         .fontColor(this.inkColor())
       Flex({ wrap: FlexWrap.Wrap, justifyContent: FlexAlign.SpaceBetween }) {
-        ForEach(ACHIEVEMENT_PRIMARY_GAME_IDS, (gameId: string) => {
+        ForEach(ACHIEVEMENT_ORIGINAL_GAME_IDS, (gameId: string) => {
           Row({ space: 6 }) {
             AppIcon({
               name: this.achievementState.playedGameIds.includes(gameId) ? 'check' : 'circle',

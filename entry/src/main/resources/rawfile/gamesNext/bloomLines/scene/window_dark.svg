@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="440" viewBox="0 0 320 440"><title></title><g stroke="#BCD49C" stroke-opacity=".24" stroke-width="2" fill="none">
+<path d="M80 277V117a103 103 0 0 1 206 0v160Z" fill="#D9B67B" fill-opacity=".065"/>
+<path d="M91 266V117a92 92 0 0 1 184 0v149ZM183 24v242M91 148h184"/>
+<path d="M99 87q20-28 43-12 19-36 41-15 22-21 41 15 23-16 43 12" stroke="#B27D79" stroke-opacity=".5"/>
+<path d="M70 279h228m-213 7h198"/></g>
+<g opacity=".42"><ellipse cx="237" cy="100.25" rx="5.7" ry="9.0" fill="#B27D79" transform="rotate(0 237 110)"/><ellipse cx="237" cy="100.25" rx="5.7" ry="9.0" fill="#B27D79" transform="rotate(72 237 110)"/><ellipse cx="237" cy="100.25" rx="5.7" ry="9.0" fill="#B27D79" transform="rotate(144 237 110)"/><ellipse cx="237" cy="100.25" rx="5.7" ry="9.0" fill="#B27D79" transform="rotate(216 237 110)"/><ellipse cx="237" cy="100.25" rx="5.7" ry="9.0" fill="#B27D79" transform="rotate(288 237 110)"/><circle cx="237" cy="110" r="4.95" fill="#F9DA89"/><ellipse cx="126" cy="197.2" rx="4.5600000000000005" ry="7.199999999999999" fill="#728469" transform="rotate(0 126 205)"/><ellipse cx="126" cy="197.2" rx="4.5600000000000005" ry="7.199999999999999" fill="#728469" transform="rotate(72 126 205)"/><ellipse cx="126" cy="197.2" rx="4.5600000000000005" ry="7.199999999999999" fill="#728469" transform="rotate(144 126 205)"/><ellipse cx="126" cy="197.2" rx="4.5600000000000005" ry="7.199999999999999" fill="#728469" transform="rotate(216 126 205)"/><ellipse cx="126" cy="197.2" rx="4.5600000000000005" ry="7.199999999999999" fill="#728469" transform="rotate(288 126 205)"/><circle cx="126" cy="205" r="3.96" fill="#F9DA89"/></g>
+<path d="M119 267q-20-37 10-48 28 11 7 48m71 0q-16-36 15-47 27 12 9 47" fill="#728469" fill-opacity=".2" stroke="#BCD49C" stroke-opacity=".18"/>
+<path d="M54 15v87" stroke="#BCD49C" stroke-opacity=".22" stroke-width="1.5"/>
+<circle cx="54" cy="109" r="11" fill="#B27D79" fill-opacity=".28"/>
+<circle cx="54" cy="142" r="13" fill="#D9B67B" fill-opacity=".3"/>
+<path d="M54 120v9m0 26v16" stroke="#BCD49C" stroke-opacity=".25"/>
+<path d="M88 290 24 430h274l-16-140Z" fill="#D9B67B" fill-opacity=".035"/></svg>

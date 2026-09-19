@@ -7,7 +7,8 @@ import {
   GameAchievementProfile
 } from './AchievementModule';
 
-export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
+// Keep the original six-game badge stable as the collection grows.
+export const ACHIEVEMENT_ORIGINAL_GAME_IDS: string[] = [
   'rpsBattle',
   'freecell',
   'minesweeper',
@@ -16,8 +17,14 @@ export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
   'suika'
 ];
 
+export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
+  ...ACHIEVEMENT_ORIGINAL_GAME_IDS, 'bloomLines', 'tangram'
+];
+
 // Source routes are separate from stable badge/storage IDs. Legacy games cannot report.
 export const ACHIEVEMENT_SOURCE_GAME_IDS: string[] = [
+  'bloomLines',
+  'tangram',
   'rpsBattleNext', 'freecellNext', 'minesweeperNext', 'chicken2048Next', 'tetrisNext', 'suikaNext'
 ];
 export function isAchievementSourceGameId(gameId: string): boolean {
@@ -27,6 +34,8 @@ export function isAchievementSourceGameId(gameId: string): boolean {
 const ACHIEVEMENT_BADGE_ASSET_DIRECTORY: string = 'app/achievements/';
 
 export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
+  { id: 'bloomLines', title: '五子连珠 · 花窗连珠', gameId: 'bloomLines', placeholderSymbol: '✿' },
+  { id: 'tangram', title: '七巧板 · 七巧小院', gameId: 'tangram', placeholderSymbol: '△' },
   {
     id: 'global',
     title: '合集里程碑',
@@ -72,6 +81,8 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
 ];
 
 export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
+  { gameId: 'bloomLines', factKeys: ['totalCleared', 'bestScore', 'score', 'moves'], eventTypes: ['milestone', 'sessionEnd'] },
+  { gameId: 'tangram', factKeys: ['won', 'collected'], eventTypes: ['sessionEnd'] },
   {
     gameId: 'global',
     factKeys: ['favoriteCount'],
@@ -111,12 +122,60 @@ export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
 
 export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
   {
+    id: 'bloomLines.first_flower', groupId: 'bloomLines', gameId: 'bloomLines', title: '第一朵花',
+    summary: '消除第一组五颗彩珠', detail: '在花窗连珠消除第一组同色彩珠。轻松、经典均可，移动或新珠带来的消除都算。',
+    placeholderSymbol: '✿', badgeAssetPath: 'app/achievements/ach_bloom_first_flower.svg',
+    progressKind: 'none', target: 5,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalCleared', comparison: 'atLeast', value: 5 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'bloomLines.score_30', groupId: 'bloomLines', gameId: 'bloomLines', title: '花窗渐满',
+    summary: '单局获得 30 分', detail: '在花窗连珠单局获得 30 分。每颗彩珠计 2 分，轻松、经典均可，没有时间限制。',
+    placeholderSymbol: '✿', badgeAssetPath: 'app/achievements/ach_bloom_score_30.svg',
+    progressKind: 'none', target: 30,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'bestScore', comparison: 'atLeast', value: 30 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'bloomLines.collector', groupId: 'bloomLines', gameId: 'bloomLines', title: '彩珠收藏家',
+    summary: '累计消除 30 颗彩珠', detail: '在花窗连珠累计消除 30 颗彩珠，可分多局完成，两种模式共享进度。撤销后重做同一步不会重复累计。',
+    placeholderSymbol: '✿', badgeAssetPath: 'app/achievements/ach_bloom_collector.svg',
+    progressKind: 'none', target: 30,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalCleared', comparison: 'atLeast', value: 30 } },
+    enabled: true, noticeLevel: 'highlight'
+  },
+  {
+    id: 'tangram.first', groupId: 'tangram', gameId: 'tangram', title: '第一块小天地',
+    summary: '完成任意一幅七巧板', detail: '在七巧小院拼好第一幅图。可以使用辅助线、提示和撤销，没有时间或步数限制。',
+    placeholderSymbol: '△', badgeAssetPath: 'app/achievements/ach_tangram_first.svg',
+    progressKind: 'none', target: 1,
+    rule: { type: 'eventFact', eventType: 'sessionEnd', condition: { key: 'won', comparison: 'equals', value: 1 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'tangram.three', groupId: 'tangram', gameId: 'tangram', title: '三幅好风景',
+    summary: '完成三幅不同的七巧板', detail: '在七巧小院的图鉴收集三幅不同作品。关卡都已开放，可以用辅助线、提示和撤销。',
+    placeholderSymbol: '△', badgeAssetPath: 'app/achievements/ach_tangram_three.svg',
+    progressKind: 'none', target: 3,
+    rule: { type: 'eventFact', eventType: 'sessionEnd', condition: { key: 'collected', comparison: 'atLeast', value: 3 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'tangram.album', groupId: 'tangram', gameId: 'tangram', title: '小院收藏家',
+    summary: '完成六幅不同的七巧板', detail: '收集七巧小院首批六幅作品。不要求连续完成，辅助线、提示、撤销均可使用。',
+    placeholderSymbol: '△', badgeAssetPath: 'app/achievements/ach_tangram_album.svg',
+    progressKind: 'none', target: 6,
+    rule: { type: 'eventFact', eventType: 'sessionEnd', condition: { key: 'collected', comparison: 'atLeast', value: 6 } },
+    enabled: true, noticeLevel: 'highlight'
+  },
+  {
     id: 'global.first_settlement',
     groupId: 'global',
     gameId: 'global',
     title: '鸡窝开张',
     summary: '首次完成一局游戏',
-    detail: '在任意一款重构新版游戏中正常结束一局。胜负都算，主动退出和重开不计入；旧版不计入。',
+    detail: '在任意一款首页游戏中正常结束一局。胜负都算，主动退出和重开不计入；旧版不计入。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_first_settlement.svg',
     progressKind: 'totalSessions',
@@ -130,8 +189,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'global',
     gameId: 'global',
     title: '六边形鸡仔',
-    summary: '六款游戏各完成一局',
-    detail: '六款重构新版游戏各正常结束一局。同一款重复游玩只算一种；空当接龙需通关，旧版不计入。',
+    summary: '最初六款游戏各完成一局',
+    detail: '鸡窝乱斗、空当接龙、扫雷、2048、俄罗斯方块和鸡窝水果摊各正常结束一局。同一款重复游玩只算一种；空当接龙需通关，旧版不计入。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_play_six_games.svg',
     progressKind: 'playedGames',
@@ -145,8 +204,8 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     groupId: 'global',
     gameId: 'global',
     title: '收藏家',
-    summary: '收藏三款新版游戏',
-    detail: '在大厅收藏三款重构新版游戏，保存成功后解锁。旧版收藏不计入；达成后取消收藏，勋章仍会保留。',
+    summary: '收藏三款游戏',
+    detail: '在首页收藏三款游戏，保存成功后解锁。旧版收藏不计入；达成后取消收藏，勋章仍会保留。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_favorite_three.svg',
     progressKind: 'favoriteCount',
@@ -165,7 +224,7 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     gameId: 'global',
     title: '常驻鸡仔',
     summary: '累计完成十局游戏',
-    detail: '在重构新版游戏中累计正常结束十局，可以重复游玩同一款。旧版、主动退出和重开不计入。',
+    detail: '在首页游戏中累计正常结束十局，可以重复游玩同一款。旧版、主动退出和重开不计入。',
     placeholderSymbol: '✦',
     badgeAssetPath: 'app/achievements/ach_global_complete_ten_sessions.svg',
     progressKind: 'totalSessions',

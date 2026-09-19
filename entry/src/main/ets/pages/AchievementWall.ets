@@ -81,6 +81,10 @@ export struct AchievementWall {
   }
 
   private syncDetailPresentation(): void {
+    if (achievementViewItemForState(this.achievementState, this.session.selectedAchievementId) === undefined) {
+      this.session.detailOpen = false;
+      this.session.selectedAchievementId = '';
+    }
     this.isDetailSheetPresented = !this.splitDetail && this.session.detailOpen &&
       this.session.selectedAchievementId.length > 0;
   }
@@ -102,7 +106,7 @@ export struct AchievementWall {
               .fontColor(this.inkColor())
               .maxLines(1)
               .textOverflow({ overflow: TextOverflow.Ellipsis })
-            Text('收集六款新版游戏里的小高光')
+            Text('收集游戏里的小高光')
               .fontSize(12)
               .fontWeight(FontWeight.Medium)
               .fontColor(this.mutedColor())
