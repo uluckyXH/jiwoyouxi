@@ -5,6 +5,7 @@ import { StarBoard } from './StarBoard';
 import { StarButton, StarIconButton, StarStats } from './StarControls';
 import { StarDialog } from './StarDialog';
 import { StarEngine } from './StarEngine';
+import { StarHintSearch, StarHintTiming } from './StarHintSearch';
 import { StarCrease, StarInsets, StarLayout, starLayout } from './StarLayout';
 import { STAR_LOGO, StarMode, StarPuzzle, StarStatus, StarTile, starBonus, starGain } from './StarModel';
 import { StarPalette as P } from './StarPalette';
@@ -31,6 +32,8 @@ export struct StarPage {
   private storage: StarStorage = new StarStorage();
   private host: StarWindow = new StarWindow();
   private preparation: StarPreparation = new StarPreparation();
+  private hintSearch: StarHintSearch = new StarHintSearch();
+  private hintToken: number = 0;
   private perf: StarPerf = new StarPerf();
   private progress: StarProgress | undefined = undefined;
   private context: common.Context | undefined = undefined;
@@ -58,6 +61,7 @@ export struct StarPage {
   @State layout: StarLayout = starLayout(390, 844, { top: 24, bottom: 16, left: 0, right: 0 });
   @State tileViews: StarVisualTile[] = [];
   @State previewCount: number = 0;
+  @State findingHint: boolean = false;
   @State busy: boolean = false;
   @State gain: number = 0;
   @State roundKey: string = '';
@@ -99,7 +103,7 @@ export struct StarPage {
   }
 
   aboutToDisappear(): void {
-    this.disposed = true; this.endLoadFeedback();
+    this.disposed = true; this.endLoadFeedback(); this.cancelHint();
     this.finishMotion(); this.preparation.cancel();
     if (!this.skipSave) this.save();
     this.host.release(); this.audio.release();
@@ -176,7 +180,7 @@ export struct StarPage {
         Column({ space: 8 }) {
           StarButton({ dark: this.dark, label: '撤销上一步', icon: 'undo', active: this.undoAvailable && !this.busy && !this.saving,
             controlHeight: 60, action: () => this.undo() })
-          StarButton({ dark: this.dark, label: '找一组星星', icon: 'hint', active: this.loaded && this.status === 'playing' && !this.busy && !this.saving,
+          StarButton({ dark: this.dark, label: '找一组星星', icon: 'hint', active: this.loaded && this.status === 'playing' && !this.busy && !this.saving && !this.findingHint,
             controlHeight: 60, action: () => this.showHint() })
           StarButton({ dark: this.dark, label: '玩法与更多', icon: 'more', active: this.loaded, controlHeight: 60, action: () => this.present('more') })
         }.width(this.layout.tools.width).height(this.layout.tools.height)
@@ -185,7 +189,7 @@ export struct StarPage {
         Row({ space: 8 }) {
           StarButton({ dark: this.dark, label: '撤销', icon: 'undo', active: this.undoAvailable && !this.busy && !this.saving,
             action: () => this.undo() }).layoutWeight(1)
-          StarButton({ dark: this.dark, label: '提示', icon: 'hint', active: this.loaded && this.status === 'playing' && !this.busy && !this.saving,
+          StarButton({ dark: this.dark, label: '提示', icon: 'hint', active: this.loaded && this.status === 'playing' && !this.busy && !this.saving && !this.findingHint,
             action: () => this.showHint() }).layoutWeight(1)
           StarButton({ dark: this.dark, label: '更多', icon: 'more', active: this.loaded, action: () => this.present('more') }).layoutWeight(1)
         }.width(this.layout.tools.width).height(this.layout.tools.height)
@@ -302,6 +306,7 @@ export struct StarPage {
   }
   private preview(id: number): void {
     if (!this.canPlay()) return;
+    this.cancelHint();
     const started = starNow();
     const cell = this.engine.round.ids.indexOf(id);
     const group = starGroup(this.engine.round.cells, cell);
@@ -311,6 +316,7 @@ export struct StarPage {
     this.perf.duration('按下预览', started, `连块=${group.length}`, 8);
   }
   private clearPreview(): void {
+    this.cancelHint();
     this.selected = []; this.previewCount = 0; this.scene.select([]);
     this.hint = '点相邻同色 · 凑大组，得分更多';
   }
@@ -319,6 +325,7 @@ export struct StarPage {
       this.perf.inputBlocked(`动画=${this.busy} 保存=${this.saving} 载入=${!this.loaded} 弹窗=${this.dialog || '无'} 状态=${this.status}`);
       return;
     }
+    this.cancelHint();
     const start = starNow();
     const move = this.engine.pop(this.engine.round.ids.indexOf(id));
     const logic = starNow() - start;
@@ -410,13 +417,38 @@ export struct StarPage {
     this.hint = '回到上一步 · 本关撤销已用完';
     this.perf.sample('撤销');
   }
-  private showHint(): void {
-    if (!this.canPlay()) return;
+  private async showHint(): Promise<void> {
+    if (!this.canPlay() || this.findingHint) return;
+    const token = ++this.hintToken;
+    if (this.engine.round.hintPlan === undefined) {
+      this.findingHint = true;
+      this.selected = []; this.scene.select([]); this.previewCount = 0;
+      this.hint = '想一想接下来的走法…';
+      try {
+        const plan = await this.hintSearch.search(this.engine.round.cells, (timing: StarHintTiming): void => {
+          this.perf.event('提示路线计算', `总等待=${timing.elapsed.toFixed(2)}ms 切片=${timing.slices} ` +
+            `计算合计=${timing.compute.toFixed(2)}ms 切片峰值=${timing.peak.toFixed(2)}ms 取消=${timing.cancelled}`);
+        });
+        if (token !== this.hintToken || !this.canPlay()) return;
+        if (plan !== undefined && this.engine.applyHintPlan(plan)) this.save();
+      } finally {
+        if (token === this.hintToken) this.findingHint = false;
+      }
+    }
+    if (token !== this.hintToken || !this.canPlay()) return;
     const started = starNow();
     const group = this.engine.hint(); this.selected = group.map((cell: number): number => this.engine.round.ids[cell]);
     this.scene.select(this.selected); this.previewCount = this.selected.length;
-    this.hint = '这组最大：' + group.length + ' 块 · +' + starGain(group.length) + ' 分'; this.audio.play('tap');
-    this.perf.duration('提示计算及提交', started, `连块=${group.length}`);
+    this.hint = this.engine.hintIsWinning() ? '过关路线 · 先收这 ' + group.length + ' 块 · +' + starGain(group.length) + ' 分' :
+      '参考走法 · 收这 ' + group.length + ' 块\n暂未找到达标路线' + (this.engine.canUndo() ? '，可试试撤销' : '');
+    this.audio.play('tap');
+    this.perf.duration('提示计算及提交', started, `连块=${group.length} 已验证达标=${this.engine.hintIsWinning()}`);
+  }
+  private cancelHint(): void {
+    this.hintToken++;
+    this.hintSearch.cancel();
+    if (this.findingHint) this.hint = '点相邻同色 · 凑大组，得分更多';
+    this.findingHint = false;
   }
   private present(name: string): void {
     if (!this.loaded || this.saving || this.disposed || this.leaving) return;
@@ -449,6 +481,7 @@ export struct StarPage {
   }
   private async replaceRound(next: boolean): Promise<void> {
     if (!this.loaded || this.saving || this.disposed || (next && !this.engine.canAdvance())) return;
+    this.cancelHint();
     this.finishMotion(); this.saving = true;
     const previousDialog = this.dialog;
     if (!await this.save() || this.disposed || this.backgroundPaused) { this.saving = false; return; }
@@ -490,6 +523,7 @@ export struct StarPage {
   }
   private async saveAndExit(): Promise<void> {
     if (this.saving || !this.loaded) return;
+    this.cancelHint();
     this.finishMotion(); this.saving = true;
     const ok = await this.save();
     if (this.disposed) return;
@@ -499,7 +533,7 @@ export struct StarPage {
   }
   private leavePage(): void {
     this.leaving = true; this.skipSave = true;
-    this.endLoadFeedback(); this.preparation.cancel(); this.finishMotion();
+    this.endLoadFeedback(); this.cancelHint(); this.preparation.cancel(); this.finishMotion();
     this.audio.silence(); this.perf.stopSample('返回大厅');
     this.perf.event('返回大厅', `关=${this.stage} 剩余=${this.remaining} 已加载=${this.loaded}`);
     this.exitToHub();
@@ -511,6 +545,7 @@ export struct StarPage {
     this.present('exit');
   }
   private dialogChanged(): void {
+    if (this.dialog.length > 0) this.cancelHint();
     this.perf.event('弹窗变化', `弹窗=${this.dialog || '无'} 已加载=${this.loaded} 后台=${this.backgroundPaused}`);
   }
   private themeChanged(): void {
@@ -524,7 +559,7 @@ export struct StarPage {
     if (this.disposed || this.leaving) return;
     this.perf.event('后台暂停', `来源=${reason} 弹窗=${this.dialog || '无'} 动画=${this.busy}`);
     this.perf.stopSample('后台');
-    this.endLoadFeedback();
+    this.endLoadFeedback(); this.cancelHint();
     this.backgroundPaused = true; this.preparation.cancel(); this.finishMotion(); this.audio.silence();
     if (this.loaded) { this.dialog = this.status === 'playing' ? 'more' : this.status; this.save(); }
   }

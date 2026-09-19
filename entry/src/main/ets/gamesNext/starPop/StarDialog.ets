@@ -72,7 +72,8 @@ export struct StarDialog {
       Text('余块越少奖励越多：清空 +500，剩 5 块 +375，剩 10 块及以上不加分。奖励每关只结算一次。').fontSize(12).lineHeight(20).fontColor(P.muted(this.dark))
       Text('目标会逐渐提高，后期保持稳定。没有倒计时，也没有预设的最后一关。').fontSize(12).lineHeight(20).fontColor(P.muted(this.dark))
     }.width('100%').alignItems(HorizontalAlign.Start).padding(16).backgroundColor(P.soft(this.dark)).borderRadius(20)
-    Text('每关可撤销 1 次，未达标时也能用。提示会标出当前最大的一组，供你参考，不保证是最佳走法。').fontSize(12).lineHeight(20).fontColor(P.muted(this.dark))
+    Text('每关可撤销 1 次，未达标时也能用。新关卡从第一步起一直跟随「过关路线」提示，就能达到目标；提示有时会先收小组，为后面的大组让路。').fontSize(12).lineHeight(20).fontColor(P.muted(this.dark))
+    Text('自行改走后，提示会重新寻找路线。如果显示「参考走法」，表示暂未找到达标路线，可以考虑撤销。提示和撤销都不会重排棋盘或降低目标。').fontSize(12).lineHeight(20).fontColor(P.muted(this.dark))
     Text('小成就：首次消除、单次消除 8 块、累计消除 100 块。两种模式都算，使用提示和撤销也没关系。').fontSize(12).lineHeight(20).fontColor(P.muted(this.dark))
     this.Action('明白了，去收星星', 'check', 'close', true)
   }

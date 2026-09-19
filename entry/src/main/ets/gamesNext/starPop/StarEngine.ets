@@ -1,9 +1,10 @@
 import { AchievementEvent, AchievementFact } from '../../shell/AchievementModule';
-import { STAR_COUNT, STAR_ID, StarFall, StarMode, StarProfile, StarPuzzle, StarRound, StarUndo,
+import { STAR_COUNT, STAR_ID, StarFall, StarMode, StarPlan, StarProfile, StarPuzzle, StarRound,
   starBonus, starColors, starTarget } from './StarModel';
 import { starCollapse, starGroup, starGroups, starRemaining, starValidBoard } from './StarRules';
 import { starFallback } from './StarFallback';
 import { starVerifyPuzzle } from './StarGenerator';
+import { starCopyPlan, starValidPlan } from './StarPlanner';
 
 export interface StarSave { version: number; round: StarRound; profile: StarProfile; pending: AchievementEvent[]; }
 function count(value: number): boolean { return Number.isSafeInteger(value) && value >= 0; }
@@ -21,7 +22,8 @@ export class StarEngine {
     return { session: `star-${Date.now()}-${Math.floor(Math.random() * 1e9)}`, seed: puzzle.seed, mode: mode,
       stage: 1, target: starTarget(1, puzzle.witness), witness: puzzle.witness, cells: puzzle.cells.slice(), ids: ids,
       score: 0, total: 0, moves: 0, stageMoves: 0, highWater: 0, undoUsed: false, undo: undefined,
-      status: 'playing', bonus: 0, bestGroup: 0 };
+      status: 'playing', bonus: 0, bestGroup: 0,
+      hintPlan: { path: puzzle.path.slice(), score: puzzle.witness } };
   }
 
   start(mode: StarMode, puzzle: StarPuzzle): boolean {
@@ -34,8 +36,13 @@ export class StarEngine {
     if (r.status !== 'playing') return undefined;
     const group = starGroup(r.cells, cell);
     if (group.length < 2) return undefined;
-    r.undo = { cells: r.cells.slice(), ids: r.ids.slice(), score: r.score, moves: r.moves, stageMoves: r.stageMoves };
+    r.undo = { cells: r.cells.slice(), ids: r.ids.slice(), score: r.score, moves: r.moves, stageMoves: r.stageMoves,
+      hintPlan: starCopyPlan(r.hintPlan) };
     const move = starCollapse(r.cells, r.ids, group);
+    // Every tile in the recommended group is the same move, regardless of the tapped cell.
+    const plan = r.hintPlan;
+    r.hintPlan = plan !== undefined && group.includes(plan.path[0]) ?
+      { path: plan.path.slice(1), score: plan.score - move.gain } : undefined;
     r.cells = move.cells; r.ids = move.ids; r.score += move.gain; r.moves++; r.stageMoves++;
     r.bestGroup = Math.max(r.bestGroup, group.length);
     const cleared = STAR_COUNT - starRemaining(r.cells);
@@ -57,6 +64,7 @@ export class StarEngine {
     if (!this.canUndo() || previous === undefined) return false;
     r.cells = previous.cells.slice(); r.ids = previous.ids.slice(); r.score = previous.score;
     r.moves = previous.moves; r.stageMoves = previous.stageMoves; r.undoUsed = true; r.undo = undefined;
+    r.hintPlan = starCopyPlan(previous.hintPlan);
     r.status = 'playing'; r.bonus = 0;
     return true;
   }
@@ -67,6 +75,7 @@ export class StarEngine {
     if (!this.canAdvance() || !starVerifyPuzzle(puzzle, r.mode)) return false;
     r.total += r.score + starBonus(starRemaining(r.cells)); r.stage++;
     r.seed = puzzle.seed; r.witness = puzzle.witness; r.target = starTarget(r.stage, puzzle.witness);
+    r.hintPlan = { path: puzzle.path.slice(), score: puzzle.witness };
     r.cells = puzzle.cells.slice(); r.ids = []; for (let i = 0; i < STAR_COUNT; i++) r.ids.push(i);
     r.score = 0; r.stageMoves = 0; r.highWater = 0; r.undoUsed = false; r.undo = undefined;
     r.bonus = 0; r.status = 'playing'; this.updateBest(); return true;
@@ -84,11 +93,26 @@ export class StarEngine {
   }
 
   hint(): number[] {
+    if (this.round.status !== 'playing') return [];
+    const plan = this.round.hintPlan;
+    if (plan !== undefined && plan.path.length > 0) return starGroup(this.round.cells, plan.path[0]);
     const groups = starGroups(this.round.cells);
-    if (this.round.status !== 'playing' || groups.length === 0) return [];
+    if (groups.length === 0) return [];
     let best = groups[0];
     for (let i = 1; i < groups.length; i++) if (groups[i].length > best.length) best = groups[i];
     return best;
+  }
+
+  hintIsWinning(): boolean {
+    const r = this.round;
+    return r.status === 'playing' && r.hintPlan !== undefined && r.hintPlan.path.length > 0 &&
+      r.score + r.hintPlan.score >= r.target;
+  }
+
+  applyHintPlan(plan: StarPlan): boolean {
+    if (this.round.status !== 'playing' || !starValidPlan(this.round.cells, plan)) return false;
+    this.round.hintPlan = starCopyPlan(plan);
+    return true;
   }
 
   totalScore(): number { return this.round.total + this.round.score + this.round.bonus; }
@@ -152,6 +176,10 @@ export class StarEngine {
         eventIds.push(e.eventId);
       }
       this.round = copyRound(r); this.profile = JSON.parse(JSON.stringify(p)) as StarProfile;
+      // v1 saves may predate route hints. A missing/damaged optional route must not discard the board.
+      if (!starValidPlan(this.round.cells, this.round.hintPlan)) this.round.hintPlan = undefined;
+      const undo = this.round.undo;
+      if (undo !== undefined && !starValidPlan(undo.cells, undo.hintPlan)) undo.hintPlan = undefined;
       this.pending = JSON.parse(JSON.stringify(saved.pending)) as AchievementEvent[];
       return true;
     } catch (_) { return false; }

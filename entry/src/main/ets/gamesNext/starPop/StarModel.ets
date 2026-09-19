@@ -10,12 +10,17 @@ export type StarStatus = 'playing' | 'stageEnd' | 'failed' | 'finished';
 export interface StarTile { id: number; color: number; cell: number; }
 export interface StarFall { cells: number[]; ids: number[]; removedIds: number[]; gain: number; }
 export interface StarPuzzle { seed: number; cells: number[]; witness: number; path: number[]; }
-export interface StarUndo { cells: number[]; ids: number[]; score: number; moves: number; stageMoves: number; }
+/** Remaining legal moves and their score, including the final remainder bonus. */
+export interface StarPlan { path: number[]; score: number; }
+export interface StarUndo {
+  cells: number[]; ids: number[]; score: number; moves: number; stageMoves: number;
+  hintPlan?: StarPlan;
+}
 export interface StarRound {
   session: string; seed: number; mode: StarMode; stage: number; target: number; witness: number;
   cells: number[]; ids: number[]; score: number; total: number; moves: number; stageMoves: number;
   highWater: number; undoUsed: boolean; undo: StarUndo | undefined; status: StarStatus; bonus: number;
-  bestGroup: number;
+  bestGroup: number; hintPlan?: StarPlan;
 }
 export interface StarProfile {
   totalCleared: number; maxGroup: number; bestEasy: number; bestClassic: number;

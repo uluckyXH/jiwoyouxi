@@ -13,9 +13,9 @@ const ts=text=>stripTypeScriptTypes(clean(text),{mode:'transform'});
 const plain=x=>JSON.parse(JSON.stringify(x));
 let passed=0;
 async function test(name,fn){await fn();passed++;console.log('PASS '+name);}
-const names=['StarModel','StarRules','StarGenerator','StarFallback','StarEngine','StarLayout','StarProgress','StarPreparation','StarPalette','StarScene'];
+const names=['StarModel','StarRules','StarPlanner','StarGenerator','StarFallback','StarEngine','StarLayout','StarProgress','StarPreparation','StarHintSearch','StarPalette','StarScene'];
 const coreSource=names.map(n=>main('gamesNext/starPop/'+n+'.ets')).join('\n');
-const exports='StarEngine,StarGenerator,StarProgress,StarPreparation,StarPalette,StarScene,StarVisualTile,starFallback,starVerifyPuzzle,starGroup,starGroups,starGravityTiles,starCollapse,starTiles,starRemaining,starValidBoard,starGain,starBonus,starTarget,starColors,starLayout,starViewport,starUsesCreases';
+const exports='StarEngine,StarPlanner,StarGenerator,StarProgress,StarPreparation,StarHintSearch,StarPalette,StarScene,StarVisualTile,starValidPlan,starFallback,starVerifyPuzzle,starGroup,starGroups,starGravityTiles,starCollapse,starTiles,starRemaining,starValidBoard,starGain,starBonus,starTarget,starColors,starLayout,starViewport,starUsesCreases';
 const clock={starNow:()=>Date.now()};
 const core=vm.runInNewContext(ts(coreSource)+'\n({'+exports+'})',{setTimeout,clearTimeout,...clock});
 vm.runInNewContext(ts(coreSource+'\n'+read('entry/src/ohosTest/ets/test/StarPop.test.ets'))+'\nstarPopTest();',{
@@ -26,13 +26,17 @@ function puzzle(seed=42,mode='easy'){
  const g=new core.StarGenerator(seed,mode);while(!g.done&&g.steps<83)g.advance();
  assert.ok(g.done);assert.ok(g.steps<=82);assert.ok(g.result());return g.result();
 }
-await test('1,000 seeded boards: reachable targets, unique IDs, exact scoring, deterministic generation and lossless saves',()=>{
+await test('1,000 seeded boards: actual hints always pass, including other tiles in the same group and reload after every move',()=>{
  let turns=0; const scores={easy:[],classic:[]};
  for(const mode of ['easy','classic'])for(let seed=1;seed<=500;seed++){
-  const p=puzzle(seed,mode),e=new core.StarEngine();assert.ok(core.starVerifyPuzzle(p,mode));assert.ok(e.start(mode,p));
+  const p=puzzle(seed,mode);let e=new core.StarEngine();assert.ok(core.starVerifyPuzzle(p,mode));assert.ok(e.start(mode,p));
   assert.equal(new Set(p.cells).size,core.starColors(mode));
   for(const stage of [1,3,7,11,500])assert.ok(core.starTarget(stage,p.witness)<=p.witness);
-  for(const cell of p.path){
+  e.round.stage=[1,3,7,11,500][seed%5];e.round.target=core.starTarget(e.round.stage,p.witness);
+  for(let step=0;e.round.status==='playing';step++){
+   assert.ok(step<40);assert.ok(e.hintIsWinning(),mode+'/'+seed+'/'+step);
+   const suggested=e.hint();assert.ok(suggested.includes(p.path[step]));
+   const cell=suggested.at(-1);
    const before=e.serialize(),count=core.starRemaining(e.round.cells),ids=new Set(e.round.ids.filter(id=>id>=0));
    const group=core.starGroup(e.round.cells,cell);assert.ok(group.length>=2);
    const score=e.round.score;const turn=e.pop(cell);assert.ok(turn);turns++;
@@ -42,11 +46,69 @@ await test('1,000 seeded boards: reachable targets, unique IDs, exact scoring, d
    assert.equal(new Set(e.round.ids.filter(id=>id>=0)).size,core.starRemaining(e.round.cells));
    const restored=new core.StarEngine();assert.ok(restored.restore(e.serialize()),mode+'/'+seed+'/'+cell);assert.equal(restored.serialize(),e.serialize());
    assert.notEqual(before,e.serialize());
+   e=restored;
   }
   assert.equal(e.round.status,'stageEnd');assert.equal(e.totalScore(),p.witness);scores[mode].push(p.witness);
   if(seed<=10)assert.deepEqual(plain(p),plain(puzzle(seed,mode)));
  }
  console.log('  verified '+turns+' moves; min reachable score easy/classic: '+Math.min(...scores.easy)+'/'+Math.min(...scores.classic));
+});
+function plan(cells){
+ const solver=new core.StarPlanner(cells);while(!solver.done&&solver.steps<82)solver.advance();
+ assert.ok(solver.done);const result=solver.result();assert.ok(core.starValidPlan(cells,result));return result;
+}
+await test('regression: easy seed 12, target 1100, old largest-only hint fails at 1025 but route hints reach 1910',()=>{
+ const p=puzzle(12),old=new core.StarEngine();old.start('easy',p);
+ while(old.round.status==='playing')old.pop(core.starGroups(old.round.cells).sort((a,b)=>b.length-a.length)[0][0]);
+ assert.equal(old.round.target,1100);assert.equal(old.totalScore(),1025);assert.equal(old.round.status,'failed');
+ const fixed=new core.StarEngine();fixed.start('easy',p);
+ while(fixed.round.status==='playing')fixed.pop(fixed.hint()[0]);
+ assert.equal(fixed.totalScore(),1910);assert.equal(fixed.round.status,'stageEnd');
+ assert.equal(fixed.round.target,1100,'no hidden target reduction');
+});
+await test('hints survive an off-route move, undo, reload and the next stage without changing rewards or IDs',()=>{
+ const e=new core.StarEngine();e.start('easy',puzzle(12));const first=plain(e.hint()),original=plain(e.round);
+ const other=core.starGroups(e.round.cells).find(group=>!first.includes(group[0]));assert.ok(other);
+ e.pop(other[0]);assert.equal(e.round.hintPlan,undefined);assert.equal(e.hintIsWinning(),false);
+ const restored=new core.StarEngine();assert.ok(restored.restore(e.serialize()));assert.ok(restored.undo());
+ assert.deepEqual(plain(restored.round.cells),original.cells);assert.deepEqual(plain(restored.round.ids),original.ids);
+ assert.deepEqual(plain(restored.hint()),first);assert.ok(restored.hintIsWinning());
+ while(restored.round.status==='playing')restored.pop(restored.hint().at(-1));
+ assert.equal(restored.round.status,'stageEnd');const total=restored.totalScore();
+ assert.ok(restored.advance(puzzle(13)));assert.equal(restored.totalScore(),total);assert.equal(restored.round.score,0);
+ assert.deepEqual(plain(restored.round.hintPlan.path),plain(puzzle(13).path));
+ while(restored.round.status==='playing')restored.pop(restored.hint()[0]);assert.equal(restored.round.status,'stageEnd');
+});
+await test('legacy saves and damaged optional plans preserve the board, then safely rebuild a route when requested',()=>{
+ const e=new core.StarEngine();e.start('easy',puzzle(12));e.pop(e.hint()[0]);const saved=plain(e.snapshot());
+ const malformed=[undefined,null,[],{},'bad',{path:[],score:0},{path:[80],score:999},
+  {path:Array(41).fill(1),score:0},{path:e.round.hintPlan.path,score:e.round.hintPlan.score+1},
+  {path:[1.2],score:100},{path:[null],score:100}];
+ for(const bad of malformed){
+  const raw=plain(saved);raw.round.hintPlan=bad;raw.round.undo.hintPlan=bad;
+  const r=new core.StarEngine();assert.ok(r.restore(JSON.stringify(raw)));assert.equal(r.round.hintPlan,undefined);
+  assert.equal(r.round.undo.hintPlan,undefined);assert.deepEqual(plain(r.round.cells),saved.round.cells);
+  assert.equal(r.round.target,saved.round.target);assert.equal(r.round.score,saved.round.score);
+  const before=plain(r.snapshot());assert.ok(r.applyHintPlan(plan(r.round.cells)));assert.ok(r.hintIsWinning());
+  delete before.round.hintPlan;const after=plain(r.snapshot());delete after.round.hintPlan;assert.deepEqual(after,before);
+  const verified=r.serialize();assert.equal(r.applyHintPlan({path:[80],score:99999}),false);assert.equal(r.serialize(),verified);
+  while(r.round.status==='playing')r.pop(r.hint()[0]);assert.equal(r.round.status,'stageEnd');
+ }
+});
+await test('after independent moves, every claimed winning plan really passes; no false guarantee for a stranded board',()=>{
+ let wins=0,references=0;
+ for(const mode of ['easy','classic'])for(let seed=1;seed<=60;seed++){
+  const e=new core.StarEngine();e.start(mode,puzzle(seed,mode));
+  for(let i=0;i<8&&e.round.status==='playing';i++)e.pop(core.starGroups(e.round.cells).sort((a,b)=>a.length-b.length)[0][0]);
+  if(e.round.status!=='playing')continue;
+  const before=e.serialize(),result=plan(e.round.cells);
+  assert.equal(e.serialize(),before,'planner never changes the live board');assert.ok(e.applyHintPlan(result));
+  const expected=e.round.score+result.score,winning=e.hintIsWinning();
+  if(winning)wins++;else references++;
+  while(e.round.status==='playing')e.pop(e.hint()[0]);assert.equal(e.round.score+e.round.bonus,expected);
+  assert.equal(e.round.status,winning?'stageEnd':'failed');
+ }
+ assert.ok(wins>0);assert.ok(references>0);console.log('  detours: '+wins+' verified winning routes, '+references+' reference routes (not falsely marked as passing)');
 });
 await test('singletons, missing IDs and invalid coordinates cannot change score or progress',()=>{
  const e=new core.StarEngine(),raw=e.serialize();
@@ -191,17 +253,17 @@ await test('stages do not inflate completed-session counts; final settlement and
 
 const pageSource=main('gamesNext/starPop/StarPage.ets');
 const pageMethods=['boot','beginLoadFeedback','endLoadFeedback','preparePuzzle','seed','canPlay','preview','clearPreview','tap',
- 'completeTurn','later','finishMotion','syncCounters','sync','undo','showHint','present','dialogAction','replaceRound','save',
+ 'completeTurn','later','finishMotion','syncCounters','sync','undo','showHint','cancelHint','present','dialogAction','replaceRound','save',
  'persist','reportProgress','saveAndExit','leavePage','exitRequested','dialogChanged','themeChanged','soundChanged',
  'backgrounded','relayout','aboutToDisappear'];
 let timerSeq=0;const timers=new Map();
-const rt=vm.runInNewContext(ts(coreSource+'\nclass Page {\n'+pageMethods.map(n=>method(pageSource,n)).join('\n')+'\n}')+'\n({Page,StarPreparation})',{
+const rt=vm.runInNewContext(ts(coreSource+'\nclass Page {\n'+pageMethods.map(n=>method(pageSource,n)).join('\n')+'\n}')+'\n({Page,StarPreparation,StarHintSearch})',{
  console,...clock,Curve:{EaseOut:0,EaseIn:1},setTimeout:fn=>{const id=++timerSeq;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id)
 });
 function controller(){
  timers.clear();const p=new rt.Page();
  Object.assign(p,{engine:new core.StarEngine(),loaded:true,loading:false,disposed:false,leaving:false,skipSave:false,backgroundPaused:false,context:{},
-  loadFeedbackTimer:-1,loadFeedbackToken:0,loadFeedback:'',
+  loadFeedbackTimer:-1,loadFeedbackToken:0,loadFeedback:'',hintToken:0,findingHint:false,hintSearch:new rt.StarHintSearch(),
   animationToken:0,animationTimer:-1,saveSequence:0,tiles:[],selected:[],previewCount:0,scene:new core.StarScene(),tileViews:[],busy:false,gain:0,dialog:'',saving:false,saveFailed:false,hint:'',
   pageWidth:390,pageHeight:844,insets:{top:24,bottom:16,left:0,right:0},creases:[],pendingMode:'easy',
   layout:core.starLayout(390,844,{top:24,bottom:16,left:0,right:0}),
@@ -212,6 +274,58 @@ function controller(){
  });p.sync();return p;
 }
 function drain(){let n=0;while(timers.size){assert.ok(n++<90);const [id,fn]=timers.entries().next().value;timers.delete(id);fn();}return n;}
+await test('cached page hints stay immediate, and playing the highlighted stable IDs passes the regression board',async()=>{
+ const p=controller();p.engine.start('easy',puzzle(12));p.sync();
+ while(p.engine.round.status==='playing'){
+  const before=p.engine.serialize();await p.showHint();assert.equal(p.findingHint,false);assert.equal(timers.size,0);
+  assert.match(p.hint,/过关路线/);assert.ok(p.previewCount>=2);assert.equal(p.engine.serialize(),before);
+  const selected=plain(p.selected);await p.showHint();assert.deepEqual(plain(p.selected),selected);
+  p.tap(selected.at(-1));drain();await Promise.resolve();
+ }
+ assert.equal(p.engine.round.status,'stageEnd');assert.equal(p.engine.totalScore(),1910);assert.equal(p.dialog,'stageEnd');
+});
+await test('old-save hint search yields, caches a valid plan and preserves target, score and board',async()=>{
+ const p=controller();p.engine.start('easy',puzzle(12));p.sync();delete p.engine.round.hintPlan;
+ const saved=p.engine.serialize(),pending=p.showHint();assert.ok(p.findingHint);assert.ok(p.canPlay());assert.equal(timers.size,1);
+ assert.ok(drain()>10);await pending;assert.equal(p.findingHint,false);assert.equal(timers.size,0);assert.match(p.hint,/过关路线/);
+ const snapshot=plain(p.engine.snapshot());delete snapshot.round.hintPlan;assert.deepEqual(snapshot,JSON.parse(saved));
+ const route=p.engine.serialize();await p.showHint();assert.equal(p.engine.serialize(),route);assert.equal(timers.size,0);
+ const restored=new core.StarEngine();assert.ok(restored.restore(route));assert.ok(restored.hintIsWinning());
+});
+await test('a stranded board is labelled reference only, without claiming it is impossible or lowering its target',async()=>{
+ const p=controller();const r=p.engine.round;r.hintPlan=undefined;r.cells.fill(-1);r.ids.fill(-1);
+ for(const cell of [72,73]){r.cells[cell]=0;r.ids[cell]=cell;}p.sync();
+ const target=r.target,pending=p.showHint();drain();await pending;
+ assert.equal(p.engine.hintIsWinning(),false);assert.match(p.hint,/参考走法/);assert.match(p.hint,/暂未找到达标路线/);
+ assert.doesNotMatch(p.hint,/不可能|无法过关|可试试撤销/);assert.equal(r.target,target);assert.deepEqual(plain(p.selected),[72,73]);
+});
+await test('hint searches cannot publish stale highlights after touch, undo, fold, modal, background, replacement or exit',async()=>{
+ const actions=[p=>p.preview(p.tiles[0].id),p=>p.tap(p.engine.round.ids[p.engine.hint()[0]]),p=>p.undo(),
+  p=>{p.pageWidth=820;p.relayout();},p=>p.present('help'),p=>p.backgrounded(),p=>p.exitRequested(),
+  p=>p.leavePage(),p=>p.aboutToDisappear(),p=>p.replaceRound(false)];
+ for(const action of actions){
+  const p=controller();p.engine.pop(p.engine.hint()[0]);p.sync();delete p.engine.round.hintPlan;
+  const pending=p.showHint(),stale=[...timers.values()];assert.ok(p.findingHint);
+  await action(p);const before=p.engine.serialize(),selected=plain(p.selected),text=p.hint;
+  await pending;stale.forEach(fn=>fn());drain();
+  assert.equal(p.findingHint,false);assert.equal(p.engine.serialize(),before);assert.deepEqual(plain(p.selected),selected);
+  assert.equal(p.hint,text);assert.equal(timers.size,0);
+ }
+});
+await test('cancelling one hint and requesting another cannot clear or replace the newer result',async()=>{
+ const p=controller();delete p.engine.round.hintPlan;
+ const first=p.showHint(),stale=[...timers.values()];p.clearPreview();const next=p.showHint();
+ await first;assert.ok(p.findingHint);stale.forEach(fn=>fn());assert.equal(timers.size,1);
+ drain();await next;assert.match(p.hint,/过关路线/);assert.equal(p.findingHint,false);assert.equal(timers.size,0);
+});
+await test('hint planning snapshots the input, stays bounded and reports cancellation without leaving timers',async()=>{
+ timers.clear();const search=new rt.StarHintSearch(),cells=puzzle(12).cells,expected=plan(cells),timings=[];
+ const pending=search.search(cells,t=>timings.push(t));cells.fill(-1);const ticks=drain();
+ assert.deepEqual(plain(await pending),plain(expected));assert.ok(ticks>10&&ticks<=82);
+ assert.equal(timings.length,1);assert.equal(timings[0].slices,ticks);assert.equal(timings[0].cancelled,false);
+ const aborted=search.search(puzzle(1).cells,t=>timings.push(t)),stale=[...timers.values()];search.cancel();
+ assert.equal(await aborted,undefined);stale.forEach(fn=>fn());assert.equal(timings[1].cancelled,true);assert.equal(timers.size,0);
+});
 await test('page tap commits once, animates finitely and uses stable IDs at the new positions',()=>{
  const p=controller(),cell=p.engine.hint()[0],id=p.engine.round.ids[cell];p.preview(id);assert.ok(p.selected.length>=2);
  p.tap(id);const raw=p.engine.serialize();assert.ok(p.busy);p.tap(id);assert.equal(p.engine.serialize(),raw);

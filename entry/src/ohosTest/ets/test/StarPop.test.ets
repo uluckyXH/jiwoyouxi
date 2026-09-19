@@ -81,6 +81,57 @@ export default function starPopTest(): void {
       expect(restored.canUndo()).assertEqual(false);
       expect(restored.undo()).assertEqual(false);
     });
+    it('route hints pass the seed 12 regression where repeatedly taking the largest group fails', kind, () => {
+      const generator = new StarGenerator(12, 'easy');
+      while (!generator.done && generator.steps < 82) generator.advance();
+      const puzzle = generator.result();
+      expect(puzzle !== undefined).assertEqual(true);
+      if (puzzle === undefined) return;
+      const e = new StarEngine();
+      e.start('easy', puzzle);
+      expect(e.round.target).assertEqual(1100);
+      for (let turn = 0; turn < 40 && e.round.status === 'playing'; turn++) {
+        expect(e.hintIsWinning()).assertEqual(true);
+        const hint = e.hint();
+        e.pop(hint[hint.length - 1]);
+        expect(e.restore(e.serialize())).assertEqual(true);
+      }
+      expect(e.round.status).assertEqual('stageEnd');
+      expect(e.totalScore()).assertEqual(1910);
+    });
+    it('undo restores the winning guide after a detour, including across a save', kind, () => {
+      const e = new StarEngine();
+      const route = JSON.stringify(e.round.hintPlan);
+      const hint = e.hint();
+      const other = starGroups(e.round.cells).find((group: number[]): boolean => !hint.includes(group[0]));
+      expect(other !== undefined).assertEqual(true);
+      if (other === undefined) return;
+      e.pop(other[0]);
+      expect(e.hintIsWinning()).assertEqual(false);
+      expect(e.restore(e.serialize())).assertEqual(true);
+      expect(e.undo()).assertEqual(true);
+      expect(JSON.stringify(e.round.hintPlan)).assertEqual(route);
+      expect(e.hintIsWinning()).assertEqual(true);
+    });
+    it('every subsequent stage starts with its own reachable route, including the difficulty cap', kind, () => {
+      const modes: StarMode[] = ['easy', 'classic'];
+      modes.forEach((mode: StarMode) => {
+        const e = new StarEngine();
+        const puzzle = starFallback(mode);
+        e.start(mode, puzzle);
+        e.round.stage = 500;
+        e.round.target = starTarget(500, puzzle.witness);
+        for (let stage = 0; stage < 3; stage++) {
+          for (let turn = 0; turn < 40 && e.round.status === 'playing'; turn++) {
+            expect(e.hintIsWinning()).assertEqual(true);
+            e.pop(e.hint()[0]);
+          }
+          expect(e.round.status).assertEqual('stageEnd');
+          expect(e.advance(puzzle)).assertEqual(true);
+          expect(e.hintIsWinning()).assertEqual(true);
+        }
+      });
+    });
     it('passing a stage preserves the journey and only credits the end bonus once', kind, () => {
       const puzzle = starFallback('easy'); const e = new StarEngine();
       puzzle.path.forEach((cell: number) => { e.pop(cell); });
