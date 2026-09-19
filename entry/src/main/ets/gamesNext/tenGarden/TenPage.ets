@@ -8,10 +8,11 @@ import { TenDialog } from './TenDialog';
 import { TenEngine } from './TenEngine';
 import { TenGesture } from './TenGesture';
 import { TenInsets, TenCrease, TenLayout, tenLayout } from './TenLayout';
-import { TEN_LOGO, TenHint, TenRound, TenTileView, tenProfile } from './TenModel';
+import { TEN_LOGO, TenHint, TenRound, tenProfile } from './TenModel';
 import { TenPalette as P } from './TenPalette';
 import { TenProgress } from './TenProgress';
 import { TenReflow } from './TenReflow';
+import { TenRenderTile, tenReconcileTiles } from './TenRenderTile';
 import { tenEqual, tenSelect, tenStart, tenSum } from './TenRules';
 import { TenStorage } from './TenStorage';
 import { TenWindow } from './TenWindow';
@@ -53,7 +54,7 @@ export struct TenPage {
   @State pageHeight: number = 844;
   @State layout: TenLayout = tenLayout(390, 844, { top: 24, bottom: 16, left: 0, right: 0 }, [], 3);
   @State round: TenRound = tenStart();
-  @State tiles: TenTileView[] = [];
+  @State tiles: TenRenderTile[] = [];
   @State gridSize: number = 3;
   @State goal: number = 2;
   @State windDirection: number = 0;
@@ -158,7 +159,7 @@ export struct TenPage {
       TenStats({ dark: this.dark, stage: this.round.stage, collected: this.round.history.length, goal: this.goal })
         .width(this.layout.stats.width).position({ x: this.layout.stats.x, y: this.layout.stats.y })
       TenBoard({ dark: this.dark, gridSize: this.gridSize, grid: this.layout.grid, cell: this.layout.cell,
-        gap: this.layout.tileGap, pad: this.layout.pad, windDirection: this.windDirection, tiles: this.tiles,
+        gap: this.layout.tileGap, pad: this.layout.pad, windDirection: this.windDirection, tiles: $tiles,
         selected: this.selected, hintCells: this.hintCells, active: this.active(), sceneId: this.round.id,
         tap: (index: number) => this.tap(index), touch: (event: TouchEvent) => this.touch(event)
       }).position({ x: this.layout.board.x, y: this.layout.board.y })
@@ -291,7 +292,8 @@ export struct TenPage {
     this.sync(); this.audio.play('tap'); this.save();
   }
   private sync(): void {
-    this.round = this.engine.snapshot().round; this.tiles = this.engine.tiles();
+    this.round = this.engine.snapshot().round;
+    this.tiles = tenReconcileTiles(this.tiles, this.engine.tiles());
     this.gridSize = this.engine.puzzle.size; this.goal = this.engine.puzzle.solution.length; this.windDirection = this.engine.direction();
   }
   private cancelAnimation(): void {

@@ -1,5 +1,7 @@
-import { TEN_DIRECTIONS, TEN_DIRECTION_ICONS, TenTileView } from './TenModel';
+import { TEN_DIRECTIONS, TEN_DIRECTION_ICONS } from './TenModel';
 import { TenPalette as P } from './TenPalette';
+import { TenRenderTile } from './TenRenderTile';
+import { TenTileCell } from './TenTileCell';
 
 @Component
 export struct TenBoard {
@@ -10,7 +12,7 @@ export struct TenBoard {
   @Prop gap: number = 6;
   @Prop pad: number = 10;
   @Prop windDirection: number = 0;
-  @Prop tiles: TenTileView[] = [];
+  @Link tiles: TenRenderTile[];
   @Prop selected: number[] = [];
   @Prop hintCells: number[] = [];
   @Prop active: boolean = true;
@@ -54,31 +56,10 @@ export struct TenBoard {
               .stroke(P.accent(this.dark)).strokeWidth(3).hitTestBehavior(HitTestMode.None).accessibilityLevel('no')
           }
         }, (index: number): string => '' + index)
-        ForEach([this.sceneId], (_id: string) => {
-          ForEach(this.tiles, (tile: TenTileView) => {
-            Button({ type: ButtonType.Normal }) {
-              Stack() {
-                Image($rawfile(P.scene('tile_leaf', this.dark))).width('100%').height('100%')
-                  .objectFit(ImageFit.Contain).draggable(false).accessibilityLevel('no')
-                Text('' + tile.value).fontSize(Math.min(34, this.cell * .48)).fontWeight(FontWeight.Medium)
-                  .fontColor(this.selected.includes(tile.index) ? P.onAccent(this.dark) : P.ink(this.dark))
-              }.width('100%').height('100%')
-            }.width(this.cell).height(this.cell).padding(0).borderRadius(Math.min(18, this.cell * .22))
-            .backgroundColor(this.selected.includes(tile.index) ? P.accent(this.dark) : P.paper(this.dark))
-            .border({ width: this.selected.includes(tile.index) || this.hintCells.includes(tile.index) ? 2 : 1,
-              color: this.selected.includes(tile.index) ? P.accent(this.dark) :
-                this.hintCells.includes(tile.index) ? P.gold(this.dark) : P.line(this.dark),
-              style: !this.selected.includes(tile.index) && this.hintCells.includes(tile.index) ? BorderStyle.Dashed : BorderStyle.Solid,
-              radius: Math.min(18, this.cell * .22) })
-            .shadow({ radius: 1, color: this.dark ? '#12101813' : '#143C5736', offsetY: 2 })
-            .position({ x: this.x(tile.index), y: this.y(tile.index) }).enabled(this.active)
-            .transition(TransitionEffect.OPACITY.combine(TransitionEffect.scale({ x: .8, y: .8 })))
-            .accessibilityText('第 ' + (Math.floor(tile.index / this.gridSize) + 1) + ' 行，第 ' + (tile.index % this.gridSize + 1) +
-              ' 格，数字 ' + tile.value + (this.selected.includes(tile.index) ? '，已选中' : '') +
-              (this.hintCells.includes(tile.index) ? '，提示第 ' + (this.hintCells.indexOf(tile.index) + 1) + ' 格' : ''))
-            .accessibilityDescription('点选相邻数字，凑满十自动收下').onClick(() => this.tap(tile.index))
-          }, (tile: TenTileView): string => '' + tile.id)
-        }, (id: string): string => id)
+        ForEach(this.tiles, (tile: TenRenderTile) => {
+          TenTileCell({ tile: tile, dark: this.dark, gridSize: this.gridSize, cell: this.cell, gap: this.gap,
+            selected: this.selected, hintCells: this.hintCells, active: this.active, tap: this.tap })
+        }, (tile: TenRenderTile): string => this.sceneId + ':' + tile.id)
         // One pointer surface keeps touch coordinates relative to the whole grid.
         // The native tile buttons remain accessible to keyboard and screen-reader activation.
         Row().width(this.grid).height(this.grid).backgroundColor(Color.Transparent)

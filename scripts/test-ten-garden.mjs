@@ -8,10 +8,11 @@ const root=new URL('../',import.meta.url);
 const read=p=>readFileSync(new URL(p,root),'utf8');
 const main=p=>read('entry/src/main/ets/'+p);
 const plain=v=>JSON.parse(JSON.stringify(v));
-const clean=s=>s.replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export default /gm,'').replace(/^export /gm,'');
+const clean=s=>s.replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export default /gm,'').replace(/^export /gm,'')
+ .replace(/^@Observed\s*$/gm,'').replace(/@Track\s+/g,'');
 const compile=s=>stripTypeScriptTypes(clean(s),{mode:'transform'});
-const source=['TenModel','TenPuzzles','TenRules','TenEngine','TenLayout','TenGesture','TenProgress'].map(n=>main('gamesNext/tenGarden/'+n+'.ets')).join('\n');
-const names='TenEngine,TenProgress,TenGesture,tenLayout,tenViewport,tenHit,tenSelect,tenValidPath,tenSum,tenProfile,tenShift,tenPuzzle,TEN_PUZZLES';
+const source=['TenModel','TenPuzzles','TenRules','TenEngine','TenLayout','TenGesture','TenProgress','TenRenderTile'].map(n=>main('gamesNext/tenGarden/'+n+'.ets')).join('\n');
+const names='TenEngine,TenProgress,TenGesture,TenRenderTile,tenReconcileTiles,tenLayout,tenViewport,tenHit,tenSelect,tenValidPath,tenSum,tenProfile,tenShift,tenPuzzle,TEN_PUZZLES';
 const core=vm.runInNewContext(compile(source)+'\n({'+names+'})',{});
 let count=0;
 async function test(name,run){await run();count++;console.log('PASS '+name);}
@@ -56,6 +57,32 @@ await test('malformed and forged saves fail atomically without replacing the pla
   s=>delete s.round,s=>s.round.history=[null],s=>s.round.board='no',s=>s.profile=null];
  for(const change of mutations){const save=JSON.parse(raw);change(save);assert.equal(e.restore(JSON.stringify(save)),false);assert.equal(e.serialize(),raw);}
  for(const bad of ['null','[]','false','{','{}']){assert.equal(e.restore(bad),false);assert.equal(e.serialize(),raw);}
+});
+await test('retained tile views follow all four winds and undo across every certified board',()=>{
+ let moved=0;
+ for(let stage=1;stage<=257;stage++){
+  const e=new core.TenEngine(stage);let views=core.tenReconcileTiles([],e.tiles());
+  function reconcile(){
+   const retained=new Map(views.map(tile=>[tile.id,tile]));
+   const positions=new Map(views.map(tile=>[tile.id,tile.index]));
+   views=core.tenReconcileTiles(views,e.tiles());
+   assert.deepEqual(plain(views),plain(e.tiles()));
+   for(const view of views){
+    if(retained.has(view.id)){
+     assert.equal(view,retained.get(view.id),'ForEach must keep the same observable object');
+     if(positions.get(view.id)!==view.index)moved++;
+    }
+    assert.equal(e.round.board[view.index],view.value);
+    assert.equal(e.round.ids[view.index],view.id);
+   }
+  }
+  for(const step of e.puzzle.solution){
+   assert.ok(e.submit(step.cells));reconcile();
+   if(e.round.phase==='playing'){assert.ok(e.rewind());reconcile();assert.ok(e.submit(step.cells));reconcile();}
+  }
+  assert.equal(views.length,0);
+ }
+ assert.ok(moved>10000);console.log('  verified retained-view position changes: '+moved);
 });
 await test('alternate legal routes can return to a certified state; hints declare rewind and never auto-clear',()=>{
  let rewinds=0;
@@ -179,7 +206,7 @@ function controller(e=new core.TenEngine()){
  timers.clear();frames.length=0;const p=new pageApi.Page(),b=bridge(e),sounds=[];
  Object.assign(p,{engine:e,progress:b.p,context:{},pointerInput:new core.TenGesture(),pointer:-1,gestureCommitted:false,pendingHint:undefined,
   loaded:true,loading:false,disposed:false,skipSave:false,backgroundPaused:false,timer:-1,generation:0,saveSequence:0,layoutGeneration:0,
-  returnDialog:'',dialog:'',saving:false,saveFailed:false,animating:false,touching:false,selected:[],hintCells:[],receipt:'',
+  returnDialog:'',dialog:'',saving:false,saveFailed:false,animating:false,touching:false,selected:[],hintCells:[],receipt:'',tiles:[],
   pageWidth:390,pageHeight:844,insets:{top:24,bottom:24,left:0,right:0},creases:[],layout:core.tenLayout(390,844,{top:24,bottom:24,left:0,right:0},[],e.puzzle.size),
   audio:{play:n=>sounds.push(n),silence(){},release(){}},host:{release(){}},storage:{load:async()=>b.s.raw,save:async(_ctx,raw)=>{b.s.raw=raw;return true;}},
   reportAchievementEvent:ev=>b.g.reportAchievementEvent(ev),recordScore:n=>b.s.records.push(n),
@@ -193,6 +220,23 @@ function pointer(p,type,index){
  const y=Math.floor(index/p.gridSize)*(p.layout.cell+p.layout.tileGap)+p.layout.cell/2;
  const point={id:1,x,y};p.touch({type,touches:type===touchTypes.Up?[]:[point],changedTouches:[point]});
 }
+await test('after compaction, visible numbers, selected cells and the calculated sum agree through rewind and restore',async()=>{
+ const {p,e}=controller(new core.TenEngine(2));const initialHandles=new Map(p.tiles.map(tile=>[tile.id,tile]));
+ for(const step of e.puzzle.solution.slice(0,2)){for(const cell of step.cells)p.tap(cell);fire();}
+ const moving=initialHandles.get(3);assert.equal(p.tiles.find(t=>t.id===3),moving);assert.equal(moving.index,0);
+ function selectVisiblePair(){
+  const seven=p.tiles.find(a=>a.value===7&&p.tiles.some(b=>b.value===1&&Math.abs(a.index%6-b.index%6)+Math.abs(Math.floor(a.index/6)-Math.floor(b.index/6))===1));
+  assert.ok(seven);const one=p.tiles.find(b=>b.value===1&&Math.abs(seven.index%6-b.index%6)+Math.abs(Math.floor(seven.index/6)-Math.floor(b.index/6))===1);
+  p.setSelection([]);p.tap(seven.index);p.tap(one.index);
+  assert.deepEqual(plain(p.selected.map(i=>p.round.board[i])),[7,1]);assert.equal(core.tenSum(p.round.board,p.selected),8);
+  assert.deepEqual(plain(p.selected.map(i=>p.tiles.find(t=>t.index===i).value)),[7,1]);
+ }
+ selectVisiblePair();p.undo();fire();selectVisiblePair();
+ p.selected=[];const raw=e.serialize();assert.ok(e.restore(raw));p.sync();selectVisiblePair();
+ p.pageWidth=1280;p.pageHeight=900;p.relayout();selectVisiblePair();
+ p.present('restart');p.confirmDialog();assert.deepEqual(plain(p.tiles),plain(e.tiles()));
+ await tick();
+});
 await test('tile and pointer taps automatically collect exactly ten; invalid picks and undo never duplicate awards',async()=>{
  const {p,e,g,sounds}=controller();p.tap(4);p.tap(7);
  assert.deepEqual(plain(p.selected),[4]);assert.equal(e.round.history.length,0);

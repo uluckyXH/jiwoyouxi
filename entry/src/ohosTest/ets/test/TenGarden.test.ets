@@ -4,6 +4,7 @@ import { TenGesture } from '../../../main/ets/gamesNext/tenGarden/TenGesture';
 import { TenPath, tenProfile } from '../../../main/ets/gamesNext/tenGarden/TenModel';
 import { tenPuzzle, tenSelect, tenShift, tenValidPath } from '../../../main/ets/gamesNext/tenGarden/TenRules';
 import { TenInsets, tenLayout, tenUsesCreases, tenViewport } from '../../../main/ets/gamesNext/tenGarden/TenLayout';
+import { tenReconcileTiles } from '../../../main/ets/gamesNext/tenGarden/TenRenderTile';
 
 export default function tenGardenTest(): void {
   describe('TenGarden', () => {
@@ -63,6 +64,21 @@ export default function tenGardenTest(): void {
       expect(selected.join(',')).assertEqual('0,1');
       expect(tenValidPath(board, selected, 3)).assertEqual(true);
       expect(input.cancel().length).assertEqual(0);
+    });
+    it('a keyed tile keeps its live position after compaction and undo', kind, () => {
+      const e = new TenEngine(2);
+      let views = tenReconcileTiles([], e.tiles());
+      const moving = views[2];
+      expect(moving.id).assertEqual(3);
+      e.submit(e.puzzle.solution[0].cells); views = tenReconcileTiles(views, e.tiles());
+      e.submit(e.puzzle.solution[1].cells); views = tenReconcileTiles(views, e.tiles());
+      expect(views.find(tile => tile.id === 3) === moving).assertEqual(true);
+      expect(moving.index).assertEqual(0);
+      expect(e.round.board[moving.index]).assertEqual(moving.value);
+      e.rewind(); views = tenReconcileTiles(views, e.tiles());
+      expect(views.find(tile => tile.id === 3) === moving).assertEqual(true);
+      expect(moving.index).assertEqual(2);
+      expect(e.round.board[moving.index]).assertEqual(moving.value);
     });
     it('undo and restart restore exact board and never duplicate credited progress', kind, () => {
       const e = new TenEngine(2), original = e.round.board.join(',');
