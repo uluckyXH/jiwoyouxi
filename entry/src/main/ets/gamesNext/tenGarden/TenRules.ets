@@ -34,6 +34,27 @@ export function tenValidPath(board: number[], path: number[], size: number): boo
   }
   return sum === 10;
 }
+/** A bounded local move check, not a full-puzzle solver. Runs only when the board changes. */
+export function tenHasMove(board: number[], size: number): boolean {
+  const used: boolean[] = new Array<boolean>(board.length).fill(false);
+  for (let i = 0; i < board.length; i += 1) {
+    if (board[i] > 0 && board[i] < 10 && tenContinuePath(board, size, i, board[i], used)) return true;
+  }
+  return false;
+}
+function tenContinuePath(board: number[], size: number, index: number, sum: number, used: boolean[]): boolean {
+  if (sum === 10) return true;
+  used[index] = true;
+  const neighbors = [index - size, index + 1, index + size, index - 1];
+  for (let k = 0; k < neighbors.length; k += 1) {
+    const next = neighbors[k];
+    if (next < 0 || next >= board.length || used[next] || board[next] <= 0 ||
+      sum + board[next] > 10 || !tenAdjacent(index, next, size)) continue;
+    if (tenContinuePath(board, size, next, sum + board[next], used)) { used[index] = false; return true; }
+  }
+  used[index] = false;
+  return false;
+}
 export function tenSelect(board: number[], path: number[], index: number, size: number): number[] {
   if (!tenInteger(index, 0, board.length - 1) || board[index] <= 0) return path.slice();
   const before = path.indexOf(index);
@@ -68,9 +89,16 @@ export function tenStart(stage: number = 1): TenRound {
     history: [], credited: 0, phase: 'playing', reported: false, undos: 0, hints: 0 };
 }
 export function tenSaveValid(save: TenSave): boolean {
-  if (save === null || typeof save !== 'object' || save.version !== 1 || save.round === null ||
-    typeof save.round !== 'object' || save.profile === null || typeof save.profile !== 'object') return false;
-  const r = save.round;
+  if (save === null || typeof save !== 'object' || save.version !== 1 ||
+    save.profile === null || typeof save.profile !== 'object' || !tenRoundValid(save.round)) return false;
+  if (save.resumeRound !== undefined && (!tenRoundValid(save.resumeRound) ||
+    save.resumeRound.stage <= save.round.stage || save.resumeRound.id === save.round.id)) return false;
+  const expected = tenProfile(save.resumeRound === undefined ? save.round : save.resumeRound);
+  return save.profile.totalGroups === expected.totalGroups && save.profile.totalWins === expected.totalWins &&
+    save.profile.totalChallenges === expected.totalChallenges;
+}
+function tenRoundValid(r: TenRound): boolean {
+  if (r === null || typeof r !== 'object') return false;
   if (!tenInteger(r.stage, 1, 1000000) || typeof r.id !== 'string' || r.id.length < 1 || r.id.length > 100 ||
     !Array.isArray(r.board) || !Array.isArray(r.ids) || !Array.isArray(r.history) ||
     !tenInteger(r.undos, 0, 1000000000) || !tenInteger(r.hints, 0, 1000000000) || typeof r.reported !== 'boolean') return false;
@@ -88,7 +116,5 @@ export function tenSaveValid(save: TenSave): boolean {
   if (!tenEqual(board, r.board) || !tenEqual(ids, r.ids)) return false;
   const complete = board.every((v: number): boolean => v === 0);
   if (r.phase !== (complete ? 'complete' : 'playing') || (!complete && r.reported)) return false;
-  const expected = tenProfile(r);
-  return save.profile.totalGroups === expected.totalGroups && save.profile.totalWins === expected.totalWins &&
-    save.profile.totalChallenges === expected.totalChallenges;
+  return true;
 }

@@ -11,7 +11,7 @@ export interface TenRound {
   credited: number; phase: string; reported: boolean; undos: number; hints: number;
 }
 export interface TenProfile { totalGroups: number; totalWins: number; totalChallenges: number; }
-export interface TenSave { version: number; round: TenRound; profile: TenProfile; }
+export interface TenSave { version: number; round: TenRound; profile: TenProfile; resumeRound?: TenRound; }
 export interface TenHint { rewind: number; path: number[]; }
 export interface TenTileView { id: number; value: number; index: number; }
 export function tenInteger(value: number, min: number, max: number): boolean {

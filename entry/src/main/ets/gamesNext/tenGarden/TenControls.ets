@@ -47,11 +47,12 @@ export struct TenStats {
   @Prop stage: number = 1;
   @Prop collected: number = 0;
   @Prop goal: number = 2;
+  @Prop reviewing: boolean = false;
   build() {
     Column({ space: 4 }) {
       Row() {
         Column({ space: 2 }) {
-          Text('第 ' + this.stage + ' 关').fontSize(19).minFontSize(14).maxFontSize(19).maxLines(1)
+          Text((this.reviewing ? '回顾 · 第 ' : '第 ') + this.stage + ' 关').fontSize(19).minFontSize(14).maxFontSize(19).maxLines(1)
             .fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
           Text(this.stage === 1 ? '晒晒太阳 · 两次就好' : this.stage < 258 ? '风向变了 · 想好再收' :
             '第 ' + (Math.floor((this.stage - 2) / 256) + 1) + ' 轮 · 再走一次小院')
@@ -76,12 +77,13 @@ export struct TenSelection {
   @Prop formula: string = '';
   @Prop collected: boolean = false;
   @Prop hasHint: boolean = false;
+  @Prop stuck: boolean = false;
   clear: () => void = () => {};
   @Builder
   Selected() {
     Column({ space: 3 }) {
       Row({ space: 6 }) {
-        Text(this.collected ? '刚好是十，收好啦' : '已选 ' + this.sum + ' / 10')
+        Text(this.collected ? '刚好是十，收好啦' : this.stuck && this.sum === 0 ? '换条路，还能继续' : '已选 ' + this.sum + ' / 10')
           .fontSize(14).fontWeight(FontWeight.Medium).fontColor(P.ink(this.dark))
         if (this.formula.length > 0 && !this.collected) {
           Button({ type: ButtonType.Normal }) {
@@ -91,7 +93,8 @@ export struct TenSelection {
           .accessibilityText('取消当前连线').onClick(this.clear)
         }
       }
-      Text(this.formula.length > 0 ? this.formula : this.hasHint ? '沿虚线路线点选或连起来' : '点选或连过相邻数字')
+      Text(this.formula.length > 0 ? this.formula : this.stuck ? '剩余数字暂时连不成十' :
+        this.hasHint ? '沿虚线路线点选或连起来' : '点选或连过相邻数字')
         .fontSize(11).minFontSize(10).maxFontSize(11)
         .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis }).fontColor(P.muted(this.dark)).width('100%')
     }.width('100%').alignItems(HorizontalAlign.Start)
@@ -99,12 +102,12 @@ export struct TenSelection {
   @Builder
   AutoStatus() {
     Row({ space: 6 }) {
-      Image($rawfile(P.icon(this.collected ? 'check' : 'spark', this.dark, 'accent')))
+      Image($rawfile(P.icon(this.collected ? 'check' : this.stuck ? 'undo' : 'spark', this.dark, 'accent')))
         .width(17).height(17).accessibilityLevel('no')
       Column({ space: 2 }) {
-        Text(this.collected ? '已收下' : '还差 ' + (10 - this.sum)).fontSize(14)
+        Text(this.collected ? '已收下' : this.stuck ? '换条路' : '还差 ' + (10 - this.sum)).fontSize(14)
           .fontWeight(FontWeight.Medium).fontColor(P.accent(this.dark))
-        if (!this.collected) { Text('凑满自动收').fontSize(9).fontColor(P.muted(this.dark)) }
+        if (!this.collected) { Text(this.stuck ? '撤销或看提示' : '凑满自动收').fontSize(9).fontColor(P.muted(this.dark)) }
       }
     }.width('100%').height(48).justifyContent(FlexAlign.Center).backgroundColor(P.soft(this.dark)).borderRadius(17)
   }
@@ -130,6 +133,7 @@ export struct TenTools {
   @Prop wide: boolean = false;
   @Prop canUndo: boolean = false;
   @Prop active: boolean = true;
+  @Prop stuck: boolean = false;
   undo: () => void = () => {};
   hint: () => void = () => {};
   more: () => void = () => {};
@@ -137,7 +141,7 @@ export struct TenTools {
     Row({ space: 7 }) {
       TenActionButton({ dark: this.dark, icon: 'undo', label: '撤销', primary: false, panelHeight: this.wide ? 64 : 48,
         active: this.active && this.canUndo, action: this.undo }).layoutWeight(1)
-      TenActionButton({ dark: this.dark, icon: 'hint', label: '看一步', primary: false, panelHeight: this.wide ? 64 : 48,
+      TenActionButton({ dark: this.dark, icon: 'hint', label: this.stuck ? '脱困提示' : '看一步', primary: this.stuck, panelHeight: this.wide ? 64 : 48,
         active: this.active, action: this.hint }).layoutWeight(1)
       TenActionButton({ dark: this.dark, icon: 'more', label: '更多', primary: false, panelHeight: this.wide ? 64 : 48,
         active: this.active, action: this.more }).layoutWeight(1)

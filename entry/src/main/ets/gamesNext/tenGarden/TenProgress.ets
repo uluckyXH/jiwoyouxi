@@ -3,13 +3,13 @@ import { TenEngine } from './TenEngine';
 import { TEN_GAME_ID, TenSave } from './TenModel';
 
 export function tenMilestone(saved: TenSave): AchievementEvent | undefined {
-  if (saved.profile.totalGroups === 0) return undefined;
+  if (saved.resumeRound !== undefined || saved.profile.totalGroups === 0) return undefined;
   return { gameId: TEN_GAME_ID, type: 'milestone', isOfficial: true, occurredAt: Date.now(),
     sessionId: saved.round.id, eventId: 'ten:progress:' + saved.profile.totalGroups + ':' + saved.profile.totalWins,
     facts: [{ key: 'totalGroups', value: saved.profile.totalGroups }, { key: 'totalWins', value: saved.profile.totalWins }] };
 }
 export function tenSettlement(saved: TenSave): AchievementEvent | undefined {
-  if (saved.round.phase !== 'complete' || saved.round.reported) return undefined;
+  if (saved.resumeRound !== undefined || saved.round.phase !== 'complete' || saved.round.reported) return undefined;
   return { gameId: TEN_GAME_ID, type: 'sessionEnd', isOfficial: true, occurredAt: Date.now(),
     sessionId: saved.round.id, eventId: saved.round.id + ':complete',
     facts: [{ key: 'totalGroups', value: saved.profile.totalGroups }, { key: 'totalWins', value: saved.profile.totalWins },

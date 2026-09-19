@@ -1,11 +1,15 @@
-import { TenHint, TenPath, TenPuzzle, TenRound, TenSave, TenTileView, tenInteger, tenProfile } from './TenModel';
-import { tenEqual, tenPuzzle, tenSaveValid, tenShift, tenStart, tenValidPath } from './TenRules';
+import { TenHint, TenPath, TenProfile, TenPuzzle, TenRound, TenSave, TenTileView, tenInteger, tenProfile } from './TenModel';
+import { tenEqual, tenHasMove, tenPuzzle, tenSaveValid, tenShift, tenStart, tenValidPath } from './TenRules';
 
 export class TenEngine {
   round: TenRound = tenStart();
   puzzle: TenPuzzle = tenPuzzle(1);
+  private resumeRound: TenRound | undefined = undefined;
   constructor(stage: number = 1) { this.round = tenStart(stage); this.puzzle = tenPuzzle(stage); }
   direction(): number { return (this.puzzle.direction + this.round.history.length) % 4; }
+  hasMove(): boolean { return this.round.phase === 'playing' && tenHasMove(this.round.board, this.puzzle.size); }
+  resumeStage(): number { return this.resumeRound === undefined ? 0 : this.resumeRound.stage; }
+  profile(): TenProfile { return tenProfile(this.resumeRound === undefined ? this.round : this.resumeRound); }
   submit(path: number[]): boolean {
     if (this.round.phase !== 'playing' || !tenValidPath(this.round.board, path, this.puzzle.size)) return false;
     const direction = this.direction();
@@ -30,10 +34,30 @@ export class TenEngine {
     return true;
   }
   next(): boolean {
+    if (this.resumeRound !== undefined) {
+      if (this.round.phase !== 'complete') return false;
+      const stage = this.round.stage + 1;
+      if (stage >= this.resumeRound.stage) return this.resume();
+      this.round = tenStart(stage); this.puzzle = tenPuzzle(stage);
+      return true;
+    }
     if (this.round.phase !== 'complete' || !this.round.reported || this.round.stage >= 1000000) return false;
     const stage = this.round.stage + 1;
     this.round = tenStart(stage);
     this.puzzle = tenPuzzle(stage);
+    return true;
+  }
+  previous(): boolean {
+    if (this.round.stage <= 1) return false;
+    if (this.resumeRound === undefined) this.resumeRound = JSON.parse(JSON.stringify(this.round)) as TenRound;
+    const stage = this.round.stage - 1;
+    this.round = tenStart(stage); this.puzzle = tenPuzzle(stage);
+    return true;
+  }
+  resume(): boolean {
+    if (this.resumeRound === undefined) return false;
+    this.round = this.resumeRound; this.resumeRound = undefined;
+    this.puzzle = tenPuzzle(this.round.stage);
     return true;
   }
   private rebuild(): void {
@@ -75,7 +99,7 @@ export class TenEngine {
     return result;
   }
   snapshot(): TenSave {
-    return JSON.parse(JSON.stringify({ version: 1, round: this.round, profile: tenProfile(this.round) })) as TenSave;
+    return JSON.parse(JSON.stringify({ version: 1, round: this.round, profile: this.profile(), resumeRound: this.resumeRound })) as TenSave;
   }
   serialize(): string { return JSON.stringify(this.snapshot()); }
   restore(raw: string): boolean {
@@ -83,6 +107,7 @@ export class TenEngine {
       const saved = JSON.parse(raw) as TenSave;
       if (!tenSaveValid(saved)) return false;
       this.round = saved.round;
+      this.resumeRound = saved.resumeRound;
       this.puzzle = tenPuzzle(saved.round.stage);
       return true;
     } catch (_) { return false; }

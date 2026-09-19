@@ -12,7 +12,7 @@ const clean=s=>s.replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export default /
  .replace(/^@Observed\s*$/gm,'').replace(/@Track\s+/g,'');
 const compile=s=>stripTypeScriptTypes(clean(s),{mode:'transform'});
 const source=['TenModel','TenPuzzles','TenRules','TenEngine','TenLayout','TenGesture','TenProgress','TenRenderTile'].map(n=>main('gamesNext/tenGarden/'+n+'.ets')).join('\n');
-const names='TenEngine,TenProgress,TenGesture,TenRenderTile,tenReconcileTiles,tenLayout,tenViewport,tenHit,tenSelect,tenValidPath,tenSum,tenProfile,tenShift,tenPuzzle,TEN_PUZZLES';
+const names='TenEngine,TenProgress,TenGesture,TenRenderTile,tenReconcileTiles,tenLayout,tenViewport,tenHit,tenSelect,tenValidPath,tenHasMove,tenSum,tenProfile,tenShift,tenPuzzle,TEN_PUZZLES';
 const core=vm.runInNewContext(compile(source)+'\n({'+names+'})',{});
 let count=0;
 async function test(name,run){await run();count++;console.log('PASS '+name);}
@@ -57,6 +57,39 @@ await test('malformed and forged saves fail atomically without replacing the pla
   s=>delete s.round,s=>s.round.history=[null],s=>s.round.board='no',s=>s.profile=null];
  for(const change of mutations){const save=JSON.parse(raw);change(save);assert.equal(e.restore(JSON.stringify(save)),false);assert.equal(e.serialize(),raw);}
  for(const bad of ['null','[]','false','{','{}']){assert.equal(e.restore(bad),false);assert.equal(e.serialize(),raw);}
+});
+await test('move availability agrees with an independent enumeration, including disconnected endgames',()=>{
+ let seed=0x191024,deadEnds=0,states=0;
+ const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
+ for(let stage=1;stage<=257;stage++){
+  const e=new core.TenEngine(stage);
+  while(e.round.phase==='playing'){
+   const choices=paths(e),raw=e.serialize();
+   assert.equal(e.hasMove(),choices.length>0);assert.equal(e.serialize(),raw);states++;
+   if(choices.length===0){
+    deadEnds++;const hint=e.hint();assert.ok(hint&&hint.rewind>0);
+    assert.ok(e.rewind());assert.ok(e.hasMove(),'undo returns to the preceding playable board');
+    assert.ok(e.restore(raw));assert.ok(e.applyHint(hint));assert.ok(e.hasMove());
+    while(e.round.phase==='playing'){const h=e.hint();assert.ok(h&&h.rewind===0);assert.ok(e.applyHint(h));assert.ok(e.submit(h.path));}
+    break;
+   }
+   assert.ok(e.submit(choices[random()%choices.length]));
+  }
+ }
+ assert.ok(deadEnds>100);console.log(`  checked ${states} board states and ${deadEnds} recoverable dead ends`);
+});
+await test('review saves validate both boards, retain older v1 saves and reject forged progress atomically',()=>{
+ const e=new core.TenEngine(4);e.submit(e.puzzle.solution[0].cells);const primary=e.serialize();
+ e.previous();e.submit(e.puzzle.solution[0].cells);const reviewing=e.serialize();
+ const restored=new core.TenEngine();assert.ok(restored.restore(reviewing));assert.equal(restored.serialize(),reviewing);
+ assert.equal(restored.resumeStage(),4);
+ for(const mutate of [s=>s.resumeRound=null,s=>s.resumeRound.board[0]=99,s=>s.resumeRound.stage=s.round.stage,
+  s=>s.resumeRound.history[0].cells=[-1,999],s=>s.resumeRound.id=s.round.id,s=>s.profile.totalGroups++,
+  s=>s.round.stage=5,s=>delete s.resumeRound]){
+  const forged=JSON.parse(reviewing);mutate(forged);assert.equal(restored.restore(JSON.stringify(forged)),false);
+  assert.equal(restored.serialize(),reviewing);
+ }
+ assert.ok(restored.restore(primary));assert.equal(restored.resumeStage(),0);assert.equal(restored.serialize(),primary);
 });
 await test('retained tile views follow all four winds and undo across every certified board',()=>{
  let moved=0;
@@ -231,6 +264,18 @@ await test('achievement persistence and completion acknowledgement failures surv
  assert.equal(durable.completedSessionCount,1);const loaded=new core.TenEngine();assert.ok(loaded.restore(retry.s.raw));
  const again=bridge(loaded,g);assert.ok(await again.p.flush());assert.equal(durable.completedSessionCount,1);assert.ok(loaded.next());
 });
+await test('reviewing cleared stages persists both games without duplicate milestones, wins or notices',async()=>{
+ const e=new core.TenEngine(),{p,s,g}=bridge(e);solve(e);await p.flush();assert.ok(e.next());
+ e.submit(e.puzzle.solution[0].cells);await p.flush();
+ const primary=e.serialize(),reports=s.reports.length,notices=g.notices.length,profile=plain(e.profile());
+ assert.ok(e.previous());await p.flush();solve(e);await p.flush();
+ assert.deepEqual(plain(e.profile()),profile);assert.equal(s.reports.length,reports);assert.equal(g.notices.length,notices);
+ assert.equal(durable.completedSessionCount,1);assert.deepEqual(s.records,[1]);
+ const loaded=new core.TenEngine();assert.ok(loaded.restore(s.raw));const resumed=bridge(loaded,g);
+ assert.ok(loaded.next());assert.equal(loaded.serialize(),primary);assert.ok(loaded.rewind());await resumed.p.flush();
+ assert.equal(durable.completedSessionCount,1);solve(loaded);await resumed.p.flush();
+ assert.equal(durable.completedSessionCount,2);assert.ok(loaded.round.reported);
+});
 await test('ten clears count globally, original-six condition remains stable, and home/wall order only appends',async()=>{
  const e=new core.TenEngine(),{p,g}=bridge(e);
  for(let i=0;i<10;i++){solve(e);await p.flush();e.next();}
@@ -244,7 +289,7 @@ await test('ten clears count globally, original-six condition remains stable, an
  assert.deepEqual(groups.slice(-4),['bloomLines','memoryPairs','starPop','tenGarden']);assert.equal(groups[0],'global');
 });
 const pageText=main('gamesNext/tenGarden/TenPage.ets');
-const pageNames=['boot','active','setSelection','tap','collectIfReady','touch','cancelGesture','collect','undo','hint','showHint','sync','cancelAnimation','animateBoard','advance','present','closeDialog','confirmDialog','relayout','backgrounded','exitRequested','save','retrySave','saveAndExit','aboutToDisappear'];
+const pageNames=['boot','active','setSelection','tap','collectIfReady','touch','cancelGesture','collect','undo','hint','showHint','sync','cancelAnimation','animateBoard','advance','changeStage','present','closeDialog','confirmDialog','relayout','backgrounded','exitRequested','save','retrySave','saveAndExit','aboutToDisappear'];
 const timers=new Map(),frames=[];let seq=0;
 const touchTypes={Down:0,Up:1,Move:2,Cancel:3};
 const pageApi=vm.runInNewContext(compile(source+'\nclass Page {\n'+pageNames.map(n=>method(pageText,n)).join('\n')+'\n}')+'\n({Page})',{
@@ -255,7 +300,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function controller(e=new core.TenEngine()){
  timers.clear();frames.length=0;const p=new pageApi.Page(),b=bridge(e),sounds=[];
  Object.assign(p,{engine:e,progress:b.p,context:{},pointerInput:new core.TenGesture(),pointer:-1,gestureCommitted:false,pendingHint:undefined,
-  loaded:true,loading:false,disposed:false,skipSave:false,backgroundPaused:false,timer:-1,generation:0,saveSequence:0,layoutGeneration:0,
+  loaded:true,loading:false,disposed:false,skipSave:false,backgroundPaused:false,backgroundGeneration:0,timer:-1,generation:0,saveSequence:0,layoutGeneration:0,
   returnDialog:'',dialog:'',saving:false,saveFailed:false,animating:false,touching:false,selected:[],hintCells:[],receipt:'',tiles:[],
   pageWidth:390,pageHeight:844,insets:{top:24,bottom:24,left:0,right:0},creases:[],layout:core.tenLayout(390,844,{top:24,bottom:24,left:0,right:0},[],e.puzzle.size),
   audio:{play:n=>sounds.push(n),silence(){},release(){}},host:{release(){}},storage:{load:async()=>b.s.raw,save:async(_ctx,raw)=>{b.s.raw=raw;return true;}},
@@ -314,6 +359,68 @@ await test('drag collects before lifting and consumes that gesture through anima
  pointer(p,touchTypes.Down,6);pointer(p,touchTypes.Move,8);
  assert.equal(e.round.phase,'complete');assert.equal(e.round.history.length,2);assert.equal(p.receipt,'3 + 4 + 3');
  pointer(p,touchTypes.Up,8);fire();await tick();assert.equal(p.dialog,'complete');assert.equal(durable.completedSessionCount,1);
+});
+await test('a fresh touch recovers a lost release without carrying old cell indices into a new gesture',()=>{
+ const {p,e}=controller();pointer(p,touchTypes.Down,3);pointer(p,touchTypes.Move,4);fire();
+ assert.equal(p.active(),false);assert.equal(p.gestureCommitted,true);
+ pointer(p,touchTypes.Down,6);pointer(p,touchTypes.Up,6);
+ assert.equal(p.active(),true);assert.equal(p.gestureCommitted,false);assert.deepEqual(plain(p.selected),[6]);
+ assert.equal(e.round.history.length,1);p.undo();fire();assert.equal(e.round.history.length,0);
+});
+await test('a dead-end page exposes recovery; undo, a confirmed hint and restart all remain usable',async()=>{
+ const e=new core.TenEngine(2);
+ while(e.hasMove()){assert.ok(e.submit(paths(e)[0]));if(e.round.phase==='complete')break;}
+ assert.equal(e.round.phase,'playing');assert.ok(e.round.history.length>0);
+ const {p}=controller(e),raw=e.serialize(),depth=e.round.history.length;
+ assert.equal(p.stuck,true);assert.equal(p.active(),true);
+ p.undo();fire();assert.equal(p.stuck,false);assert.equal(e.round.history.length,depth-1);
+ assert.ok(e.restore(raw));p.sync();p.hint();assert.equal(p.dialog,'hintRewind');
+ assert.ok(p.rewind>0);p.confirmDialog();assert.equal(p.stuck,false);assert.ok(core.tenValidPath(e.round.board,p.hintCells,6));
+ while(e.round.phase==='playing'){
+  for(const cell of p.hintCells.slice())p.tap(cell);fire();
+  if(e.round.phase==='playing')p.hint();
+ }
+ assert.equal(p.dialog,'complete');await tick();
+ assert.ok(e.restore(raw));p.sync();p.present('restart');p.confirmDialog();
+ assert.equal(p.stuck,false);assert.equal(e.round.history.length,0);assert.equal(p.active(),true);
+});
+await test('previous-stage confirmation preserves current progress, supports nested review and restores undo',async()=>{
+ const {p,e}=controller(new core.TenEngine(4));
+ for(const path of e.puzzle.solution.slice(0,2)){for(const i of path.cells)p.tap(i);fire();}
+ const raw=e.serialize();p.present('previous');p.closeDialog();p.confirmDialog();await tick();assert.equal(e.serialize(),raw);
+ p.present('previous');await p.changeStage(true);
+ assert.equal(p.round.stage,3);assert.equal(p.resumeStage,4);assert.equal(p.selected.length,0);assert.equal(p.stuck,false);
+ p.confirmDialog();await tick();assert.equal(p.round.stage,3,'late confirmation cannot go back twice');
+ p.present('previous');await p.changeStage(true);assert.equal(p.round.stage,2);assert.equal(p.resumeStage,4);
+ p.present('more');await p.changeStage(false);assert.equal(p.resumeStage,0);assert.equal(e.serialize(),raw);
+ p.undo();fire();assert.equal(e.round.history.length,1);assert.equal(p.active(),true);
+});
+await test('stage navigation is cancelled by failed persistence, backgrounding or a dismissed prompt',async()=>{
+ const {p,e,s}=controller(new core.TenEngine(2));const raw=e.serialize();
+ s.failSave=true;p.present('previous');await p.changeStage(true);assert.equal(e.serialize(),raw);assert.equal(p.saveFailed,true);
+ s.failSave=false;await p.retrySave();assert.equal(p.saveFailed,false);
+ const pending=p.changeStage(true);p.backgrounded();await pending;
+ assert.equal(e.serialize(),raw);assert.equal(p.dialog,'pause');assert.equal(p.saving,false);
+ p.closeDialog();p.present('previous');p.closeDialog();await p.changeStage(true);assert.equal(e.serialize(),raw);
+});
+await test('returning from background allows stage review from the pause menu without losing the original board',async()=>{
+ const {p,e}=controller(new core.TenEngine(2));
+ for(const i of e.puzzle.solution[0].cells)p.tap(i);fire();const original=e.serialize();
+ p.backgrounded();assert.equal(p.dialog,'pause');
+ p.present('previous');await p.changeStage(true);
+ assert.equal(p.round.stage,1,'the enabled previous-stage button in the pause menu must work');
+ assert.equal(p.dialog,'pause');assert.equal(p.active(),false);
+ const review=e.serialize(),interrupted=p.changeStage(false);p.backgrounded();await interrupted;
+ assert.equal(e.serialize(),review,'a new background event must still cancel an in-flight navigation');
+ await p.changeStage(false);assert.equal(e.serialize(),original);assert.equal(p.dialog,'pause');
+ p.closeDialog();assert.equal(p.active(),true);
+});
+await test('finishing a review can resume a completed primary stage without hiding its next-stage dialog',async()=>{
+ const {p,e}=controller(new core.TenEngine(2));solve(e);p.sync();await p.save();
+ const raw=e.serialize();p.present('previous');await p.changeStage(true);assert.equal(p.resumeStage,2);
+ solve(e);p.sync();p.dialog='complete';await p.advance();
+ assert.equal(e.serialize(),raw);assert.equal(p.dialog,'complete');assert.equal(p.resumeStage,0);
+ await p.advance();assert.equal(p.round.stage,3);assert.equal(p.dialog,'');assert.equal(p.active(),true);
 });
 await test('cancelling or folding after auto-collect keeps the committed board and discards old indices',async()=>{
  for(const cancel of ['cancel','fold']){
@@ -393,5 +500,51 @@ await test('load/corrupt errors never overwrite saves; restart is explicit and b
 await test('save-and-exit failure remains recoverable; success closes and suppresses a redundant save',async()=>{
  const {p,s}=controller();p.tap(3);s.failSave=true;await p.saveAndExit();assert.equal(p.left,undefined);assert.equal(p.dialog,'exit');
  s.failSave=false;await p.saveAndExit();assert.equal(p.left,true);assert.equal(p.skipSave,true);
+});
+await test('2400 mixed play actions preserve playable state, visible numbers, progress and saved recovery',async()=>{
+ let seed=0x191048,actions=0;
+ const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
+ for(let run=0;run<30;run++){
+  const {p,e}=controller(new core.TenEngine(run%5+1));let previous=plain(e.profile());
+  for(let action=0;action<80;action++){
+   if(p.dialog==='complete')await p.advance();
+   else if(p.dialog.length>0)p.closeDialog();
+   else {
+    const choice=random()%10;
+    if(choice<3){
+     p.setSelection([]);const moves=paths(e);
+     if(moves.length){
+      const path=moves[random()%moves.length];
+      if(choice===0){for(const i of path)p.tap(i);}
+      else {
+       pointer(p,touchTypes.Down,path[0]);for(const i of path.slice(1))pointer(p,touchTypes.Move,i);
+       if(choice===1)fire();pointer(p,touchTypes.Up,path.at(-1));
+      }
+     }else{p.hint();if(p.dialog==='hintRewind')p.confirmDialog();}
+    }else if(choice===3)p.undo();
+    else if(choice===4){p.hint();if(p.dialog==='hintRewind'){if(random()%2)p.confirmDialog();else p.closeDialog();}}
+    else if(choice===5){
+     p.backgrounded();p.present('help');p.closeDialog();
+     if(p.round.stage>1){p.present('previous');await p.changeStage(true);}p.closeDialog();
+    }else if(choice===6){
+     if(p.resumeStage>0){p.present('more');await p.changeStage(false);}
+     else if(p.round.stage>1){p.present('previous');await p.changeStage(true);}
+    }else if(choice===7){p.present('restart');p.confirmDialog();}
+    else if(choice===8){p.present('more');p.present('help');p.closeDialog();p.closeDialog();}
+    else{const raw=e.serialize();assert.ok(e.restore(raw));p.sync();p.confirmDialog();assert.equal(e.serialize(),raw);}
+   }
+   while(timers.size)fire();await p.save();
+   const profile=plain(e.profile());
+   assert.ok(profile.totalGroups>=previous.totalGroups&&profile.totalWins>=previous.totalWins);previous=profile;
+   const restored=new core.TenEngine();assert.ok(restored.restore(e.serialize()));assert.equal(restored.serialize(),e.serialize());
+   assert.deepEqual(plain(p.tiles),plain(e.tiles()));assert.deepEqual(plain(p.round.board),plain(e.round.board));
+   assert.equal(p.round.history.length,e.round.history.length);assert.equal(p.pointer,-1);assert.equal(p.gestureCommitted,false);
+   assert.ok(core.tenSum(p.round.board,p.selected)>=0&&core.tenSum(p.round.board,p.selected)<10);
+   if(p.dialog===''){assert.equal(p.active(),true);assert.equal(p.round.phase,'playing');}
+   if(p.hintCells.length)assert.ok(core.tenValidPath(p.round.board,p.hintCells,p.gridSize));
+   actions++;
+  }
+ }
+ assert.equal(actions,2400);console.log('  mixed actions verified: '+actions);
 });
 console.log('\nTen Garden: '+count+' rule, layout, input, lifecycle and achievement groups passed.');

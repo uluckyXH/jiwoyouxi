@@ -2,7 +2,7 @@ import { describe, expect, it, Level, Size, TestType } from '@ohos/hypium';
 import { TenEngine } from '../../../main/ets/gamesNext/tenGarden/TenEngine';
 import { TenGesture } from '../../../main/ets/gamesNext/tenGarden/TenGesture';
 import { TenPath, tenProfile } from '../../../main/ets/gamesNext/tenGarden/TenModel';
-import { tenPuzzle, tenSelect, tenShift, tenValidPath } from '../../../main/ets/gamesNext/tenGarden/TenRules';
+import { tenHasMove, tenPuzzle, tenSelect, tenShift, tenValidPath } from '../../../main/ets/gamesNext/tenGarden/TenRules';
 import { TenInsets, tenLayout, tenUsesCreases, tenViewport } from '../../../main/ets/gamesNext/tenGarden/TenLayout';
 import { tenReconcileTiles } from '../../../main/ets/gamesNext/tenGarden/TenRenderTile';
 
@@ -103,6 +103,45 @@ export default function tenGardenTest(): void {
       expect(e.round.history.length).assertEqual(0);
       expect(e.round.credited).assertEqual(1);
       expect(tenProfile(e.round).totalGroups).assertEqual(3);
+    });
+    it('a remaining total of ten is not a legal move across empty spaces', kind, () => {
+      const board: number[] = new Array<number>(36).fill(0);
+      board[0] = 1; board[6] = 6; board[12] = 1; board[3] = 2;
+      const original = board.join(',');
+      expect(tenHasMove(board, 6)).assertEqual(false);
+      expect(tenValidPath(board, [12, 6, 0, 3], 6)).assertEqual(false);
+      expect(board.join(',')).assertEqual(original);
+      board[3] = 0; board[1] = 2;
+      expect(tenHasMove(board, 6)).assertEqual(true);
+      expect(tenValidPath(board, [12, 6, 0, 1], 6)).assertEqual(true);
+      expect(tenHasMove(new Array<number>(36).fill(0), 6)).assertEqual(false);
+    });
+    it('previous-stage review preserves and restores the original challenge exactly', kind, () => {
+      const e = new TenEngine(3);
+      e.submit(e.puzzle.solution[0].cells);
+      const original = e.serialize();
+      expect(e.previous()).assertEqual(true);
+      expect(e.round.stage).assertEqual(2);
+      expect(e.resumeStage()).assertEqual(3);
+      expect(e.profile().totalGroups).assertEqual(15);
+      expect(e.previous()).assertEqual(true);
+      expect(e.round.stage).assertEqual(1);
+      expect(e.previous()).assertEqual(false);
+      const restored = new TenEngine();
+      expect(restored.restore(e.serialize())).assertEqual(true);
+      expect(restored.resume()).assertEqual(true);
+      expect(restored.serialize()).assertEqual(original);
+    });
+    it('review completion returns to the saved board without requiring or adding a settlement', kind, () => {
+      const e = new TenEngine(2);
+      e.submit(e.puzzle.solution[0].cells);
+      const original = e.serialize();
+      e.previous(); e.submit([3, 4]); e.submit([6, 7, 8]);
+      expect(e.round.reported).assertEqual(false);
+      expect(e.profile().totalGroups).assertEqual(3);
+      expect(e.profile().totalWins).assertEqual(1);
+      expect(e.next()).assertEqual(true);
+      expect(e.serialize()).assertEqual(original);
     });
     it('saved move history and stable tile identities restore atomically', kind, () => {
       const e = new TenEngine(2); e.submit(e.puzzle.solution[0].cells);

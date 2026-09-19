@@ -8,7 +8,7 @@ import { TenDialog } from './TenDialog';
 import { TenEngine } from './TenEngine';
 import { TenGesture } from './TenGesture';
 import { TenInsets, TenCrease, TenLayout, tenLayout } from './TenLayout';
-import { TEN_LOGO, TenHint, TenRound, tenProfile } from './TenModel';
+import { TEN_LOGO, TenHint, TenRound } from './TenModel';
 import { TenPalette as P } from './TenPalette';
 import { TenProgress } from './TenProgress';
 import { TenReflow } from './TenReflow';
@@ -34,17 +34,15 @@ export struct TenPage {
   private context: common.Context | undefined = undefined;
   private pointerInput: TenGesture = new TenGesture();
   private pointer: number = -1;
-  private gestureCommitted: boolean = false;
   private pendingHint: TenHint | undefined = undefined;
-  private loaded: boolean = false;
   private loading: boolean = false;
   private disposed: boolean = false;
   private skipSave: boolean = false;
-  private backgroundPaused: boolean = false;
   private timer: number = -1;
   private generation: number = 0;
   private saveSequence: number = 0;
   private layoutGeneration: number = 0;
+  private backgroundGeneration: number = 0;
   private returnDialog: string = '';
   private insets: TenInsets = { top: 24, bottom: 16, left: 0, right: 0 };
   private creases: TenCrease[] = [];
@@ -67,6 +65,13 @@ export struct TenPage {
   @State saveFailed: boolean = false;
   @State animating: boolean = false;
   @State touching: boolean = false;
+  // Rendered child enablement must subscribe to these gates, including finger-up.
+  @State gestureCommitted: boolean = false;
+  @State loaded: boolean = false;
+  @State backgroundPaused: boolean = false;
+  @State stuck: boolean = false;
+  @State resumeStage: number = 0;
+  @State completedStages: number = 0;
 
   aboutToAppear(): void {
     const context = this.getUIContext().getHostContext() as common.Context;
@@ -123,10 +128,11 @@ export struct TenPage {
       }
       if (this.dialog.length > 0) {
         TenDialog({ dark: this.dark, mode: this.dialog, stage: this.round.stage, collected: this.round.history.length,
-          goal: this.goal, rewind: this.rewind, hints: this.round.hints, undos: this.round.undos,
+          goal: this.goal, rewind: this.rewind, hints: this.round.hints, undos: this.round.undos, resumeStage: this.resumeStage,
           saving: this.saving, saveFailed: this.saveFailed,
           panelWidth: Math.min(430, Math.max(1, this.layout.width - 20)), panelHeight: Math.max(40, this.layout.height - 20),
           close: () => this.closeDialog(), confirm: () => this.confirmDialog(), restart: () => this.present('restart'),
+          previous: () => this.present('previous'), resume: () => this.changeStage(false),
           help: () => this.present('help'), leave: () => this.saveAndExit(),
           discard: () => { this.skipSave = true; this.exitToHub(); }, retry: () => this.boot(), retrySave: () => this.retrySave()
         }).width(this.layout.width).height(this.layout.height).position({ x: this.layout.x, y: this.layout.y })
@@ -145,7 +151,7 @@ export struct TenPage {
       Column({ space: 1 }) {
         Text('凑十小院').fontSize(22).minFontSize(13).maxFontSize(22).maxLines(1).width('100%')
           .fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
-        Text('凑成十 · 借一阵风').fontSize(10).fontColor(P.muted(this.dark))
+        Text(this.resumeStage > 0 ? '回顾关卡 · 原进度已保留' : '凑成十 · 借一阵风').fontSize(10).fontColor(P.muted(this.dark))
       }.layoutWeight(1).alignItems(HorizontalAlign.Start)
       TenIconButton({ dark: this.dark, icon: this.soundEnabled ? 'sound' : 'muted',
         label: this.soundEnabled ? '关闭音效' : '开启音效', action: () => this.updateSound(!this.soundEnabled) })
@@ -156,7 +162,8 @@ export struct TenPage {
   PlayArea() {
     // These nodes survive rotation and multi-hinge changes; the engine never resets on resize.
     Stack({ alignContent: Alignment.TopStart }) {
-      TenStats({ dark: this.dark, stage: this.round.stage, collected: this.round.history.length, goal: this.goal })
+      TenStats({ dark: this.dark, stage: this.round.stage, collected: this.round.history.length, goal: this.goal,
+        reviewing: this.resumeStage > 0 })
         .width(this.layout.stats.width).position({ x: this.layout.stats.x, y: this.layout.stats.y })
       TenBoard({ dark: this.dark, gridSize: this.gridSize, grid: this.layout.grid, cell: this.layout.cell,
         gap: this.layout.tileGap, pad: this.layout.pad, windDirection: this.windDirection, tiles: $tiles,
@@ -167,10 +174,10 @@ export struct TenPage {
         sum: this.animating && this.receipt.length > 0 ? 10 : tenSum(this.round.board, this.selected),
         formula: this.animating && this.receipt.length > 0 ? this.receipt :
           this.selected.map((i: number): string => '' + this.round.board[i]).join(' + '),
-        collected: this.animating && this.receipt.length > 0, hasHint: this.hintCells.length > 0,
+        collected: this.animating && this.receipt.length > 0, hasHint: this.hintCells.length > 0, stuck: this.stuck && !this.animating,
         clear: () => this.setSelection([])
       }).width(this.layout.selection.width).position({ x: this.layout.selection.x, y: this.layout.selection.y })
-      TenTools({ dark: this.dark, wide: this.layout.wide, canUndo: this.round.history.length > 0, active: this.active(),
+      TenTools({ dark: this.dark, wide: this.layout.wide, canUndo: this.round.history.length > 0, active: this.active(), stuck: this.stuck,
         undo: () => this.undo(), hint: () => this.hint(), more: () => this.present('more')
       }).width(this.layout.tools.width).position({ x: this.layout.tools.x, y: this.layout.tools.y })
       this.Note()
@@ -187,11 +194,12 @@ export struct TenPage {
           Text('进度暂未存好 · 点此重试').fontSize(11).fontColor(P.danger(this.dark))
         }.height(28).padding(0).backgroundColor(Color.Transparent).onClick(() => this.retrySave())
       } else {
-        Text(this.round.stage === 1 ? '先试试 2 + 8，凑满就会自动收下' : '点选或连线，凑满 10 自动收下')
+        Text(this.stuck ? '暂时没有相邻数字能凑十，撤销或看提示换条路' :
+          this.round.stage === 1 ? '先试试 2 + 8，凑满就会自动收下' : '点选或连线，凑满 10 自动收下')
           .fontSize(this.layout.wide ? 13 : 11).fontColor(P.muted(this.dark)).textAlign(TextAlign.Center)
       }
       if (this.layout.wide) {
-        Text('已收好 ' + tenProfile(this.round).totalWins + ' 盘小院 · 不限时间')
+        Text('已收好 ' + this.completedStages + ' 盘小院 · 不限时间')
           .fontSize(11).fontColor(P.gold(this.dark))
       }
     }.width(this.layout.note.width).height(this.layout.note.height).justifyContent(FlexAlign.Center)
@@ -230,6 +238,8 @@ export struct TenPage {
   }
   private touch(event: TouchEvent): void {
     if (event.type === TouchType.Cancel || event.touches.length > 1) { this.cancelGesture(); return; }
+    // A new physical down also recovers from an Up/Cancel lost outside the window.
+    if (event.type === TouchType.Down) this.cancelGesture();
     // Consume the remainder of this physical gesture, even after the animation ends.
     // A held finger must never start another group or scroll the board after collecting.
     if (this.gestureCommitted) {
@@ -296,6 +306,8 @@ export struct TenPage {
     this.round = this.engine.snapshot().round;
     this.tiles = tenReconcileTiles(this.tiles, this.engine.tiles());
     this.gridSize = this.engine.puzzle.size; this.goal = this.engine.puzzle.solution.length; this.windDirection = this.engine.direction();
+    this.stuck = this.round.phase === 'playing' && !this.engine.hasMove();
+    this.resumeStage = this.engine.resumeStage(); this.completedStages = this.engine.profile().totalWins;
   }
   private cancelAnimation(): void {
     this.generation += 1;
@@ -319,7 +331,23 @@ export struct TenPage {
     if (this.disposed) return;
     this.saving = false;
     if (!accepted || this.backgroundPaused || !this.engine.next()) return;
-    this.cancelGesture(); this.selected = []; this.hintCells = []; this.receipt = ''; this.returnDialog = ''; this.dialog = '';
+    this.cancelGesture(); this.selected = []; this.hintCells = []; this.pendingHint = undefined;
+    this.receipt = ''; this.returnDialog = ''; this.dialog = this.engine.round.phase === 'complete' ? 'complete' : '';
+    this.sync(); this.relayout(true); this.audio.play('wind'); this.save();
+  }
+  private async changeStage(previous: boolean): Promise<void> {
+    if (!this.loaded || this.disposed || this.saving) return;
+    if (previous ? this.dialog !== 'previous' : this.resumeStage === 0 || !['more', 'pause', 'resume', 'complete'].includes(this.dialog)) return;
+    const backgroundGeneration = this.backgroundGeneration;
+    this.saving = true;
+    const accepted = await this.save();
+    if (this.disposed) return;
+    this.saving = false;
+    if (!accepted || backgroundGeneration !== this.backgroundGeneration) return;
+    if (!(previous ? this.engine.previous() : this.engine.resume())) return;
+    this.cancelGesture(); this.cancelAnimation(); this.selected = []; this.hintCells = []; this.pendingHint = undefined;
+    this.receipt = ''; this.returnDialog = '';
+    this.dialog = this.backgroundPaused ? 'pause' : this.engine.round.phase === 'complete' ? 'complete' : '';
     this.sync(); this.relayout(true); this.audio.play('wind'); this.save();
   }
   private present(mode: string): void {
@@ -340,6 +368,7 @@ export struct TenPage {
     if (this.disposed || this.saving) return;
     if (this.dialog === 'complete') { this.advance(); return; }
     if (this.dialog === 'hintRewind') { this.showHint(); return; }
+    if (this.dialog === 'previous') { this.changeStage(true); return; }
     // A delayed confirmation from a dismissed dialog must never become a restart.
     if (this.dialog !== 'restart' && this.dialog !== 'corrupt') return;
     const replacing = this.dialog === 'corrupt';
@@ -371,6 +400,7 @@ export struct TenPage {
     }));
   }
   private backgrounded(): void {
+    this.backgroundGeneration += 1;
     this.backgroundPaused = true; this.cancelGesture(); this.cancelAnimation(); this.audio.silence();
     if (this.loaded) { this.dialog = 'pause'; this.returnDialog = ''; }
     this.save();
@@ -380,7 +410,7 @@ export struct TenPage {
   exitRequested(): void {
     if (this.saving) return;
     if (!this.loaded) { this.skipSave = true; this.exitToHub(); return; }
-    if (['help', 'restart', 'hintRewind', 'exit'].includes(this.dialog)) this.closeDialog();
+    if (['help', 'restart', 'hintRewind', 'previous', 'exit'].includes(this.dialog)) this.closeDialog();
     else this.present('exit');
   }
   private async save(): Promise<boolean> {
