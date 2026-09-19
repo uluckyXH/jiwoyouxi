@@ -18,7 +18,7 @@ export const ACHIEVEMENT_ORIGINAL_GAME_IDS: string[] = [
 ];
 
 export const ACHIEVEMENT_PRIMARY_GAME_IDS: string[] = [
-  ...ACHIEVEMENT_ORIGINAL_GAME_IDS, 'starPop', 'bloomLines', 'tangram', 'memoryPairs'
+  ...ACHIEVEMENT_ORIGINAL_GAME_IDS, 'starPop', 'bloomLines', 'tangram', 'memoryPairs', 'tenGarden'
 ];
 
 // Source routes are separate from stable badge/storage IDs. Legacy games cannot report.
@@ -26,7 +26,7 @@ export const ACHIEVEMENT_SOURCE_GAME_IDS: string[] = [
   'starPop',
   'bloomLines',
   'tangram',
-  'rpsBattleNext', 'freecellNext', 'minesweeperNext', 'chicken2048Next', 'tetrisNext', 'suikaNext', 'memoryPairs'
+  'rpsBattleNext', 'freecellNext', 'minesweeperNext', 'chicken2048Next', 'tetrisNext', 'suikaNext', 'memoryPairs', 'tenGarden'
 ];
 export function isAchievementSourceGameId(gameId: string): boolean {
   return ACHIEVEMENT_SOURCE_GAME_IDS.includes(gameId);
@@ -80,10 +80,12 @@ export const ACHIEVEMENT_GROUPS: AchievementGroupDefinition[] = [
   { id: 'tangram', title: '七巧板 · 七巧小院', gameId: 'tangram', placeholderSymbol: '△' },
   { id: 'bloomLines', title: '五子连珠 · 花窗连珠', gameId: 'bloomLines', placeholderSymbol: '✿' },
   { id: 'memoryPairs', title: '记忆翻牌 · 庭院寻双', gameId: 'memoryPairs', placeholderSymbol: '❀' },
-  { id: 'starPop', title: '消灭星星 · 星星小院', gameId: 'starPop', placeholderSymbol: '✦' }
+  { id: 'starPop', title: '消灭星星 · 星星小院', gameId: 'starPop', placeholderSymbol: '✦' },
+  { id: 'tenGarden', title: '凑十小院', gameId: 'tenGarden', placeholderSymbol: '✿' }
 ];
 
 export const GAME_ACHIEVEMENT_PROFILES: GameAchievementProfile[] = [
+  { gameId: 'tenGarden', factKeys: ['totalGroups', 'totalWins', 'stage', 'won'], eventTypes: ['milestone', 'sessionEnd'] },
   { gameId: 'starPop', factKeys: ['totalCleared', 'maxGroup', 'score'], eventTypes: ['milestone', 'sessionEnd'] },
   { gameId: 'memoryPairs', factKeys: ['totalPairs', 'totalTables', 'pairs', 'attempts'], eventTypes: ['milestone', 'sessionEnd'] },
   { gameId: 'bloomLines', factKeys: ['totalCleared', 'bestScore', 'score', 'moves'], eventTypes: ['milestone', 'sessionEnd'] },
@@ -627,6 +629,30 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     placeholderSymbol: '✦', badgeAssetPath: 'app/achievements/ach_star_collector.svg',
     progressKind: 'none', target: 100,
     rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalCleared', comparison: 'atLeast', value: 100 } },
+    enabled: true, noticeLevel: 'highlight'
+  },
+  {
+    id: 'tenGarden.first', groupId: 'tenGarden', gameId: 'tenGarden', title: '刚好是十',
+    summary: '收下第一组十', detail: '在凑十小院把相邻数字凑成 10，收下第一组。入门关也算，可以使用提示。',
+    placeholderSymbol: '✿', badgeAssetPath: 'app/achievements/ach_ten_first.svg',
+    progressKind: 'none', target: 1,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalGroups', comparison: 'atLeast', value: 1 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'tenGarden.clear', groupId: 'tenGarden', gameId: 'tenGarden', title: '小院初晴',
+    summary: '完成第一关', detail: '把任意一盘小院收空，入门关就能完成。不限用时，允许提示、撤销和重试。',
+    placeholderSymbol: '✿', badgeAssetPath: 'app/achievements/ach_ten_clear.svg',
+    progressKind: 'none', target: 1,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalWins', comparison: 'atLeast', value: 1 } },
+    enabled: true, noticeLevel: 'normal'
+  },
+  {
+    id: 'tenGarden.collector', groupId: 'tenGarden', gameId: 'tenGarden', title: '十全小花篮',
+    summary: '累计收下 12 组', detail: '累计收下 12 组十，可分多次完成。每盘按到达的最深进度累计，撤销或重试后重走不会重复计数。',
+    placeholderSymbol: '✿', badgeAssetPath: 'app/achievements/ach_ten_collector.svg',
+    progressKind: 'none', target: 12,
+    rule: { type: 'eventFact', eventType: 'any', condition: { key: 'totalGroups', comparison: 'atLeast', value: 12 } },
     enabled: true, noticeLevel: 'highlight'
   }
 ];

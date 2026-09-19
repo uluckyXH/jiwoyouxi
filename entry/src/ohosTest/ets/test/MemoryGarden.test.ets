@@ -1,7 +1,7 @@
 import { describe, expect, it, Level, Size, TestType } from '@ohos/hypium';
 import { MemoryEngine } from '../../../main/ets/gamesNext/memoryGarden/MemoryEngine';
 import { MemoryMode, memoryPairCount, memoryMatched } from '../../../main/ets/gamesNext/memoryGarden/MemoryModel';
-import { memoryLayout, memoryViewport, memoryUsesCreases, MemoryInsets } from '../../../main/ets/gamesNext/memoryGarden/MemoryLayout';
+import { memoryLayout, memoryViewport, memoryUsesCreases, memoryCardFaceLayout, MemoryInsets } from '../../../main/ets/gamesNext/memoryGarden/MemoryLayout';
 
 function memoryMate(engine: MemoryEngine, first: number): number {
   return engine.round.cards.findIndex((id: number, i: number) => i !== first && id === engine.round.cards[first]);
@@ -147,6 +147,24 @@ export default function memoryGardenTest(): void {
       expect(memoryUsesCreases(23)).assertEqual(true);
       expect(memoryUsesCreases(1)).assertEqual(false);
       expect(memoryUsesCreases(2)).assertEqual(false);
+    });
+    it('dense phone tables use the available width without clipping card artwork or controls', kind, () => {
+      const insets: MemoryInsets = { top: 24, bottom: 24, left: 0, right: 0 };
+      [8, 10, 12].forEach((pairs: number) => {
+        const layout = memoryLayout(390, 844, insets, [], pairs);
+        expect(layout.board.width).assertEqual(layout.contentWidth);
+        expect(layout.board.x).assertEqual(0);
+        expect(layout.tools.y + layout.tools.height <= layout.body).assertEqual(true);
+        const face = memoryCardFaceLayout(layout.card, layout.cardHeight);
+        expect(face.artwork + face.labelHeight + 8 <= layout.cardHeight).assertEqual(true);
+        expect(face.labelSize >= 8).assertEqual(true);
+      });
+      const focus = memoryLayout(390, 844, insets, [], 12);
+      expect(focus.note.height).assertEqual(0);
+      expect(focus.card > 75 && focus.cardHeight >= 60).assertEqual(true);
+      const folded = memoryLayout(800, 844, insets, [{ x: 390, y: 0, width: 20, height: 844 }], 12);
+      expect(folded.board.width).assertEqual(focus.board.width);
+      expect(folded.cardHeight).assertEqual(focus.cardHeight);
     });
     it('narrow half screen allows scrolling without shrinking touch targets', kind, () => {
       const layout = memoryLayout(200, 260, { top: 20, bottom: 20, left: 0, right: 0 }, [], 12);

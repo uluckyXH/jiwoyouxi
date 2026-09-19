@@ -26,6 +26,7 @@ export struct MemoryActionButton {
   @Prop label: string = '';
   @Prop primary: boolean = true;
   @Prop active: boolean = true;
+  @Prop panelHeight: number = 48;
   action: () => void = () => {};
   build() {
     Button({ type: ButtonType.Normal }) {
@@ -35,7 +36,7 @@ export struct MemoryActionButton {
         Text(this.label).fontSize(13).fontWeight(FontWeight.Medium).maxLines(1)
           .fontColor(this.primary ? P.onAccent(this.dark) : P.ink(this.dark))
       }.width('100%').justifyContent(FlexAlign.Center)
-    }.width('100%').height(48).padding(5).borderRadius(17)
+    }.width('100%').height(this.panelHeight).padding(5).borderRadius(17)
     .backgroundColor(this.primary ? P.accent(this.dark) : P.paper(this.dark))
     .border({ width: 1, color: this.primary ? P.accent(this.dark) : P.line(this.dark), radius: 17 })
     .enabled(this.active).opacity(this.active ? 1 : .45).onClick(this.action)
@@ -47,14 +48,16 @@ struct MemoryStat {
   @Prop icon: string = 'cards';
   @Prop label: string = '';
   @Prop value: string = '';
+  @Prop compact: boolean = false;
   build() {
-    Column({ space: 3 }) {
+    Column({ space: this.compact ? 2 : 3 }) {
       Row({ space: 4 }) {
         Image($rawfile(P.icon(this.icon, this.dark, 'accent'))).width(13).height(13).accessibilityLevel('no')
         Text(this.label).fontSize(10).fontColor(P.muted(this.dark)).maxLines(1)
       }
-      Text(this.value).fontSize(25).minFontSize(13).maxFontSize(25).maxLines(1).fontFamily('monospace')
-        .fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark)).width('100%').textAlign(TextAlign.Center).height(28)
+      Text(this.value).fontSize(this.compact ? 21 : 25).minFontSize(13).maxFontSize(this.compact ? 21 : 25)
+        .maxLines(1).fontFamily('monospace').fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
+        .width('100%').textAlign(TextAlign.Center).height(this.compact ? 24 : 28)
     }.width('100%')
   }
 }
@@ -67,11 +70,14 @@ export struct MemoryStats {
   @Prop panelHeight: number = 66;
   build() {
     Row() {
-      MemoryStat({ dark: this.dark, label: '翻牌次数', value: '' + this.attempts }).layoutWeight(1)
+      MemoryStat({ dark: this.dark, label: '翻牌次数', value: '' + this.attempts,
+        compact: this.panelHeight <= 48 }).layoutWeight(1)
       Divider().vertical(true).height(24).color(P.line(this.dark))
-      MemoryStat({ dark: this.dark, label: '连续配对', icon: 'pair', value: '' + this.streak }).layoutWeight(1)
+      MemoryStat({ dark: this.dark, label: '连续配对', icon: 'pair', value: '' + this.streak,
+        compact: this.panelHeight <= 48 }).layoutWeight(1)
       Divider().vertical(true).height(24).color(P.line(this.dark))
-      MemoryStat({ dark: this.dark, label: '本档最少', icon: 'trophy', value: this.best > 0 ? '' + this.best : '—' }).layoutWeight(1)
+      MemoryStat({ dark: this.dark, label: '本档最少', icon: 'trophy', value: this.best > 0 ? '' + this.best : '—',
+        compact: this.panelHeight <= 48 }).layoutWeight(1)
     }.width('100%').height(this.panelHeight).padding({ left: 8, right: 8 }).borderRadius(23)
     .backgroundColor(P.paper(this.dark)).border({ width: 1, color: P.line(this.dark), radius: 23 })
   }
@@ -80,37 +86,41 @@ export struct MemoryStats {
 export struct MemoryModes {
   @Prop dark: boolean = false;
   @Prop mode: MemoryMode = 'journey';
+  @Prop panelHeight: number = 50;
   choose: (mode: MemoryMode) => void = () => {};
   build() {
     Row({ space: 6 }) {
       ForEach(MEMORY_MODES, (item: MemoryModeInfo) => {
         Button({ type: ButtonType.Normal }) {
-          Column({ space: 3 }) {
-            Text(item.title).fontSize(14).fontWeight(FontWeight.Medium)
+          Column({ space: this.panelHeight <= 44 ? 2 : 3 }) {
+            Text(item.title).fontSize(this.panelHeight <= 44 ? 13 : 14).fontWeight(FontWeight.Medium)
               .fontColor(this.mode === item.id ? P.onAccent(this.dark) : P.ink(this.dark))
             Text(item.subtitle).fontSize(9).maxLines(1)
               .fontColor(this.mode === item.id ? P.onAccent(this.dark) : P.ink(this.dark))
           }.width('100%')
-        }.layoutWeight(1).height(50).padding(3).borderRadius(16)
+        }.layoutWeight(1).height(this.panelHeight).padding(3).borderRadius(16)
         .backgroundColor(this.mode === item.id ? P.accent(this.dark) : P.paper(this.dark))
         .border({ width: 1, color: this.mode === item.id ? P.accent(this.dark) : P.line(this.dark), radius: 16 })
         .accessibilityText(item.title + '，' + item.subtitle + (this.mode === item.id ? '，已选中' : ''))
         .onClick(() => this.choose(item.id))
       }, (item: MemoryModeInfo) => item.id)
-    }.width('100%').height(50)
+    }.width('100%').height(this.panelHeight)
   }
 }
 @Component
 export struct MemoryTools {
   @Prop dark: boolean = false;
+  @Prop panelHeight: number = 48;
   restart: () => void = () => {};
   help: () => void = () => {};
   build() {
     Row({ space: 10 }) {
-      MemoryActionButton({ dark: this.dark, icon: 'restart', label: '重新开始', primary: false, action: this.restart })
+      MemoryActionButton({ dark: this.dark, icon: 'restart', label: '重新开始', primary: false,
+        panelHeight: this.panelHeight, action: this.restart })
         .layoutWeight(1)
-      MemoryActionButton({ dark: this.dark, icon: 'help', label: '游玩指南', primary: false, action: this.help })
+      MemoryActionButton({ dark: this.dark, icon: 'help', label: '游玩指南', primary: false,
+        panelHeight: this.panelHeight, action: this.help })
         .layoutWeight(1)
-    }.width('100%').height(48)
+    }.width('100%').height(this.panelHeight)
   }
 }

@@ -171,4 +171,56 @@ await test('storage read failures and unexpected values are rejected without wri
   t.state.failRead=true;await assert.rejects(()=>t.adapter.load({}));
   assert.equal(t.writes.length,0);
 });
+function perfSetup() {
+  const logs=[], timers=new Map(), syncs=[];
+  const state={now:10,seq:0,fail:false};
+  const displaySync={create(){
+    if(state.fail)throw Error('unsupported');
+    const sync={running:false,callback:undefined,range:undefined,
+      setExpectedFrameRateRange(range){this.range=range;},on(_name,callback){this.callback=callback;},
+      off(){this.callback=undefined;},start(){this.running=true;},stop(){this.running=false;}};
+    syncs.push(sync);return sync;
+  }};
+  const {StarPerf,starNow}=load(['StarPerf'],'StarPerf,starNow',{
+    systemDateTime:{TimeType:{STARTUP:1},getUptime:()=>state.now*1000000},displaySync,
+    hilog:{info(_domain,tag,_format,message){assert.equal(tag,'StarPopPerf');logs.push(message);}},
+    setTimeout(fn,delay){const id=++state.seq;timers.set(id,{fn,delay});return id;},
+    clearTimeout:id=>timers.delete(id)
+  });
+  return {perf:new StarPerf(),starNow,state,logs,timers,syncs,
+    frame(ms){state.now+=ms;syncs.at(-1)?.callback?.();},
+    end(){const [id,timer]=timers.entries().next().value;timers.delete(id);timer.fn();}};
+}
+await test('profiling samples only around actions and aggregates callback gaps without logging every frame',()=>{
+  const t=perfSetup();assert.equal(t.timers.size,0);assert.equal(t.syncs.length,0);assert.equal(t.starNow(),10);
+  t.perf.sample('消除');assert.equal(t.timers.size,1);assert.equal([...t.timers.values()][0].delay,600);
+  assert.equal(t.syncs[0].range.expected,60);
+  for(const ms of [16,16,16,60,16])t.frame(ms);
+  assert.equal(t.logs.length,0,'frames must only accumulate numbers');t.end();
+  assert.equal(t.timers.size,0);assert.equal(t.syncs[0].running,false);assert.equal(t.syncs[0].callback,undefined);
+  assert.equal(t.logs.length,1);assert.match(t.logs[0],/间隔P95=60.00ms/);assert.match(t.logs[0],/超34ms=1/);
+  assert.match(t.logs[0],/非GPU帧率/);assert.match(t.logs[0],/访问=/);
+});
+await test('resize or exit stops old sampling and late frame/timer callbacks cannot restart it',()=>{
+  const t=perfSetup();t.perf.sample('进入');const oldFrame=t.syncs[0].callback,oldTimer=[...t.timers.values()][0].fn;
+  t.frame(16);t.perf.sample('重排');const live=t.syncs[1];assert.equal(t.syncs[0].running,false);
+  const before=t.logs.length;oldFrame();oldTimer();assert.equal(t.logs.length,before);assert.equal(t.timers.size,1);
+  assert.equal(live.running,true);const staleFrame=live.callback,staleTimer=[...t.timers.values()][0].fn;
+  t.perf.release();const released=t.logs.length;assert.equal(t.timers.size,0);assert.equal(live.running,false);
+  staleFrame();staleTimer();t.perf.sample('不应复活');t.perf.event('迟到回执');
+  assert.equal(t.timers.size,0);assert.equal(t.logs.length,released);assert.equal(t.syncs.length,2);
+});
+await test('profiling is bounded and unsupported frame providers do not add a timer loop',()=>{
+  const t=perfSetup();t.perf.sample('边界');for(let i=0;i<200;i++)t.frame(1);t.end();
+  assert.match(t.logs[0],/间隔数=120/);t.state.fail=true;t.perf.sample('不可用');
+  assert.equal(t.timers.size,0);assert.ok(t.logs.some(line=>line.includes('帧采样不可用')));
+});
+await test('normal saves and blocked taps are rate-limited, but slow operations and failures are retained',()=>{
+  const t=perfSetup();for(let i=0;i<9;i++){t.perf.saved(0,true,0);t.perf.inputBlocked('动画');}
+  assert.equal(t.logs.length,2);t.perf.saved(0,true,0);t.perf.inputBlocked('动画');assert.equal(t.logs.length,4);
+  t.state.now=210;t.perf.saved(0,true,1);assert.match(t.logs.at(-1),/含排队及成就=210.00ms/);
+  t.perf.saved(210,false,1);assert.match(t.logs.at(-1),/成功=false/);
+  const before=t.logs.length;t.perf.animationDelay(100,110);assert.equal(t.logs.length,before);
+  t.perf.animationDelay(60,110);assert.match(t.logs.at(-1),/超时=40.00ms/);
+});
 console.log('\nStar Pop: ' + count + ' platform adapter groups passed; physical-device behavior remains manual QA.');

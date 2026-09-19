@@ -97,6 +97,9 @@ for dark in [False, True]:
     peach = '#877055' if dark else '#EBC8A3'
     accent = '#AAD8B4' if dark else '#28745D'
     ink = '#F6ECD8' if dark else '#324C40'
+    motif = '#D5E9CF' if dark else '#FFFCF3'
+    # The native rounded card/stitching resize independently; keep the leaf undistorted.
+    svg(f'scene/back_motif_{theme}.svg', f'<path d="M32 12 53 40 32 68 11 40Z" fill="{motif}" opacity=".16"/><path d="M32 52V27m0 13Q16 41 17 28q15-2 15 12Zm0-4q0-16 16-16 1 15-16 16Z" fill="none" stroke="{motif}" stroke-width="2.5" stroke-linecap="round"/><g fill="{motif}" opacity=".7"><circle cx="32" cy="7" r="2"/><circle cx="32" cy="74" r="2"/></g>',64,80)
     for i in range(16):
         svg(f'cards/{i}_{theme}.svg', picture(i, dark))
     for name, path in ICONS.items():

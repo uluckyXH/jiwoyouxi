@@ -8,18 +8,19 @@ import vm from 'node:vm';
 const root=new URL('../',import.meta.url);
 const read=path=>readFileSync(new URL(path,root),'utf8');
 const main=path=>read('entry/src/main/ets/'+path);
-const clean=text=>text.replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export default /gm,'').replace(/^export /gm,'').replace(/^@Observed\s*$/gm,'');
+const clean=text=>text.replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export default /gm,'').replace(/^export /gm,'').replace(/^@Observed\s*$/gm,'').replace(/@Track\s+/g,'');
 const ts=text=>stripTypeScriptTypes(clean(text),{mode:'transform'});
 const plain=x=>JSON.parse(JSON.stringify(x));
 let passed=0;
 async function test(name,fn){await fn();passed++;console.log('PASS '+name);}
-const names=['StarModel','StarRules','StarGenerator','StarFallback','StarEngine','StarLayout','StarProgress','StarPreparation','StarPalette'];
+const names=['StarModel','StarRules','StarGenerator','StarFallback','StarEngine','StarLayout','StarProgress','StarPreparation','StarPalette','StarScene'];
 const coreSource=names.map(n=>main('gamesNext/starPop/'+n+'.ets')).join('\n');
-const exports='StarEngine,StarGenerator,StarProgress,StarPreparation,StarPalette,starFallback,starVerifyPuzzle,starGroup,starGroups,starGravityTiles,starCollapse,starTiles,starRemaining,starValidBoard,starGain,starBonus,starTarget,starColors,starLayout,starViewport,starUsesCreases';
-const core=vm.runInNewContext(ts(coreSource)+'\n({'+exports+'})',{setTimeout,clearTimeout});
+const exports='StarEngine,StarGenerator,StarProgress,StarPreparation,StarPalette,StarScene,StarVisualTile,starFallback,starVerifyPuzzle,starGroup,starGroups,starGravityTiles,starCollapse,starTiles,starRemaining,starValidBoard,starGain,starBonus,starTarget,starColors,starLayout,starViewport,starUsesCreases';
+const clock={starNow:()=>Date.now()};
+const core=vm.runInNewContext(ts(coreSource)+'\n({'+exports+'})',{setTimeout,clearTimeout,...clock});
 vm.runInNewContext(ts(coreSource+'\n'+read('entry/src/ohosTest/ets/test/StarPop.test.ets'))+'\nstarPopTest();',{
  describe:(_n,fn)=>fn(),it:(n,_k,fn)=>{fn();passed++;console.log('PASS '+n);},
- expect:v=>({assertEqual:e=>assert.equal(v,e)}),TestType:{FUNCTION:1},Size:{SMALLTEST:1},Level:{LEVEL0:1},setTimeout,clearTimeout
+ expect:v=>({assertEqual:e=>assert.equal(v,e)}),TestType:{FUNCTION:1},Size:{SMALLTEST:1},Level:{LEVEL0:1},setTimeout,clearTimeout,...clock
 });
 function puzzle(seed=42,mode='easy'){
  const g=new core.StarGenerator(seed,mode);while(!g.done&&g.steps<83)g.advance();
@@ -189,19 +190,23 @@ await test('stages do not inflate completed-session counts; final settlement and
 });
 
 const pageSource=main('gamesNext/starPop/StarPage.ets');
-const pageMethods=['boot','seed','canPlay','preview','clearPreview','tap','completeTurn','later','finishMotion','syncCounters','sync','undo','showHint',
- 'present','dialogAction','replaceRound','save','saveAndExit','exitRequested','themeChanged','soundChanged','backgrounded','relayout'];
+const pageMethods=['boot','beginLoadFeedback','endLoadFeedback','preparePuzzle','seed','canPlay','preview','clearPreview','tap',
+ 'completeTurn','later','finishMotion','syncCounters','sync','undo','showHint','present','dialogAction','replaceRound','save',
+ 'persist','reportProgress','saveAndExit','leavePage','exitRequested','dialogChanged','themeChanged','soundChanged',
+ 'backgrounded','relayout','aboutToDisappear'];
 let timerSeq=0;const timers=new Map();
-const rt=vm.runInNewContext(ts(coreSource+'\nclass Page {\n'+pageMethods.map(n=>method(pageSource,n)).join('\n')+'\n}\nclass Board {\n'+method(main('gamesNext/starPop/StarBoard.ets'),'cellFor')+'\n}')+'\n({Page,Board,StarPreparation})',{
- console,Curve:{EaseOut:0,EaseIn:1},setTimeout:fn=>{const id=++timerSeq;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id)
+const rt=vm.runInNewContext(ts(coreSource+'\nclass Page {\n'+pageMethods.map(n=>method(pageSource,n)).join('\n')+'\n}')+'\n({Page,StarPreparation})',{
+ console,...clock,Curve:{EaseOut:0,EaseIn:1},setTimeout:fn=>{const id=++timerSeq;timers.set(id,fn);return id;},clearTimeout:id=>timers.delete(id)
 });
 function controller(){
  timers.clear();const p=new rt.Page();
- Object.assign(p,{engine:new core.StarEngine(),loaded:true,loading:false,disposed:false,skipSave:false,backgroundPaused:false,context:{},
-  animationToken:0,animationTimer:-1,saveSequence:0,tiles:[],selected:[],clearing:[],clearScale:1,busy:false,gain:0,dialog:'',saving:false,saveFailed:false,hint:'',
+ Object.assign(p,{engine:new core.StarEngine(),loaded:true,loading:false,disposed:false,leaving:false,skipSave:false,backgroundPaused:false,context:{},
+  loadFeedbackTimer:-1,loadFeedbackToken:0,loadFeedback:'',
+  animationToken:0,animationTimer:-1,saveSequence:0,tiles:[],selected:[],previewCount:0,scene:new core.StarScene(),tileViews:[],busy:false,gain:0,dialog:'',saving:false,saveFailed:false,hint:'',
   pageWidth:390,pageHeight:844,insets:{top:24,bottom:16,left:0,right:0},creases:[],pendingMode:'easy',
   layout:core.starLayout(390,844,{top:24,bottom:16,left:0,right:0}),
-  audio:{play(){},silence(){},setEnabled(){}},host:{setDark(){}},perf:{logMove(){},layout(){}},
+  audio:{play(){},silence(){},setEnabled(){},release(){}},host:{setDark(){},release(){}},
+  perf:{move(){},layout(){},event(){},duration(){},saved(){},inputBlocked(){},animationDelay(){},sample(){},stopSample(){},release(){}},
   preparation:{async prepare(mode,seed){return puzzle(seed,mode);},cancel(){}},storage:{async load(){return '';}},progress:{async flush(){return true;}},
   scroller:{scrollTo(){}},exits:0,exitToHub(){this.exits++;},getUIContext(){return {animateTo:(_o,fn)=>fn()};}
  });p.sync();return p;
@@ -212,9 +217,10 @@ await test('page tap commits once, animates finitely and uses stable IDs at the 
  p.tap(id);const raw=p.engine.serialize();assert.ok(p.busy);p.tap(id);assert.equal(p.engine.serialize(),raw);
  assert.equal(drain(),2);assert.equal(p.busy,false);assert.equal(timers.size,0);
  assert.deepEqual(plain(p.tiles),plain(core.starTiles(p.engine.round.cells,p.engine.round.ids)));
- const board=new rt.Board();board.tiles=p.tiles;const survivor=p.tiles[0];assert.equal(board.cellFor(survivor.id),survivor.cell);
- const stale=survivor;board.tiles=p.tiles.map(t=>({...t,cell:t.id===stale.id?79:t.cell}));assert.equal(board.cellFor(stale.id),79);
- assert.match(main('gamesNext/starPop/StarBoard.ets'),/\.translate\(\{ x: \(this\.cellFor\(tile\.id\)/,'native position must subscribe to live array, not a stale ForEach item');
+ for(const tile of p.tiles){assert.equal(p.scene.tiles[tile.id].cell,tile.cell);assert.equal(p.scene.tiles[tile.id].visible,true);}
+ assert.equal(p.tileViews,p.scene.tiles);
+ assert.match(main('gamesNext/starPop/StarTileView.ets'),/@ObjectLink tile: StarVisualTile/);
+ assert.doesNotMatch(main('gamesNext/starPop/StarBoard.ets'),/\.find\(|\.includes\(|cellFor/);
 });
 await test('empty-column animation falls vertically first, then slides left, with no second scoring pass',()=>{
  const p=controller();p.engine.round.cells.fill(-1);p.engine.round.ids.fill(-1);
@@ -224,8 +230,34 @@ await test('empty-column animation falls vertically first, then slides left, wit
  p.sync();p.tap(64);const raw=p.engine.serialize();
  const tick=()=>{const [id,fn]=timers.entries().next().value;timers.delete(id);fn();};
  tick();assert.equal(p.tiles.find(t=>t.id===57).cell,73,'fall to the bottom of the old column');
+ assert.equal(p.scene.tiles[57].cell,73);
  assert.equal(p.engine.serialize(),raw);tick();assert.equal(p.tiles.find(t=>t.id===57).cell,72,'only then move into the empty left column');
+ assert.equal(p.scene.tiles[57].cell,72);
  tick();assert.equal(p.busy,false);assert.equal(timers.size,0);assert.equal(p.engine.serialize(),raw);
+});
+await test('visual changes touch only affected tile fields and keep node identities through all animation stages',()=>{
+ const scene=new core.StarScene(),tiles=Array.from({length:80},(_,id)=>({id,color:id%4,cell:id})),counts=Array(80).fill(2);
+ assert.equal(scene.restore('round:1',tiles,counts),true);const refs=[...scene.tiles],writes=[];
+ for(const tile of scene.tiles)for(const key of ['cell','color','visible','selected','scale','groupCount']){
+  let value=tile[key];Object.defineProperty(tile,key,{get:()=>value,set:next=>{writes.push([tile.id,key]);value=next;}});
+ }
+ assert.equal(scene.restore('round:1',tiles,counts),false);assert.equal(writes.length,0,'unchanged state causes no observable writes');
+ scene.select([3,4,5,6]);assert.deepEqual(writes,[[3,'selected'],[4,'selected'],[5,'selected'],[6,'selected']]);
+ writes.length=0;scene.select([3,4,5,6]);assert.equal(writes.length,0,'same preview causes no writes');
+ scene.shrink([3,4]);assert.deepEqual(writes,[[3,'scale'],[4,'scale']]);
+ writes.length=0;scene.hide([3,4]);assert.deepEqual(writes,[[3,'visible'],[4,'visible']]);
+ writes.length=0;assert.equal(scene.place([{...tiles[1],cell:9},tiles[2]]),1);assert.deepEqual(writes,[[1,'cell']]);
+ for(let id=0;id<80;id++)assert.equal(scene.tiles[id],refs[id],'no tile object recreation');
+});
+await test('reflow, undo, partial-save restore and a new round reconcile all visual tiles without stale position or color',()=>{
+ const p=controller(),refs=[...p.scene.tiles];p.tap(p.engine.round.ids[p.engine.hint()[0]]);
+ p.pageWidth=820;p.relayout();const visible=plain(p.scene.tiles.filter(t=>t.visible).map(t=>({id:t.id,color:t.color,cell:t.cell}))).sort((a,b)=>a.id-b.id);
+ assert.deepEqual(visible,plain(p.tiles).sort((a,b)=>a.id-b.id));assert.ok(p.scene.tiles.every((t,id)=>t===refs[id]&&t.scale===1));
+ const saved=p.engine.serialize(),q=controller();q.engine.restore(saved);q.sync();q.undo();
+ assert.equal(q.scene.tiles.filter(t=>t.visible).length,80);
+ for(const tile of q.tiles){const live=q.scene.tiles[tile.id];assert.equal(live.color,tile.color);assert.equal(live.cell,tile.cell);assert.equal(live.visible,true);}
+ const old=q.scene.tiles[0];q.engine.start('classic',puzzle(91,'classic'));q.sync();assert.notEqual(q.scene.tiles[0],old);
+ assert.equal(q.tileViews,q.scene.tiles);assert.ok(q.scene.tiles.every(t=>t.visible&&t.scale===1&&!t.selected));
 });
 await test('clearing the entire board credits 500 once and next stage restores all 80 tiles',()=>{
  const e=new core.StarEngine();e.round.cells.fill(0);const turn=e.pop(0);
@@ -267,18 +299,68 @@ await test('load failures and malformed saves never overwrite the original data'
  p.storage.load=async()=>'{broken';await p.boot();assert.equal(p.dialog,'corrupt');assert.equal(p.loaded,false);assert.equal(writes,0);
  p.dialogAction('leaveUntouched');assert.ok(p.skipSave);assert.equal(p.exits,1);
 });
-await test('incremental generation yields, cancels and returns only verified puzzles',async()=>{
- timers.clear();const p=new rt.StarPreparation();let finished=false;
- const preparing=p.prepare('easy',8).then(result=>{finished=true;return result;});assert.equal(finished,false);assert.equal(timers.size,1);
- const ticks=drain();assert.ok(ticks>10);const result=await preparing;assert.ok(core.starVerifyPuzzle(result,'easy'));assert.equal(timers.size,0);
- const aborted=p.prepare('classic',9);const stale=[...timers.values()];p.cancel();assert.equal(await aborted,undefined);stale.forEach(fn=>fn());assert.equal(timers.size,0);
+await test('quick re-entry restores the same board without ever showing a loading dialog',async()=>{
+ const p=controller();p.engine.pop(p.engine.hint()[0]);const saved=p.engine.serialize();
+ p.loaded=false;p.storage.load=async()=>saved;
+ const seen=[];let dialog='';Object.defineProperty(p,'dialog',{get:()=>dialog,set:v=>{seen.push(v);dialog=v;}});
+ const loading=p.boot(),stale=[...timers.values()];assert.equal(p.dialog,'');assert.equal(p.canPlay(),false);
+ await loading;assert.equal(p.loaded,true);assert.equal(p.dialog,'');assert.equal(p.engine.serialize(),saved);
+ assert.ok(!seen.includes('loading'));assert.equal(p.loadFeedback,'');assert.equal(timers.size,0);
+ stale.forEach(fn=>fn());assert.equal(p.loadFeedback,'');
+ assert.match(pageSource,/@State @Watch\('dialogChanged'\) dialog: string = ''/);
 });
-await test('home appends Star Pop last without changing existing visible games or the hidden Tangram route',()=>{
+await test('slow reading uses only inline feedback and dismisses it on completion or failure',async()=>{
+ const p=controller(),raw=p.engine.serialize();p.loaded=false;let resolve;
+ p.storage.load=()=>new Promise(r=>resolve=r);const pending=p.boot();
+ const [id,fn]=timers.entries().next().value;timers.delete(id);fn();
+ assert.ok(p.loadFeedback.length>0);assert.equal(p.dialog,'');assert.equal(p.canPlay(),false);
+ resolve(raw);await pending;assert.equal(p.loadFeedback,'');assert.equal(p.dialog,'');assert.equal(timers.size,0);
+ p.loaded=false;p.storage.load=async()=>{throw Error('read');};await p.boot();
+ assert.equal(p.dialog,'loadError');assert.equal(p.loadFeedback,'');assert.equal(timers.size,0);
+});
+await test('exit during a pending restore invalidates late replies before the page is unmounted',async()=>{
+ const p=controller();p.loaded=false;let resolve,writes=0;const raw=p.engine.serialize();
+ p.storage.load=()=>new Promise(r=>resolve=r);p.progress.flush=async()=>{writes++;return true;};
+ const pending=p.boot(),stale=[...timers.values()];p.exitRequested();
+ assert.equal(p.exits,1);assert.equal(p.disposed,false);assert.equal(p.leaving,true);assert.equal(timers.size,0);
+ resolve(raw);await pending;stale.forEach(fn=>fn());
+ assert.equal(p.loaded,false);assert.equal(writes,0);assert.equal(p.loadFeedback,'');assert.equal(p.engine.serialize(),raw);
+});
+await test('background-cancelled first-board preparation never saves the constructor fallback',async()=>{
+ const p=controller();p.loaded=false;let resolve,writes=0;
+ p.storage.load=async()=>'';p.progress.flush=async()=>{writes++;return true;};
+ p.preparation={prepare:()=>new Promise(r=>resolve=r),cancel(){resolve?.(undefined);}};
+ const pending=p.boot();await new Promise(r=>setImmediate(r));p.backgrounded();await pending;
+ assert.equal(p.loaded,false);assert.equal(writes,0);assert.equal(p.dialog,'more');assert.equal(timers.size,0);
+ p.preparation.prepare=async()=>puzzle(99);p.dialogAction('close');await new Promise(r=>setImmediate(r));
+ assert.equal(p.loaded,true);assert.equal(p.engine.round.seed,99);assert.equal(p.dialog,'');
+});
+await test('restored round-end panels and storage errors remain visible until acted on',async()=>{
+ const p=controller();for(const cell of core.starFallback('easy').path)p.engine.pop(cell);
+ const raw=p.engine.serialize();assert.equal(p.engine.round.status,'stageEnd');
+ p.loaded=false;p.storage.load=async()=>raw;await p.boot();assert.equal(p.dialog,'stageEnd');
+ assert.equal(p.loadFeedback,'');assert.equal(timers.size,0);
+});
+await test('disappearance cancels pending feedback and animation, then releases profiling',async()=>{
+ const p=controller();let released=0,resolve;p.perf.release=()=>released++;
+ p.loaded=false;p.storage.load=()=>new Promise(r=>resolve=r);const pending=p.boot(),stale=[...timers.values()];
+ p.aboutToDisappear();resolve(p.engine.serialize());await pending;stale.forEach(fn=>fn());
+ assert.equal(released,1);assert.equal(p.loaded,false);assert.equal(p.loadFeedback,'');assert.equal(timers.size,0);
+});
+await test('incremental generation yields, cancels and returns only verified puzzles',async()=>{
+ timers.clear();const p=new rt.StarPreparation();let finished=false;const timings=[];
+ const preparing=p.prepare('easy',8,t=>timings.push(t)).then(result=>{finished=true;return result;});assert.equal(finished,false);assert.equal(timers.size,1);
+ const ticks=drain();assert.ok(ticks>10);const result=await preparing;assert.ok(core.starVerifyPuzzle(result,'easy'));assert.equal(timers.size,0);
+ assert.equal(timings.length,1);assert.equal(timings[0].slices,ticks);assert.equal(timings[0].cancelled,false);assert.ok(timings[0].peak<=timings[0].compute);
+ const aborted=p.prepare('classic',9,t=>timings.push(t));const stale=[...timers.values()];p.cancel();assert.equal(await aborted,undefined);stale.forEach(fn=>fn());assert.equal(timers.size,0);
+ assert.equal(timings.length,2);assert.equal(timings[1].cancelled,true);
+});
+await test('home preserves the Star Pop order and appends Ten Garden while Tangram stays hidden',()=>{
  const hub=main('pages/HubPage.ets');const source=['shell/GameModule.ets','shell/GameRegistry.ets'].map(main).join('\n')+'\n'+
   ['HOME_GAME_ORDER','HIDDEN_HOME_GAME_IDS'].map(n=>hub.match(new RegExp('const '+n+': string\\[\\] = \\[[\\s\\S]*?\\];'))[0]).join('\n')+
   '\nclass Hub {\n'+method(hub,'homeModules')+'\n}';
  const h=vm.runInNewContext(ts(source)+'\n({Hub,gameLogoPath})');const ids=Array.from(new h.Hub().homeModules(),g=>g.id);
- assert.equal(ids.at(-1),'starPop');assert.deepEqual(ids.slice(0,7),['suikaNext','minesweeperNext','tetrisNext','chicken2048Next','freecellNext','rpsBattleNext','bloomLines']);
+ assert.deepEqual(ids,['suikaNext','minesweeperNext','tetrisNext','chicken2048Next','freecellNext','rpsBattleNext','bloomLines','memoryPairs','starPop','tenGarden']);
  assert.ok(!ids.includes('tangram'));assert.equal(h.gameLogoPath('starPop'),'gamesNext/starPop/scene/logo.svg');
  const index=main('pages/Index.ets');assert.match(index,/activeGame === 'starPop'[\s\S]*?starPopExitRequest/);assert.match(index,/StarPage\(\{/);
 });

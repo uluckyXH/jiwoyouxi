@@ -13,6 +13,8 @@ export struct MemoryBoard {
   @Prop cardHeight: number = 78;
   @Prop gap: number = 7;
   @Prop pad: number = 12;
+  @Prop headerHeight: number = 50;
+  @Prop footerHeight: number = 38;
   @Prop active: boolean = true;
   @Prop deal: boolean = true;
   @Prop hint: string = MEMORY_HINT;
@@ -23,16 +25,19 @@ export struct MemoryBoard {
     Column() {
       Row() {
         Column({ space: 2 }) {
-          Text('第 ' + this.round.number + ' 桌 · 庭院寻双').fontSize(16).minFontSize(12).maxFontSize(16).maxLines(1)
+          Text('第 ' + this.round.number + ' 桌 · 庭院寻双').fontSize(this.headerHeight < 40 ? 14 : 16)
+            .minFontSize(12).maxFontSize(this.headerHeight < 40 ? 14 : 16).maxLines(1)
             .fontWeight(FontWeight.Bold).fontColor(P.ink(this.dark))
-          Text(this.round.phase === 'complete' ? '都找到啦，下一桌也在等你' : '记住一眼，下次就会相遇')
-            .fontSize(10).fontColor(P.muted(this.dark))
+          if (this.headerHeight >= 40) {
+            Text(this.round.phase === 'complete' ? '都找到啦，下一桌也在等你' : '记住一眼，下次就会相遇')
+              .fontSize(10).fontColor(P.muted(this.dark))
+          }
         }.layoutWeight(1).alignItems(HorizontalAlign.Start)
         Image($rawfile(P.icon('pair', this.dark, 'accent'))).width(19).height(19).margin({ right: 5 })
           .accessibilityLevel('no')
         Text(memoryMatched(this.round) + ' / ' + this.round.pairs).fontSize(14).fontFamily('monospace')
           .fontColor(P.accent(this.dark))
-      }.width('100%').height(50)
+      }.width('100%').height(this.headerHeight)
       Stack({ alignContent: Alignment.TopStart }) {
         ForEach([this.round.id], (_id: string) => {
           ForEach(this.round.cards, (picture: number, index: number) => {
@@ -46,13 +51,14 @@ export struct MemoryBoard {
       Row({ space: 6 }) {
         Image($rawfile(P.icon(this.round.phase === 'complete' ? 'flower' : 'leaf', this.dark, 'accent')))
           .width(16).height(16).accessibilityLevel('no')
-        Text(this.hint).fontSize(10).minFontSize(9).maxFontSize(10).maxLines(2)
+        Text(this.hint).fontSize(10).minFontSize(9).maxFontSize(10).maxLines(this.footerHeight < 28 ? 1 : 2)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
           .fontColor(this.failed ? P.danger(this.dark) : P.muted(this.dark)).layoutWeight(1)
         if (this.failed) {
           Button('重试').fontSize(12).fontColor(P.accent(this.dark)).backgroundColor(P.soft(this.dark))
-            .height(40).width(48).padding(2).borderRadius(12).onClick(this.retry)
+            .height(this.footerHeight).width(48).padding(2).borderRadius(12).onClick(this.retry)
         }
-      }.width('100%').height(38).accessibilityText(this.hint)
+      }.width('100%').height(this.footerHeight).accessibilityText(this.hint)
     }.width(this.boardWidth).height(this.boardHeight).padding(this.pad).borderRadius(27)
     .backgroundColor(P.paper(this.dark)).border({ width: 1, color: P.line(this.dark), radius: 27 })
   }

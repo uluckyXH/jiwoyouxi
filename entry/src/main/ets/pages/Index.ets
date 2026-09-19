@@ -1,4 +1,5 @@
 import { StarPage } from '../gamesNext/starPop/StarPage';
+import { TenPage } from '../gamesNext/tenGarden/TenPage';
 import { HubSession } from '../design/HubSession';
 import { BloomPage } from '../gamesNext/bloomLines/BloomPage';
 import { MemoryPage } from '../gamesNext/memoryGarden/MemoryPage';
@@ -71,6 +72,7 @@ struct Index {
   @State activeGame: string = 'hub';
   @State bloomLinesExitRequest: number = 0;
   @State starPopExitRequest: number = 0;
+  @State tenGardenExitRequest: number = 0;
   @State memoryPairsExitRequest: number = 0;
   @State tangramExitRequest: number = 0;
   @State tetrisSession: number = 0;
@@ -129,6 +131,10 @@ struct Index {
   }
 
   onBackPress(): boolean {
+    if (this.activeGame === 'tenGarden') {
+      this.tenGardenExitRequest += 1;
+      return true;
+    }
     if (this.activeGame === 'memoryPairs') {
       this.memoryPairsExitRequest += 1;
       return true;
@@ -335,6 +341,17 @@ struct Index {
             exitRequest: this.starPopExitRequest,
             exitToHub: () => this.closeGameAnimated(),
             recordScore: (score: number) => this.recordGameResult('starPop', score),
+            updateSound: (enabled: boolean) => this.updateSound(enabled),
+            reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
+          })
+        }
+      } else if (this.activeGame === 'tenGarden') {
+        GameSceneTransition({ role: 'game', sceneDirection: this.sceneDirection }) {
+          TenPage({
+            dark: this.isDarkMode(), soundEnabled: this.snapshot.soundEnabled,
+            exitRequest: this.tenGardenExitRequest,
+            exitToHub: () => this.closeGameAnimated(),
+            recordScore: (boards: number) => this.recordGameResult('tenGarden', boards),
             updateSound: (enabled: boolean) => this.updateSound(enabled),
             reportAchievementEvent: (event: AchievementEvent) => this.reportAchievementEvent(event)
           })

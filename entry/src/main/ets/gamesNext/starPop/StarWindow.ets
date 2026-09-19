@@ -10,18 +10,18 @@ export class StarWindow {
   private dark: boolean = false;
   private toVp: (px: number) => number = (px: number): number => px;
   private changed: (insets: StarInsets, creases: StarCrease[]) => void = () => {};
-  private background: () => void = () => {};
+  private background: (reason: string) => void = () => {};
   private onChange = (): void => { this.measure(); };
   private onWindow = (event: window.WindowEventType): void => {
     if (this.disposed) return;
     if (event === window.WindowEventType.WINDOW_HIDDEN || event === window.WindowEventType.WINDOW_INACTIVE) {
-      this.background();
+      this.background(event === window.WindowEventType.WINDOW_HIDDEN ? 'WINDOW_HIDDEN' : 'WINDOW_INACTIVE');
     }
     if (event === window.WindowEventType.WINDOW_SHOWN) this.measure();
   };
 
   async attach(context: common.Context, toVp: (px: number) => number,
-    changed: (insets: StarInsets, creases: StarCrease[]) => void, background: () => void): Promise<void> {
+    changed: (insets: StarInsets, creases: StarCrease[]) => void, background: (reason: string) => void): Promise<void> {
     this.toVp = toVp;
     this.changed = changed;
     this.background = background;

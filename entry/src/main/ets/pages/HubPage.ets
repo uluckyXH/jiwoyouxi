@@ -19,7 +19,7 @@ import { currentPlayStreak } from '../design/PlayActivity';
 
 const HOME_GAME_ORDER: string[] = [
   'suikaNext', 'minesweeperNext', 'tetrisNext', 'chicken2048Next', 'freecellNext', 'rpsBattleNext',
-  'tangram', 'bloomLines', 'memoryPairs', 'starPop'
+  'tangram', 'bloomLines', 'memoryPairs', 'starPop', 'tenGarden'
 ];
 
 // Hide classic entry points on Home while retaining their routes, saves and favorites.
@@ -415,6 +415,7 @@ export struct HubPage {
 
   private homeTag(gameId: string): string {
     if (gameId === 'starPop') return '星星小院';
+    if (gameId === 'tenGarden') return '风向凑十';
     if (gameId === 'bloomLines') return '花窗连珠';
     if (gameId === 'memoryPairs') return '庭院寻双';
     if (gameId === 'rpsBattle') return '鸡窝乱斗';

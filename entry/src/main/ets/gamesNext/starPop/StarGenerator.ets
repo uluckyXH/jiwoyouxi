@@ -1,5 +1,5 @@
 import { STAR_COUNT, StarMode, StarPuzzle, starBonus, starColors, starGain } from './StarModel';
-import { starCollapse, starGroups, starRemaining } from './StarRules';
+import { starCollapse, starGroup, starGroups, starRemaining } from './StarRules';
 
 export class StarRandom {
   value: number;
@@ -82,15 +82,9 @@ export function starVerifyPuzzle(puzzle: StarPuzzle, mode: StarMode): boolean {
   let ids: number[] = []; for (let i = 0; i < STAR_COUNT; i++) ids.push(i);
   let score = 0;
   for (let i = 0; i < puzzle.path.length; i++) {
-    const group = starGroupForProof(cells, puzzle.path[i]);
+    const group = starGroup(cells, puzzle.path[i]);
     if (group.length < 2) return false;
     const move = starCollapse(cells, ids, group); cells = move.cells; ids = move.ids; score += move.gain;
   }
   return starGroups(cells).length === 0 && score + starBonus(starRemaining(cells)) === puzzle.witness;
-}
-
-function starGroupForProof(cells: number[], cell: number): number[] {
-  const groups = starGroups(cells);
-  for (let i = 0; i < groups.length; i++) if (groups[i].includes(cell)) return groups[i];
-  return [];
 }

@@ -11,7 +11,10 @@ export function starNeighbors(cell: number): number[] {
 
 export function starGroup(cells: number[], cell: number): number[] {
   if (!Number.isInteger(cell) || cell < 0 || cell >= STAR_COUNT || cells[cell] < 0) return [];
-  const seen: boolean[] = new Array<boolean>(STAR_COUNT).fill(false);
+  return starCollectGroup(cells, cell, new Array<boolean>(STAR_COUNT).fill(false));
+}
+
+function starCollectGroup(cells: number[], cell: number, seen: boolean[]): number[] {
   const group: number[] = [cell]; seen[cell] = true;
   for (let head = 0; head < group.length; head++) {
     const neighbors = starNeighbors(group[head]);
@@ -28,8 +31,7 @@ export function starGroups(cells: number[]): number[][] {
   const groups: number[][] = [];
   for (let cell = 0; cell < STAR_COUNT; cell++) {
     if (cells[cell] < 0 || seen[cell]) continue;
-    const group = starGroup(cells, cell);
-    for (let i = 0; i < group.length; i++) seen[group[i]] = true;
+    const group = starCollectGroup(cells, cell, seen);
     if (group.length >= 2) groups.push(group);
   }
   return groups;
@@ -69,9 +71,11 @@ export function starTiles(cells: number[], ids: number[]): StarTile[] {
 
 /** Intermediate visual positions: gravity first, then empty-column compression. */
 export function starGravityTiles(before: StarTile[], after: StarTile[]): StarTile[] {
+  const columns: number[] = new Array<number>(STAR_COUNT).fill(-1);
+  for (let i = 0; i < before.length; i++) columns[before[i].id] = before[i].cell % STAR_WIDTH;
   return after.map((tile: StarTile): StarTile => {
-    const previous = before.find((item: StarTile): boolean => item.id === tile.id);
-    const column = previous === undefined ? tile.cell % STAR_WIDTH : previous.cell % STAR_WIDTH;
+    const previous = columns[tile.id];
+    const column = previous >= 0 ? previous : tile.cell % STAR_WIDTH;
     return { id: tile.id, color: tile.color, cell: Math.floor(tile.cell / STAR_WIDTH) * STAR_WIDTH + column };
   });
 }

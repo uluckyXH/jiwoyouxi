@@ -1,5 +1,6 @@
 import { CoopMotion } from '../../design/CoopMotion';
 import { MEMORY_PICTURES } from './MemoryModel';
+import { memoryCardFaceLayout } from './MemoryLayout';
 import { MemoryPalette as P } from './MemoryPalette';
 
 @Component
@@ -66,20 +67,36 @@ export struct MemoryCard {
       Stack({ alignContent: Alignment.TopStart }) {
         if (this.faceUp) {
           Column({ space: 0 }) {
-            Image($rawfile(P.picture(this.picture, this.dark))).width(this.widthVp * .8).height(this.widthVp * .8)
+            Image($rawfile(P.picture(this.picture, this.dark)))
+              .width(memoryCardFaceLayout(this.widthVp, this.heightVp).artwork)
+              .height(memoryCardFaceLayout(this.widthVp, this.heightVp).artwork)
               .objectFit(ImageFit.Contain).draggable(false).accessibilityLevel('no')
-            if (this.widthVp >= 58) {
-              Text(MEMORY_PICTURES[this.picture]).fontSize(Math.min(12, this.widthVp * .135))
+            if (memoryCardFaceLayout(this.widthVp, this.heightVp).labelHeight > 0) {
+              Text(MEMORY_PICTURES[this.picture]).fontSize(memoryCardFaceLayout(this.widthVp, this.heightVp).labelSize)
+                .minFontSize(8).maxFontSize(memoryCardFaceLayout(this.widthVp, this.heightVp).labelSize)
+                .height(memoryCardFaceLayout(this.widthVp, this.heightVp).labelHeight)
                 .fontColor(P.muted(this.dark)).maxLines(1)
             }
-          }.width('100%').height('100%').justifyContent(FlexAlign.Center)
+          }.width('100%').height('100%').padding({ top: 4, bottom: 4 }).justifyContent(FlexAlign.Center)
           if (this.matched) {
             Image($rawfile(P.icon('check', this.dark, 'accent'))).width(13).height(13)
               .position({ x: this.widthVp - 17, y: 4 }).accessibilityLevel('no')
           }
         } else {
-          Image($rawfile(P.scene('back', this.dark))).width('100%').height('100%')
-            .objectFit(ImageFit.Fill).draggable(false).accessibilityLevel('no')
+          Stack() {
+            Column().width('100%').height('100%')
+              .linearGradient({ angle: 180, colors: [[this.dark ? '#415D4B' : '#B9D2B2', 0], [this.dark ? '#314B3C' : '#D8E4BF', 1]] })
+              .border({ width: 1, color: P.line(this.dark), radius: Math.min(18, this.widthVp * .2) })
+              .borderRadius(Math.min(18, this.widthVp * .2))
+            Column().width(this.widthVp - 12).height(this.heightVp - 12)
+              .border({ width: 1, color: this.dark ? '#66D5E9CF' : '#99FFFCF3',
+                style: BorderStyle.Dashed, radius: Math.min(12, this.widthVp * .14) })
+              .borderRadius(Math.min(12, this.widthVp * .14))
+            Image($rawfile(P.scene('back_motif', this.dark)))
+              .width(Math.min(this.widthVp * .74, this.heightVp - 12))
+              .height(Math.min(this.widthVp * .74, this.heightVp - 12))
+              .objectFit(ImageFit.Contain).draggable(false).accessibilityLevel('no')
+          }.width('100%').height('100%').accessibilityLevel('no-hide-descendants')
         }
       }.width('100%').height('100%').backgroundColor(P.paper(this.dark))
       .borderRadius(Math.min(18, this.widthVp * .2))

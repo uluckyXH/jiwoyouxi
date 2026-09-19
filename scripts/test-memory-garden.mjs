@@ -12,7 +12,7 @@ const clean = text => text.replace(/^import[\s\S]*?;\s*$/gm,'').replace(/^export
 const compile = text => stripTypeScriptTypes(clean(text),{mode:'transform'});
 const files=['MemoryModel','MemoryRules','MemoryEngine','MemoryLayout','MemoryProgress'];
 const source=files.map(name=>main('gamesNext/memoryGarden/'+name+'.ets')).join('\n');
-const core=vm.runInNewContext(compile(source)+'\n({MemoryEngine,MemoryProgress,memoryLayout,memoryViewport,memorySaveValid})',{});
+const core=vm.runInNewContext(compile(source)+'\n({MemoryEngine,MemoryProgress,memoryLayout,memoryViewport,memorySaveValid,memoryCardFaceLayout})',{});
 let count=0;
 async function test(name,run){await run();count++;console.log('PASS '+name);}
 vm.runInNewContext(compile(source+'\n'+read('entry/src/ohosTest/ets/test/MemoryGarden.test.ets'))+'\nmemoryGardenTest();',{
@@ -61,10 +61,50 @@ await test('layout matrix keeps controls separate and four columns with at least
   for(let i=0;i<boxes.length;i++)for(let j=i+1;j<boxes.length;j++){
    const a=boxes[i],b=boxes[j];assert.equal(Math.min(a.x+a.width,b.x+b.width)-Math.max(a.x,b.x)>1e-6&&Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y)>1e-6,false,`${w}/${h}/${pairs}`);
   }
-  assert.ok(l.card>=49);assert.equal(l.board.width,l.card*4+l.tileGap*3+l.pad*2);
-  assert.equal(l.board.height,l.cardHeight*pairs/2+l.tileGap*(pairs/2-1)+l.pad*2+88);
+  assert.ok(l.card>=49&&l.cardHeight>=49);assert.equal(l.board.width,l.card*4+l.tileGap*3+l.pad*2);
+  assert.equal(l.board.height,l.cardHeight*pairs/2+l.tileGap*(pairs/2-1)+l.pad*2+l.boardHeader+l.boardFooter);
+  const face=core.memoryCardFaceLayout(l.card,l.cardHeight);
+  assert.ok(face.artwork>0&&face.artwork<=l.card*.8);
+  assert.ok(face.artwork+face.labelHeight+8<=l.cardHeight+1e-8,`face fits ${w}/${h}/${pairs}`);
  }
  console.log('  verified layouts: '+checked);
+});
+await test('phone normal/focus boards fill the content width, with reachable controls and stable columns',()=>{
+ for(const [w,h] of [[320,568],[360,780],[377.1,816],[390,844],[414,896],[430,932]]){
+  const layouts=[6,8,10,12].map(pairs=>core.memoryLayout(w,h,{top:24,bottom:24,left:0,right:0},[],pairs));
+  for(const l of layouts){
+   assert.equal(l.board.width,l.contentWidth,`${w}/${h} full width`);
+   assert.equal(l.board.x,0);assert.equal(l.card,layouts[0].card);
+   if(h>=816)assert.ok(l.tools.y+l.tools.height<=l.body,`${w}/${h} controls fit`);
+  }
+ }
+ const focus=core.memoryLayout(377.1,816,{top:24,bottom:24,left:0,right:0},[],12);
+ assert.equal(focus.note.height,0);assert.ok(focus.card>75);assert.ok(focus.cardHeight>=60);
+ const roomy=core.memoryLayout(390,1000,{top:24,bottom:24,left:0,right:0},[],12);
+ assert.ok(roomy.note.height>0);
+});
+await test('all phone tables fit above the gesture area with tall status bars and cutouts',()=>{
+ for(const [w,h] of [[320,720],[360,720],[360,780],[377.1,816],[390,844],[414,896],[430,932],[600,960]]){
+  for(const [top,bottom] of [[24,24],[48,24],[52,34],[64,40]])for(const pairs of [6,8,10,12]){
+   const l=core.memoryLayout(w,h,{top,bottom,left:0,right:0},[],pairs);
+   assert.ok(l.contentHeight<=l.body-1,`${w}/${h}/${top}/${bottom}/${pairs}: content ${l.contentHeight} > body ${l.body}`);
+   assert.ok(l.tools.y+l.tools.height<=l.body-1,'restart and guide remain fully visible');
+   assert.ok(l.cardHeight>=49&&l.card>=49,'cards remain large enough to tap');
+   assert.ok(l.modes.height>=44&&l.tools.height>=44,'primary controls retain usable targets');
+  }
+ }
+});
+await test('focus mode fits safe fold panes and compact tablet sidebars without moving the card order',()=>{
+ const insets={top:52,bottom:34,left:0,right:0};
+ const phone=core.memoryLayout(390,844,insets,[],12);
+ const folded=core.memoryLayout(800,844,insets,[{x:390,y:0,width:20,height:844}],12);
+ assert.equal(folded.card,phone.card);assert.equal(folded.cardHeight,phone.cardHeight);
+ assert.ok(folded.contentHeight<=folded.body-1);
+ for(const [w,h] of [[800,650],[960,650],[1280,800],[1280,900]]){
+  const l=core.memoryLayout(w,h,insets,[],12);
+  assert.ok(l.wide);assert.ok(l.contentHeight<=l.body-1,`${w}/${h} tablet focus fits`);
+  assert.ok(l.board.x+l.board.width<=l.stats.x);
+ }
 });
 function method(source,name){const start=source.search(new RegExp('^  (?:private )?(?:async )?'+name+'\\(','m'));assert.ok(start>=0,name);return source.slice(start,source.indexOf('\n  }',start)+4);}
 const appFiles=['shell/AchievementModule.ets','shell/GameModule.ets','shell/AchievementRegistry.ets','shell/AchievementEngine.ets',

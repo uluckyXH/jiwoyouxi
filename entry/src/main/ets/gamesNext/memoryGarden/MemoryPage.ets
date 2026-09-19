@@ -93,9 +93,12 @@ export struct MemoryPage {
           Scroll(this.verticalScroll) {
             this.PlayArea()
           }.width(this.layout.contentWidth).height(this.layout.body)
-          .scrollable(ScrollDirection.Vertical).scrollBar(BarState.Auto).align(Alignment.TopStart)
+          .scrollable(ScrollDirection.Vertical).scrollBar(BarState.Off).edgeEffect(EdgeEffect.None)
+          .enableScrollInteraction(this.layout.contentHeight > this.layout.body).align(Alignment.TopStart)
         }.width('100%').height(this.layout.body).scrollable(ScrollDirection.Horizontal)
-        .scrollBar(BarState.Auto).align(Alignment.TopStart)
+        .scrollBar(BarState.Off).edgeEffect(EdgeEffect.None)
+        .enableScrollInteraction(this.layout.contentWidth > this.layout.width - this.layout.gap * 2)
+        .align(Alignment.TopStart)
       }.width(this.layout.width).height(this.layout.height).clip(true)
       .padding({ left: this.layout.gap, right: this.layout.gap, top: 4, bottom: 8 })
       .position({ x: this.layout.x, y: this.layout.y }).enabled(this.dialog.length === 0)
@@ -142,16 +145,21 @@ export struct MemoryPage {
       MemoryStats({ dark: this.dark, attempts: this.round.attempts, streak: this.round.streak, best: this.best,
         panelHeight: this.layout.stats.height }).width(this.layout.stats.width)
         .position({ x: this.layout.stats.x, y: this.layout.stats.y })
-      MemoryModes({ dark: this.dark, mode: this.round.mode, choose: (mode: MemoryMode) => this.chooseMode(mode) })
+      MemoryModes({ dark: this.dark, mode: this.round.mode, panelHeight: this.layout.modes.height,
+        choose: (mode: MemoryMode) => this.chooseMode(mode) })
         .width(this.layout.modes.width).position({ x: this.layout.modes.x, y: this.layout.modes.y })
       MemoryBoard({ dark: this.dark, round: this.round, boardWidth: this.layout.board.width, boardHeight: this.layout.board.height,
         card: this.layout.card, cardHeight: this.layout.cardHeight, gap: this.layout.tileGap, pad: this.layout.pad,
+        headerHeight: this.layout.boardHeader, footerHeight: this.layout.boardFooter,
         active: this.loaded && !this.saving, deal: this.deal, hint: this.hint(), failed: this.saveFailed,
         tap: (index: number) => this.tap(index), retry: () => this.retrySave()
       }).position({ x: this.layout.board.x, y: this.layout.board.y })
-      MemoryTools({ dark: this.dark, restart: () => this.requestRestart(), help: () => this.present('help') })
+      MemoryTools({ dark: this.dark, panelHeight: this.layout.tools.height,
+        restart: () => this.requestRestart(), help: () => this.present('help') })
         .width(this.layout.tools.width).position({ x: this.layout.tools.x, y: this.layout.tools.y })
-      this.Note()
+      if (this.layout.note.height > 0) {
+        this.Note()
+      }
     }.width(this.layout.contentWidth).height(this.layout.contentHeight)
   }
   @Builder

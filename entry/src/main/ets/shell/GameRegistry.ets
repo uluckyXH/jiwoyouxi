@@ -153,6 +153,15 @@ export const GAME_MODULES: GameModule[] = [
     tags: ['消除', '闯关', '休闲'],
     accent: '#497143',
     highScoreLabel: '最佳旅程'
+  },
+  {
+    id: 'tenGarden',
+    title: '凑十小院',
+    subtitle: '凑成十，借一阵风 · 想好下一步再收下',
+    icon: '✿',
+    tags: ['凑十', '解谜', '休闲'],
+    accent: '#28745D',
+    highScoreLabel: '完成棋盘'
   }
 ];
 
@@ -166,6 +175,7 @@ export function moduleById(id: string): GameModule {
 }
 
 export function gameLogoPath(gameId: string): string {
+  if (gameId === 'tenGarden') return 'gamesNext/tenGarden/scene/logo.svg';
   if (gameId === 'starPop') return 'gamesNext/starPop/scene/logo.svg';
   if (gameId === 'memoryPairs') return 'gamesNext/memoryGarden/scene/logo.svg';
   if (gameId === 'bloomLines') return 'gamesNext/bloomLines/scene/logo.svg';

@@ -5,10 +5,31 @@ import { starFallback } from '../../../main/ets/gamesNext/starPop/StarFallback';
 import { StarMode, starBonus, starGain, starTarget } from '../../../main/ets/gamesNext/starPop/StarModel';
 import { starCollapse, starGroup, starGroups, starRemaining, starValidBoard } from '../../../main/ets/gamesNext/starPop/StarRules';
 import { StarInsets, starLayout, starUsesCreases } from '../../../main/ets/gamesNext/starPop/StarLayout';
+import { StarScene } from '../../../main/ets/gamesNext/starPop/StarScene';
 
 export default function starPopTest(): void {
   describe('StarPop', () => {
     const kind = TestType.FUNCTION | Size.SMALLTEST | Level.LEVEL0;
+    it('tile views keep their identity and only affected tiles shrink or move', kind, () => {
+      const scene = new StarScene();
+      scene.restore('one', [{ id: 0, cell: 64, color: 0 }, { id: 1, cell: 65, color: 1 }], []);
+      const first = scene.tiles[0], other = scene.tiles[1];
+      scene.shrink([0]); expect(first.scale).assertEqual(.03); expect(other.scale).assertEqual(1);
+      scene.hide([0]); expect(first.visible).assertEqual(false); expect(other.visible).assertEqual(true);
+      expect(scene.place([{ id: 1, cell: 73, color: 1 }])).assertEqual(1);
+      expect(other.cell).assertEqual(73); expect(scene.tiles[1] === other).assertEqual(true);
+      expect(scene.place([{ id: 1, cell: 73, color: 1 }])).assertEqual(0);
+    });
+    it('undo reuses hidden views while a new round replaces their old identities', kind, () => {
+      const scene = new StarScene();
+      scene.restore('one', [{ id: 5, cell: 72, color: 3 }], []);
+      const view = scene.tiles[5]; scene.shrink([5]); scene.hide([5]);
+      expect(scene.restore('one', [{ id: 5, cell: 64, color: 3 }], [])).assertEqual(false);
+      expect(scene.tiles[5] === view).assertEqual(true);
+      expect(view.visible).assertEqual(true); expect(view.scale).assertEqual(1); expect(view.cell).assertEqual(64);
+      expect(scene.restore('two', [{ id: 5, cell: 5, color: 1 }], [])).assertEqual(true);
+      expect(scene.tiles[5] === view).assertEqual(false); expect(scene.tiles[5].color).assertEqual(1);
+    });
     it('orthogonal groups cannot join through a diagonal or a wrapped row', kind, () => {
       const cells: number[] = new Array<number>(80).fill(-1);
       cells[7] = 0; cells[8] = 0; cells[16] = 0; cells[17] = 0;
