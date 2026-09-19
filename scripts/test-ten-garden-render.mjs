@@ -49,20 +49,25 @@ for(const dark of [false,true])for(const cell of [46,78]){
   const ids=new Set(views.map(tile=>tile.id));
   for(const id of nodes.keys())if(!ids.has(id))nodes.delete(id);
   const selected=views.filter(tile=>tile.value===7||tile.value===1).map(tile=>tile.index);
+  const hint=e.hint(),hintCells=hint&&hint.rewind===0?hint.path:[];
   for(const tile of views){
    let node=nodes.get(tile.id);
    if(!node){
-    node=new sdk.TenTileCell(undefined,{tile,dark,gridSize:6,cell,gap,selected,hintCells:[],active:true,tap:i=>clicks.push(i)});
+    node=new sdk.TenTileCell(undefined,{tile,dark,gridSize:6,cell,gap,selected,hintCells,active:true,tap:i=>clicks.push(i)});
     node.initialRender();nodes.set(tile.id,node);
    }else{
     // ForEach preserves its original item handle; don't replace it to mask stale snapshots.
-    node.dark=dark;node.cell=cell;node.selected=selected;node.rerender();
+    node.dark=dark;node.cell=cell;node.selected=selected;node.hintCells=hintCells;node.rerender();
    }
    const button=node.records.Button,text=node.records.Text;
    const position=button.position[0],number=Number(text.create[0]);
    const hit=core.tenHit(position.x+cell/2,position.y+cell/2,grid,6,gap);
    assert.equal(hit,tile.index);assert.equal(e.round.ids[hit],tile.id);assert.equal(e.round.board[hit],number);
    assert.equal(button.backgroundColor[0],selected.includes(hit)?core.TenPalette.accent(dark):core.TenPalette.paper(dark));
+   assert.equal(button.border[0].style,hintCells.includes(hit)&&!selected.includes(hit)?'dashed':'solid');
+   assert.equal(button.border[0].color,selected.includes(hit)?core.TenPalette.accent(dark):
+    hintCells.includes(hit)?core.TenPalette.gold(dark):core.TenPalette.line(dark));
+   assert.equal(button.accessibilityText[0].includes('提示第'),hintCells.includes(hit));
    assert.ok(button.accessibilityText[0].includes('数字 '+number));
    button.onClick[0]();assert.equal(clicks.at(-1),hit);
    tilesChecked++;
@@ -79,4 +84,4 @@ for(const dark of [false,true])for(const cell of [46,78]){
  for(const step of e.puzzle.solution){e.submit(step.cells);frame();}
  assert.equal(nodes.size,0);
 }
-console.log(`PASS SDK-compiled cell bindings: ${frames} frames, ${tilesChecked} visible tiles; values, positions, selection, hit tests and captured clicks agree.`);
+console.log(`PASS SDK-compiled cell bindings: ${frames} frames, ${tilesChecked} visible tiles; values, positions, selection, hints, hit tests and captured clicks agree.`);

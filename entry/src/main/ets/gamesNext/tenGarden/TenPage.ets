@@ -277,6 +277,7 @@ export struct TenPage {
   }
   private hint(): void {
     if (!this.active()) return;
+    this.cancelGesture();
     const hint = this.engine.hint();
     if (hint === undefined) return;
     this.pendingHint = hint;
@@ -328,6 +329,7 @@ export struct TenPage {
   }
   private closeDialog(): void {
     if (!this.loaded || this.saving) return;
+    if (this.dialog === 'hintRewind') this.pendingHint = undefined;
     if (this.dialog === 'pause' || this.dialog === 'resume') {
       this.backgroundPaused = false; this.returnDialog = '';
     }
@@ -335,9 +337,11 @@ export struct TenPage {
     this.returnDialog = '';
   }
   private confirmDialog(): void {
-    if (this.saving) return;
+    if (this.disposed || this.saving) return;
     if (this.dialog === 'complete') { this.advance(); return; }
     if (this.dialog === 'hintRewind') { this.showHint(); return; }
+    // A delayed confirmation from a dismissed dialog must never become a restart.
+    if (this.dialog !== 'restart' && this.dialog !== 'corrupt') return;
     const replacing = this.dialog === 'corrupt';
     if (replacing) { this.engine = new TenEngine(); this.loaded = true; }
     else if (!this.engine.restart()) return;

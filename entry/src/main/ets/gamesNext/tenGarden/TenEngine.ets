@@ -57,7 +57,8 @@ export class TenEngine {
         path: this.puzzle.solution[step].cells.slice() };
       verified = tenShift(verified, this.puzzle.solution[step].cells, this.puzzle.size, (this.puzzle.direction + step) % 4);
     }
-    return result;
+    const target = states[this.round.history.length - result.rewind];
+    return tenValidPath(target, result.path, this.puzzle.size) ? result : undefined;
   }
   applyHint(hint: TenHint): boolean {
     const current = this.hint();

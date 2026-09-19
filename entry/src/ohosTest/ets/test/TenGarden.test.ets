@@ -80,6 +80,21 @@ export default function tenGardenTest(): void {
       expect(moving.index).assertEqual(2);
       expect(e.round.board[moving.index]).assertEqual(moving.value);
     });
+    it('hints validate the target board and reject a stale path without mutation', kind, () => {
+      const e = new TenEngine(2);
+      const original = e.serialize(), hint = e.hint();
+      expect(hint !== undefined).assertEqual(true);
+      if (hint === undefined) return;
+      expect(e.serialize()).assertEqual(original);
+      expect(tenValidPath(e.round.board, hint.path, 6)).assertEqual(true);
+      e.submit(hint.path);
+      const moved = e.serialize();
+      expect(e.applyHint(hint)).assertEqual(false);
+      expect(e.serialize()).assertEqual(moved);
+      // Reject invalid reference data instead of ever rendering an empty-cell hint.
+      const invalid = new TenEngine(); invalid.puzzle.solution[0].cells = [0, 1];
+      expect(invalid.hint() === undefined).assertEqual(true);
+    });
     it('undo and restart restore exact board and never duplicate credited progress', kind, () => {
       const e = new TenEngine(2), original = e.round.board.join(',');
       const path = e.puzzle.solution[0].cells;

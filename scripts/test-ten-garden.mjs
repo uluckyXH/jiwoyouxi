@@ -98,6 +98,56 @@ await test('alternate legal routes can return to a certified state; hints declar
  assert.ok(rewinds>0);
  const e=new core.TenEngine();assert.equal(e.applyHint({rewind:2,path:[3,4]}),false);
 });
+await test('every certified hint and 1028 seeded off-route games point to existing adjacent numbers totalling ten',()=>{
+ let certified=0,branchHints=0,rewinds=0,seed=0x10c0ffee;
+ const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed;};
+ function validate(e){
+  const raw=e.serialize(),hint=e.hint();assert.ok(hint);assert.equal(e.serialize(),raw,'requesting a hint never changes the board');
+  const depth=e.round.history.length,credit=e.round.credited,undos=e.round.undos;
+  assert.ok(Number.isInteger(hint.rewind)&&hint.rewind>=0&&hint.rewind<=depth);
+  for(const bad of [{rewind:hint.rewind+1,path:hint.path},{rewind:hint.rewind,path:[-1,999]},
+    {rewind:hint.rewind,path:[hint.path[0],hint.path[0]]}]){
+   assert.equal(e.applyHint(bad),false);assert.equal(e.serialize(),raw,'a stale or invalid hint is atomic');
+  }
+  const restored=new core.TenEngine();assert.ok(restored.restore(raw));
+  assert.deepEqual(plain(restored.hint()),plain(hint),'restoring cannot change the promised route');
+  assert.ok(restored.applyHint(hint));assert.equal(restored.round.history.length,depth-hint.rewind);
+  assert.equal(restored.round.credited,credit);assert.equal(restored.round.undos,undos+hint.rewind);
+  assert.ok(core.tenValidPath(restored.round.board,hint.path,restored.puzzle.size));
+  assert.equal(core.tenSum(restored.round.board,hint.path),10);
+  const views=core.tenReconcileTiles(core.tenReconcileTiles([],e.tiles()),restored.tiles());
+  for(const i of hint.path){
+   assert.ok(restored.round.board[i]>0&&restored.round.ids[i]>0);
+   const tile=views.find(t=>t.index===i);assert.ok(tile);assert.equal(tile.value,restored.round.board[i]);
+  }
+  rewinds+=hint.rewind>0?1:0;return {restored,hint};
+ }
+ for(let stage=1;stage<=257;stage++){
+  const reference=new core.TenEngine(stage);
+  for(const step of reference.puzzle.solution){
+   const {hint}=validate(reference);assert.equal(hint.rewind,0);certified++;
+   assert.ok(reference.submit(step.cells));
+  }
+  assert.equal(reference.hint(),undefined);
+  for(let trial=0;trial<4;trial++){
+   const e=new core.TenEngine(stage),depth=1+random()%11;
+   for(let i=0;i<depth&&e.round.phase==='playing';i++){
+    const choices=paths(e);if(choices.length===0)break;
+    assert.ok(e.submit(choices[random()%choices.length]));
+    if(e.round.phase==='playing'&&random()%5===0)e.rewind();
+   }
+   if(e.round.phase==='complete'){assert.equal(e.hint(),undefined);continue;}
+   const {restored,hint}=validate(e);branchHints++;assert.ok(restored.submit(hint.path));
+   let guard=0;
+   while(restored.round.phase==='playing'){
+    const next=restored.hint();assert.ok(next);assert.equal(next.rewind,0);
+    assert.ok(restored.applyHint(next));assert.ok(restored.submit(next.path));assert.ok(++guard<=12);
+   }
+  }
+ }
+ assert.equal(certified,3074);assert.ok(branchHints>1000);assert.ok(rewinds>500);
+ console.log(`  hint audit: ${certified} certified states, ${branchHints} off-route states, ${rewinds} confirmed rewinds`);
+});
 await test('pointer sampling handles fast swipes, partial-path backtracking and cancellation',()=>{
  const board=[1,2,3,4],g=new core.TenGesture();
  g.begin(25,25,[],2,106,6);g.move(81,25,board,2,106,6);g.move(81,81,board,2,106,6);
@@ -302,6 +352,27 @@ await test('hint rewind confirmation, cancellation, undo and restart keep a sing
  assert.equal(e.round.history.length,1);assert.equal(p.hintCells.length,0);fire();p.undo();fire();await tick();const progress=p.progress,id=e.round.id;
  p.present('restart');p.confirmDialog();assert.equal(p.progress,progress);assert.equal(e.round.id,id);assert.equal(e.round.credited,1);await tick();
  assert.equal(JSON.parse(p.progress===progress?p.engine.serialize():'{}').round.history.length,0);
+});
+await test('hint confirmation can run only once; a dismissed prompt cannot reset the board',async()=>{
+ const {p,e}=controller(new core.TenEngine(2));
+ for(const i of e.puzzle.solution[0].cells)p.tap(i);fire();
+ const other=paths(e).find(path=>path.join(',')!==e.puzzle.solution[1].cells.join(','));assert.ok(other);
+ for(const i of other)p.tap(i);fire();p.hint();assert.equal(p.dialog,'hintRewind');assert.equal(p.rewind,1);
+ const before=e.serialize();p.closeDialog();assert.equal(p.pendingHint,undefined);
+ p.confirmDialog();assert.equal(e.serialize(),before,'a delayed confirm after cancel must do nothing');
+ p.hint();p.confirmDialog();const after=e.serialize(),hint=plain(p.hintCells);
+ assert.equal(e.round.history.length,1);assert.ok(core.tenValidPath(e.round.board,hint,6));
+ p.confirmDialog();assert.equal(e.serialize(),after,'double confirmation must not restart');assert.deepEqual(plain(p.hintCells),hint);
+ await tick();
+});
+await test('requesting a hint cancels a partial drag, so its later release cannot replace the hint selection',async()=>{
+ const {p,e}=controller();pointer(p,touchTypes.Down,6);pointer(p,touchTypes.Move,7);
+ assert.deepEqual(plain(p.selected),[6,7]);assert.equal(p.touching,true);
+ const before=plain(e.round.board);p.hint();assert.equal(p.pointer,-1);assert.equal(p.touching,false);
+ assert.deepEqual(plain(p.hintCells),[3,4]);assert.equal(p.selected.length,0);
+ pointer(p,touchTypes.Up,8);assert.equal(e.round.history.length,0);assert.deepEqual(plain(e.round.board),before);
+ assert.equal(p.selected.length,0);assert.deepEqual(plain(p.hintCells),[3,4]);
+ await tick();
 });
 await test('failed completion save blocks next level; retry and leaving during motion persist one outcome',async()=>{
  const {p,e,s}=controller();s.failSave=true;
